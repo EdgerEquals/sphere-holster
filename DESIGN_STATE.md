@@ -223,3 +223,12 @@ Danny's decision (2026-10-19). Ionisation and plasma are not their own energy do
 
 ## Future item: handoff rules between holsters (2026-10-19)
 Recorded only; nothing is coded and no reviewer has been run. Many things will sit in more than one holster (the plasma state above is the first example), so the model needs rules for how handoffs between holsters work. This is to be put to the crew (Claude and Grok) with a push, but not yet.
+
+## Decision: all six physical energy domains from the start (2026-10-19)
+Danny's decision (2026-10-19). The model carries all six physical energy domains from the start: optical, acoustic, electric, magnetic, thermal and chemical.
+
+- **Five propagating waves:** optical, acoustic, magnetic, thermal and chemical.
+- **Electric is the driving field, not a wave.** The electric domain is the field that drives the whole system. It does not travel as a wave; it sets the thresholds (the ionisation knee and the Paschen curve, as gas-breakdown physics of the fill) and the drive conditions for the others.
+- **Time-domain run (future item):** build it to carry all six domains, so each domain's wave or field is visible as the front expands.
+
+Note: this concerns the six physical domains. The information domain (the 7th, per the 19-holster architecture) is unchanged; it is not a propagating physical wave.
