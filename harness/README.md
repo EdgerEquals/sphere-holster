@@ -31,7 +31,7 @@ Exit codes: 0 = verdict recorded (PASS or FAIL), 2 = API key missing (nothing ca
   List prices at setup (per million tokens, input/output): Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Grok 4.7 $2/$6 (<200k prompt).
   xAI also bills server-side web-search tool calls on top of tokens.
 - **Caps** (edit `dial.yml`):
-  - `claude_max_tokens` is a hard cap on Claude's output **including thinking**.
+  - `claude_max_tokens` is a hard cap on Claude's output **including adaptive thinking**; `claude_effort` (low|medium|high) steers how much it thinks. Too small a cap with high effort returns no verdict (first smoke test hit this at 6000).
   - `grok_max_tokens` caps Grok's visible output (`max_output_tokens`); xAI does not count reasoning tokens against it, so
     `grok_max_turns` (agentic search turns) is the main Grok cost lever.
   - `max_diff_chars` caps the prompt size; `max_calls` caps calls per review.

@@ -15,7 +15,8 @@ audit_every_n_rounds: 3
 levels:
   shallow:
     claude_model: claude-sonnet-5-5
-    claude_max_tokens: 6000
+    claude_effort: medium       # output_config.effort; adaptive thinking counts toward max_tokens
+    claude_max_tokens: 16000    # hard cap on thinking + reply
     grok_model: grok-4.7
     grok_max_tokens: 6000
     grok_web_search: true
@@ -25,7 +26,8 @@ levels:
     max_calls: 1
   deep:
     claude_model: claude-opus-5-5
-    claude_max_tokens: 16000
+    claude_effort: high
+    claude_max_tokens: 32000
     grok_model: grok-4.7
     grok_max_tokens: 12000
     grok_web_search: true
