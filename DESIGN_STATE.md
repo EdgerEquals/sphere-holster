@@ -373,3 +373,12 @@ Danny's decision (2026-10-19), following the drive triad above. Not built.
 - **Driving the knee deliberately:** the lower-frequency energy (the acoustic mode, and below it the thermal mode) pumps the piezo back and forth across its knee. The non-linearity does the frequency conversion, pushing energy up to the electric mode's frequency.
 - **Roles:** the knee is the mixer; the lower-frequency drive is the pump.
 - **Principle:** the same as a parametric amplifier, where the pump sits below the signal and pushes energy upward.
+
+## Design decision: bidirectional knee mechanism in every layer (2026-10-19)
+Danny's decision (2026-10-19), following the piezo knee note above. Not built.
+
+- **The mechanism:** energy downshifts one way, reflects off a boundary, and shifts back up in phase on the return to feed the next cycle.
+- **Scope:** it applies to every layer of the system, not just the piezo, including the hydrogen bubble.
+- **Per layer:** each layer gets its own knee, its own pump and its own boundary reflection.
+- **The boundary reflection is a candidate idler, not a confirmed one.** An idler is a real mode of the system, with its own frequency and resonance, that carries energy. A boundary reflection may simply bounce the same wave back.
+- **Open question for the geometry:** whether the reflected energy lands on a real mode (making the round trip parametric) or is just a reflection (so the up-conversion must come from elsewhere). The geometry can answer this once the final layer is built.
