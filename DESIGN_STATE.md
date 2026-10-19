@@ -348,3 +348,11 @@ Danny's note (2026-10-19) on the tourmaline end-member sweep from commit 66af444
 - **What the runs show:** all 27 runs (three end-members, elbaite, dravite and schorl, across nine presets) are exactly zero in every field and exactly 293 K.
 - **Why:** no drive source has been connected and the final layer has not yet been built.
 - **How to read it:** the zeros are the honest baseline, not a result. They confirm zero-run acceptance for each end-member; they say nothing yet about how the end-members compare in operation.
+
+## Future item: planned kilowatt drive experiment (2026-10-19)
+Danny's planned experiment (2026-10-19). Not built; recorded so it follows on from the baseline note above.
+
+- **What:** drive a kilowatt of energy into the EMF field at a frequency that switches the ionisation knee. The correct term is the ionisation knee, not the plasma knee.
+- **The drive frequency is not assumed:** it is derived from the geometry of the final layer, which has not been built yet.
+- **The chain:** geometry sets the resonant frequency; the resonant frequency sets the ionisation knee's switching point; the kilowatt drive probes how the system reacts.
+- **Status:** exploratory. An assumption is acceptable here because the goal is to see how the system reacts, not to claim precision.
