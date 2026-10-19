@@ -341,3 +341,10 @@ Danny's decision (2026-10-19), with his reasoning. This follows the inner-phosph
 - **Frequency shifting needs a strong non-linearity:** a χ² term, which the phosphor cannot provide.
 - **Light path:** stays quartz → tourmaline → BTO → Gd-Dy.
 - **The non-linear, frequency-shifting knee** is the Layer 5 option (PPLN or KDP). It gives real gain only with a coherent pump at the megawatt level.
+
+## Note: tourmaline sweep results are baseline-only (2026-10-19)
+Danny's note (2026-10-19) on the tourmaline end-member sweep from commit 66af444 (`tourmaline_sweep_v0.json`).
+
+- **What the runs show:** all 27 runs (three end-members, elbaite, dravite and schorl, across nine presets) are exactly zero in every field and exactly 293 K.
+- **Why:** no drive source has been connected and the final layer has not yet been built.
+- **How to read it:** the zeros are the honest baseline, not a result. They confirm zero-run acceptance for each end-member; they say nothing yet about how the end-members compare in operation.
