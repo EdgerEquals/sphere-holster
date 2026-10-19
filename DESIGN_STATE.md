@@ -246,3 +246,11 @@ Danny's intent (2026-10-19), recorded only; nothing is coded. Add the electrocal
   - The thermal holster owns the temperature side: the cooling or heating that results.
   - The chemical holster owns the entropy change itself, since entropy is a thermodynamic state variable in the same family as the HHO reactions and recombination.
 - **Another crossover, like plasma:** the electric field sets the condition, the thermal holster sees the temperature shift, and the chemical holster tracks the entropy. It is a good worked example for the future item on handoff rules between holsters (to be put to Claude and Grok later; not run yet).
+
+## Note: layer-two recipe, field tuning during gel formation (2026-10-19)
+Danny's intent (2026-10-19), recorded only; nothing is coded. While the tourmaline sol-gel (layer two) is still a gel during formation, it is tuned by bombarding it with two fields:
+
+1. **Acoustic field:** sets the standing-wave node right to the layer's size, so the vibration mode matches the geometry.
+2. **EMF field:** sets the grain orientation to the frequency wanted, so the piezoelectric and electrocaloric terms are net-positive rather than cancelling out from randomly oriented grains. This is a formation-process field applied to the gel during fabrication, with electrodes still removed from the model and the design. Its frequency is a fabrication tuning frequency, not a knee-frequency dial; the knee frequency stays emergent.
+
+This tuning is what makes the piezoelectric coupling (which reads the acoustic solver's vibration mode) and the electrocaloric term real rather than upper limits. Until it is modelled, the solver keeps reporting the layer-two net polarization as a fully aligned upper bound (random grains ≈ 0).
