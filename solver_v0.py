@@ -83,6 +83,99 @@ MAT = {
 }
 INTERFACE_R = 3e-8   # m2K/W [rec]
 
+# Piezoelectric / pyroelectric couplings (first holster wiring, 2026-10-19). Coupling only: these report polarization,
+# internal open-circuit field and electrical energy density INSIDE the layer. No collecting conductors or circuit exist
+# (none in the design), so no current through a load is computed. Kelvin throughout.
+#   quartz: alpha-quartz, point group 32 = piezoelectric, NOT pyroelectric (non-polar) [lit]. |d11| 2.3 pC/N, d14 0.67 pC/N
+#     at room T [lit Cady / Bechmann, "Constants of alpha quartz"]. Above the alpha-beta inversion (846.15 K) beta-quartz
+#     is point group 622 and d11 vanishes (d14 remains, not modelled) [lit Phys. Rev. 80, 712 (1950)]. eps_r 4.5
+#     (eps11 4.52, eps33 4.68) [lit]. Stress-orientation coupling is not resolved (isotropic VRH shell): d11 x the peak
+#     |sigma| is an UPPER BOUND on the local polarization.
+#   layer2 grains: elbaite tourmaline, point group 3m = piezoelectric AND pyroelectric (polar c-axis) [lit Handbook of
+#     Mineralogy, elbaite]. d33 2.0 pC/N, mid of 1.8-2.2 reported for c-parallel cuts of Li-tourmaline [rec, Acta
+#     Mineralogica Sinica 44 (2024), doi 10.3724/j.1000-4734.2024.44.020; not independently checked]. Pyro p3 for the ideal
+#     elbaite end member 2.03 uC/m2K at 296 K and 2.68 uC/m2K at 383 K [lit Hawkins et al., Am. Mineral. 80, 491 (1995)];
+#     natural tourmalines 1.3-4.3 uC/m2K [rec]. p(T) linear between those points, held flat outside [est]. Grain eps_r
+#     7 (6-8) [est].
+#   layer2 composite (20 vol% grains in MTES:TEOS, unpoled 0-3 composite): grain stress = layer stress (stress transfer
+#     factor 1) [est]; energy density = phi x grain value [est]; the NET layer polarization of randomly oriented polar
+#     grains averages to ~0, so phi x grain value is reported only as a fully c-aligned UPPER BOUND [est].
+PIEZO = {
+ "quartz": dict(d=2.3e-12, coeff="d11", eps_r=4.5, phi=1.0, T_off=846.15, pyro=False,
+                tags="|d11| 2.3 pC/N [lit]; eps_r 4.5 [lit]; not pyroelectric, point group 32 [lit]; d11 = 0 above 846.15 K (beta, 622) [lit]; d14 not modelled"),
+ "layer2": dict(d=2.0e-12, coeff="d33", eps_r=7.0, phi=0.20, T_off=None, pyro=True, p_T=((296.0, 2.03e-6), (383.0, 2.68e-6)),
+                T_data=(296.0, 383.0),   # coefficient data range [lit]; outside it values are extrapolated [est]
+                tags="grain d33 2.0 (1.8-2.2) pC/N [rec]; p3 2.03e-6 @296 K, 2.68e-6 @383 K C/m2K elbaite end member [lit Hawkins 1995]; "
+                     "grain eps_r 7 [est]; phi 0.20 [rec Layer2 recipe]; stress transfer 1, energy x phi, net P of random grains ~0 (aligned upper bound) [est]"),
+}
+for _k, _v in PIEZO.items():
+    MAT[_k]["piezo_tags"] = _v["tags"]
+    MAT[_k]["d_piezo_C_per_N"] = _v["d"]; MAT[_k]["piezo_coeff"] = _v["coeff"]
+    MAT[_k]["p_pyro_C_per_m2K"] = (_v["p_T"][0][1] if _v["pyro"] else 0.0)
+
+
+def pyro_p(key, T):
+    """Pyroelectric coefficient [C/m2K] of the polar grains at T [K]; 0 for non-polar materials (quartz)."""
+    c = PIEZO.get(key)
+    if not c or not c["pyro"]:
+        return 0.0
+    (T0, p0), (T1, p1) = c["p_T"]
+    return float(p0 + (p1 - p0) * (min(max(T, T0), T1) - T0) / (T1 - T0))
+
+
+def piezo_coupling(key, stress_rows, a, b, T_mean, f_mode):
+    """Acoustic -> ELECTRIC holster. stress_rows: [(r, |sigma| peak Pa)] inside [a, b] from the acoustic mode solution
+    (mode_energy_stats profile, at the solver's own eigenmode f_mode). Returns polarization / internal field / electrical
+    energy density in the layer. No conductors, no circuit, no current through a load."""
+    c = PIEZO[key]
+    active = c["T_off"] is None or T_mean < c["T_off"]
+    d = c["d"] if active else 0.0
+    eps = EPS0 * c["eps_r"]
+    rows = [(r, s) for r, s in stress_rows if a - 1e-15 <= r <= b + 1e-15]
+    if not rows:
+        rows = [(a, 0.0), (b, 0.0)]
+    r = np.array([x[0] for x in rows]); s = np.array([x[1] for x in rows])
+    Pg = d * s                                   # grain / crystal polarization amplitude [C/m2]
+    u = c["phi"] * 0.5 * Pg ** 2 / eps           # open-circuit electrical energy density, layer-averaged [J/m3]
+    U = float(np.trapezoid(u * 4 * np.pi * r ** 2, r)) if len(r) > 1 else 0.0
+    smax = float(s.max())
+    Td = c.get("T_data")
+    return dict(material=key, coeff=c["coeff"], d_C_per_N=d, active=bool(active), f_mode_Hz=f_mode, sigma_peak_Pa=smax, T_layer_K=T_mean,
+                extrapolated=bool(Td and not (Td[0] - 5 <= T_mean <= Td[1])),
+                P_grain_peak_C_m2=d * smax, P_layer_net_upper_C_m2=c["phi"] * d * smax,
+                P_layer_net_random_C_m2=(0.0 if c["phi"] < 1.0 else None),
+                E_internal_open_peak_V_m=d * smax / eps, u_e_peak_J_m3=float(u.max()), U_e_layer_J=U,
+                route="acoustic stress -> electric holster (polarization / energy density in the layer; no circuit)",
+                tags=c["tags"])
+
+
+def pyro_coupling(key, times, T_layer_frames, T_ss):
+    """Thermal transient -> THERMAL holster output. T_layer_frames: layer-mean T [K] at each time of the thermal march.
+    dT/dt is the frame-interval mean (no lumped time constant). Returns polarization change and its rate (a bound-charge
+    rate, not a current through any circuit) and the electrical energy density of the steady polarization change."""
+    c = PIEZO[key]
+    T = np.asarray(T_layer_frames, dtype=float); tt = np.asarray(times, dtype=float)
+    if not c["pyro"]:
+        return dict(material=key, pyroelectric=False, p_C_m2K=0.0, dP_grain_C_m2=0.0, dPdt_grain_peak_A_m2=0.0,
+                    P_layer_net_upper_C_m2=0.0, u_e_ss_J_m3=0.0, dTdt_peak_K_s=None,
+                    note="not pyroelectric (alpha-quartz point group 32, beta-quartz 622: both non-polar) [lit]",
+                    route="thermal transient -> thermal holster (pyro: none)", tags=c["tags"])
+    dTdt = np.diff(T) / np.diff(tt) if len(T) > 1 else np.zeros(0)
+    Tm = 0.5 * (T[1:] + T[:-1]) if len(T) > 1 else np.zeros(0)
+    rate = np.array([pyro_p(key, x) * y for x, y in zip(Tm, dTdt)])
+    Tg = np.linspace(T_REF, float(T_ss), 65)
+    dP = float(np.trapezoid([pyro_p(key, x) for x in Tg], Tg))     # integral of p(T) dT from the 293 K seal state
+    k = int(np.argmax(np.abs(rate))) if len(rate) else None
+    Td = c.get("T_data")
+    return dict(material=key, pyroelectric=True, p_C_m2K=pyro_p(key, float(T_ss)), dT_ss_K=float(T_ss) - T_REF, T_layer_K=float(T_ss),
+                extrapolated=bool(Td and float(T.max()) > Td[1]), T_data_K=list(Td) if Td else None,
+                dP_grain_C_m2=dP, P_layer_net_upper_C_m2=c["phi"] * dP,
+                dPdt_grain_peak_A_m2=(float(rate[k]) if k is not None else 0.0),
+                dTdt_peak_K_s=(float(dTdt[k]) if k is not None else None), t_at_peak_s=(float(tt[k + 1]) if k is not None else None),
+                u_e_ss_J_m3=c["phi"] * 0.5 * dP ** 2 / (EPS0 * c["eps_r"]),
+                route="thermal transient (dT/dt from the march) -> thermal holster (polarization rate in the layer; no circuit)",
+                tags=c["tags"])
+
 # Optical bands. Relative Balmer powers: case-B recombination ratios Ha/Hb 2.86, Hg/Hb 0.47 [lit, Osterbrock & Ferland 2006]
 # used ONLY as a placeholder spectrum (a 1-3 mm HHO discharge is not case B) [est].
 BANDS = [dict(nm=434.0, w=0.47), dict(nm=486.1, w=1.0), dict(nm=656.3, w=2.86)]
@@ -590,6 +683,18 @@ def package(pre, runs, ref):
     for P, run in zip(POWERS, runs):
         ac, em, oinfo = run["ac"], run["em"], run["oinfo"]
         th = run["th"]
+        # ---- piezo (-> electric holster) and pyro (-> thermal holster) couplings, quartz + layer2 ----
+        lay_ab = {m: (a, b) for m, a, b in run["stack"]["layers"]}
+        prow = [(r_, s_) for r_, s_, u_ in ac["profile"]]
+        piezo_out, pyro_out = {}, {}
+        for key in ("quartz", "layer2"):
+            if key not in lay_ab:
+                continue
+            ii = [i for i, m in enumerate(mats) if m == key]
+            Tm_ss = float(np.mean(run["Tss"][ii]))
+            piezo_out[key] = {k_: r4(v_) for k_, v_ in piezo_coupling(key, prow, *lay_ab[key], Tm_ss, ac["f"]).items()}
+            Tfr = [float(np.mean(fr[ii])) for fr in run["frames"]]
+            pyro_out[key] = {k_: r4(v_) for k_, v_ in pyro_coupling(key, run["times"], Tfr, Tm_ss).items()}
         # fields on viewer grid (core gets zeros except optical source / temperature of wall)
         def on_grid(vals_cells, core_val=0.0):
             return [core_val] * len(r_core) + list(vals_cells)
@@ -716,11 +821,13 @@ def package(pre, runs, ref):
                           bonded=dict(f=r4(run["ac_bond"]["f"]), Q_eff=r4(run["ac_bond"]["Q_eff"]), peak_stress_MPa=r4(run["ac_bond"]["peak_stress"] / 1e6),
                                       loss_W=r4(sum(run["ac_bond"]["loss"].values()))) if run["ac_bond"] else None,
                           fill_stress_MPa=r4(run["s_fill"] / 1e6)),
-            electric=dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, piezo_on=em["piezo_on"]),
+            electric=dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, piezo_on=em["piezo_on"], piezo=piezo_out,
+                          piezo_note="acoustic -> electric coupling at the solver's own l=0 eigenmode, in the P_circ scenario; polarization and energy density inside the layer only (no collecting conductors, no circuit)"),
             magnetic=dict(none=True, note=NO_DRIVE),
             optical=dict(P_opt=F_OPT * P, converted_W=r4(oinfo["converted_W"]), escaped_W=r4(oinfo["escaped_W"])),
             thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_phos=r4(Tph), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
-                         heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum()))),
+                         heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum())), pyro=pyro_out,
+                         pyro_note="thermal -> pyroelectric coupling from dT/dt of the thermal march (frame-interval mean, K/s); quartz is not pyroelectric"),
             gas=dict(T_gas_K=r4(gh["T_gas"]), T_centre_K=r4(gh["T_centre"]), T_wall_K=r4(gh["T_wall"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),
                      c_seal=r4(gh["c_seal"]), c_hot=r4(gh["c_hot"]), shell_l0_hot=r4(gh["shell"][:6]), gas_modes_hot=r4(gh["gas_modes"][:8]),
                      note="computed state, not an input: gas T = volume mean of the steady conduction profile (uniform heating conducted to the inner wall); fixed N,V => p ~ T, c ~ sqrt(T)"),
