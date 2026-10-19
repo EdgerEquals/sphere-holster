@@ -1,0 +1,182 @@
+{
+  "Claude": [
+    {
+      "model": "claude-sonnet-5-5",
+      "text": "VERDICT: FAIL\n\nReasons: the locked items contradict each other, the open list, and the viewer caveats in several places.\n\n- **Open vs Locked on the quartz shell.** The lock shell is \"Locked\" but Open #1 asks which shell to use. The shape is \"a sphere unless Danny says tube\" while Open #1 also asks sphere or tube. The Alternative and Test shell are also still live.\n- **Locked values that Open also reopens.**\n  - The electrode scheme is locked as needing a central electrode or an external field, while Open #8 asks which one.\n  - The fill amount is \"open\" inside Locked and again as Open #7.\n  - The BTO thickness is \"set by heat transfer\" while Open #3 leaves it undecided.\n  - The tourmaline thickness is locked at about 5 µm while Open #4 trades it against scattering.\n- **3.236 MHz is unsupported.**\n  - The viewer says the formula and sound speed were never recorded.\n  - A slab cL/2t would need cL of about 6110 m/s, whereas the cited VRH value is 6048 m/s and Danny's is 5900 m/s.\n  - It matches the spherical 1S0 mode only with 5900 m/s, so it is locked on an unverified basis.\n  - The 7.5 kW cap and the 48 MPa figure inherit that uncertainty.\n- **1.87 MHz vs 1.855 MHz.** The viewer's VRH calculation gives 1.855 MHz, so the locked \"about 1.87\" depends on which sound speed is chosen. The sound-speed choice itself is not locked.\n- **Golden-ratio shift.** The boundary is \"HHO into the quartz\", yet the BTO's \"first φ step starts at its outer edge\" and nothing outside the quartz is modelled. These are inconsistent in scope.\n- **Curie point.** It is \"crossed at about 10 W\" while the heat path is open, and BTO tuning relies on capacitance that changes across the Curie point.\n- **Electrode and heat statements.** Locked says the inner-wall metal film screens the gas, while Open #5 says Ti/Pt electrodes are the main heat source and block light. The layer in which the electrodes sit is undecided.\n- **Minor.** The Information layer says \"12 knee harnesses\" but the knee harness details are open. The 6.78 mm φ size \"stays under 48 MPa at 10 kW\" is also unsupported, since its own frequency is not given.\n\nTop three risks:\n1. The foundational 3.236 MHz and 7.5 kW values lack provenance, and everything downstream (power, stress, drive) depends on them.\n2. Locked and Open overlap, so tools will not know which items are binding.\n3. The thermal path is unresolved, and the test shell exceeds HHO autoignition at 1 W. This threatens the Curie, phosphor-saturation and safety claims. The discharge thresholds also rest on placeholder drift speeds.\n\nImprovement: Split \"Locked\" into \"Locked\" and \"Provisional/default\", and move every item that also appears in Open into the latter. Record the derivation (formula, cL, source) for each frequency. Lock one sound-speed set and quote every mode frequency to a stated precision derived from it.",
+      "stop": "end_turn",
+      "input": 3418,
+      "cached": 0,
+      "output": 1082,
+      "reasoning": 0,
+      "raw_usage": {
+        "input_tokens": 3418,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1082,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        }
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 9.2,
+      "started_utc": "2026-10-19T04:55:01+00:00",
+      "cost_usd": 0.017656,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.1,
+        "out": 10.0,
+        "src": "https://docs.claude.com/en/docs/about-claude/pricing"
+      }
+    }
+  ],
+  "Grok": [
+    {
+      "model": "grok-4.7",
+      "text": "VERDICT: FAIL\n\nLocked tourmaline thickness (“about 5 µm, within 3–8 µm”) is also Open item 4, so the value is both fixed and undecided. The 3.236 MHz “thickness mode” does not match the lock-shell geometry under any speed the viewer cites: slab \\(c_L/2t\\) needs ~6110 m/s, while the number fits a spherical 1S0 only with unrecorded \\(c_L=5900\\). “About 1.87 MHz” vs the viewer’s 1.855 MHz is fine. Curie “crossed at about 10 W” cannot stay locked while BTO thickness and the heat path are open. The ionisation knee is tied to a 1 mm gap and a 0.45 mm central-electrode gap; the lock shell ID is ~3.51 mm, so those knees do not apply to a locked candidate. Shell choice (including the φ “alternative” listed under Locked) is correctly Open.\n\n1. Thickness and Curie power are locked without the open geometric and thermal assumptions they depend on.\n2. 3.236 MHz has no recorded formula or sound speed; the viewer shows the label and the number disagree.\n3. kW shell caps, a 10 W Curie cross, phosphor saturation at 8–80 W, autoignition of the test shell at 1 W, and MW-only layer-5 gain are not one operating point. Inner-wall film vs electrodes in layer 4 is also unresolved.\n\nPick one shell, record \\(c_L\\) and the mode formula next to 3.236 MHz, and move tourmaline thickness and the Curie wattage fully into Open until thickness and heat path are set.",
+      "stop": "completed",
+      "input": 3438,
+      "cached": 1152,
+      "output": 1901,
+      "reasoning": 1534,
+      "cost_reported_usd": 0.016554,
+      "raw_usage": {
+        "input_tokens": 3438,
+        "input_tokens_details": {
+          "cached_tokens": 1152
+        },
+        "output_tokens": 1901,
+        "output_tokens_details": {
+          "reasoning_tokens": 1534
+        },
+        "total_tokens": 5339,
+        "num_sources_used": 0,
+        "num_server_side_tools_used": 0,
+        "cost_in_usd_ticks": 165540000,
+        "context_details": {
+          "input_tokens": 3438,
+          "output_tokens": 1910
+        }
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 25.0,
+      "started_utc": "2026-10-19T04:55:10+00:00",
+      "cost_usd": 0.016554,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.5,
+        "out": 6.0,
+        "src": "https://docs.x.ai/docs/models"
+      }
+    }
+  ],
+  "Kimi": [
+    {
+      "model": "kimi-k2.6",
+      "text": "",
+      "stop": "length",
+      "input": 2191,
+      "cached": 0,
+      "output": 6000,
+      "reasoning": 5999,
+      "reasoning_chars": 23624,
+      "raw_usage": {
+        "prompt_tokens": 2191,
+        "completion_tokens": 6000,
+        "total_tokens": 8191,
+        "completion_tokens_details": {
+          "reasoning_tokens": 5999
+        }
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 125.5,
+      "started_utc": "2026-10-19T04:55:35+00:00",
+      "cost_usd": 0.02608145,
+      "price": {
+        "inp": 0.95,
+        "cached": 0.16,
+        "out": 4.0,
+        "src": "https://platform.moonshot.ai/docs/pricing/chat"
+      }
+    },
+    {
+      "model": "kimi-k2.6",
+      "text": "VERDICT: FAIL\n\nLayer 1 locks that “nothing outside the quartz is modelled yet,” while Layer 2 locks that the “first φ step starts at its outer edge”—a direct scope contradiction because the BTO outer edge lies outside the quartz. The electrode block is also self-contradictory: a continuous metal film on the inner wall “screens the gas,” which would block an external field from penetrating to ionise the HHO, yet “external field” is listed as a viable ionisation path alongside a central DBD electrode. Additionally, the 3.236 MHz “thickness mode” is inconsistently documented; the viewer notes it matches a spherical-shell 1S0 mode with cL 5900 m/s, whereas the slab formula implied by the label would require ~6110 m/s, and the original derivation was never recorded.\n\nTop three risks or gaps:\n1. Thermal collapse: The BTO Curie point is locked at about 10 W, while the quartz shell is rated for ~7.5 kW. With no defined heat path (Open #2, #3) and HHO autoignition reached at 1 W in still air, the stack has no credible thermal architecture.\n2. Electrode–optical deadlock: Ti/Pt blocks light, which is the main heat source, but electrode placement (central, inner-wall film, or Layer 4) remains open. This couples discharge viability directly to thermal runaway risk.\n3. Unverified acoustic foundations: Breathing and thickness modes are paper estimates with undocumented formulas; viewer caveats flag order-of-magnitude uncertainties in discharge thresholds and EM resonance limits that could invalidate the drive scheme.\n\nOne improvement suggestion:\nExplicitly lock the electrode geometry—either a central DBD wire with the inner metal film as ground, or an external field with no continuous inner metal screen—and retire the inconsistent option, then document the exact acoustic model (slab vs. spherical shell) used for each locked resonance.",
+      "stop": "stop",
+      "input": 2191,
+      "cached": 2048,
+      "output": 5964,
+      "reasoning": 5557,
+      "reasoning_chars": 22548,
+      "raw_usage": {
+        "prompt_tokens": 2191,
+        "completion_tokens": 5964,
+        "total_tokens": 8155,
+        "cached_tokens": 2048,
+        "completion_tokens_details": {
+          "reasoning_tokens": 5557
+        },
+        "prompt_tokens_details": {
+          "cached_tokens": 2048
+        }
+      },
+      "error": null,
+      "max_tokens": 12000,
+      "seconds": 122.9,
+      "started_utc": "2026-10-19T04:57:40+00:00",
+      "cost_usd": 0.02431953,
+      "price": {
+        "inp": 0.95,
+        "cached": 0.16,
+        "out": 4.0,
+        "src": "https://platform.moonshot.ai/docs/pricing/chat"
+      }
+    }
+  ],
+  "DeepSeek": [
+    {
+      "model": "deepseek-flash",
+      "text": "VERDICT: FAIL\n\nReasons: The locked set is not fully internally consistent. The strongest contradiction is the φ-step provenance: Layer 1 says the only modelled golden-ratio shift is at the HHO→quartz boundary and “nothing outside the quartz is modelled yet,” while Layer 2 locks “First φ step: starts at its outer edge,” i.e. outside the quartz. Those cannot both be true as written. There are also softer ambiguities: Layer 3 locks tourmaline thickness at “about 5 µm, within 3–8 µm” while Open #4 still lists “the tourmaline thickness” as open; that can be interpreted as exact point vs range, but the wording is not clean. The viewer caveats do not create a hard locked-value contradiction, but they expose traceability gaps: the 3.236 MHz lock-shell mode’s formula and sound speed were never recorded, and the viewer notes the slab estimate would need cL ~6110 m/s while the exact spherical 1S0 match uses 5900 m/s. The test-shell breathing mode 1.855 MHz vs “about 1.87” is minor rounding, not a fatal contradiction.\n\nTop three risks/gaps:\n1. The φ-step contradiction will let downstream harnesses model a layer-2 shift that Layer 1 explicitly says does not exist yet.\n2. The locked power cap (~7.5 kW) sits far above the BTO Curie crossing (~10 W) and phosphor saturation ranges (KSF 8–16 W; CASN ~80 W), while Open #2 already says 1 W in still air pushes the test shell past HHO autoignition. The operating envelope is not coherent until heat path and Curie management are resolved.\n3. The layer-5 nonlinear option requires a megawatt coherent pump, which is incompatible with a 7.5 kW shell cap unless an external pump is explicitly allowed and accounted for. Also, the 3.236 MHz provenance is missing.\n\nOne improvement: Add a locked-parameter consistency table with formula/source, sound speed, units, model domain, and an explicit “modelled/not modelled” flag for every φ step. Resolve the Layer 2 φ-step wording in the same edit.",
+      "stop": "stop",
+      "input": 2233,
+      "cached": 0,
+      "output": 5234,
+      "reasoning": 4764,
+      "reasoning_chars": 19174,
+      "raw_usage": {
+        "prompt_tokens": 2233,
+        "completion_tokens": 5234,
+        "total_tokens": 7467,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 4764
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 2233
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 25.3,
+      "started_utc": "2026-10-19T04:59:43+00:00",
+      "cost_usd": 0.00347535,
+      "price": {
+        "inp": 0.15,
+        "cached": 0.003,
+        "out": 0.6,
+        "src": "https://api-docs.deepseek.com/quick_start/pricing",
+        "period": "off-peak"
+      }
+    }
+  ]
+}
