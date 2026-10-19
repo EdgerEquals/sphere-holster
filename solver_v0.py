@@ -496,17 +496,72 @@ def c_hho(T):
     """ideal-gas sound speed of HHO 2H2:O2: c = sqrt(gamma R T / M), M = (2*2.016+32.00)/3 = 12.01 g/mol [calc from lit molar masses],
     gamma 1.40 [est, diatomic mix near room T; falls slowly as vibrational modes open above ~1000 K, not modelled]. 533 m/s at 293 K."""
     return math.sqrt(1.4 * 8.314 * T / 0.012011)
-# HHO gas-cavity acoustic loss [MODELLING ASSUMPTION, not measured physics]: the gas column had no loss term, so its
-#   modes had zero linewidth. GAS_Q = 3000 [est] gives each gas mode a linewidth f/GAS_Q (FWHM). "A few thousand" sits
-#   between quartz (Q_eff 2100 in this model) and an idealised lossless cavity; thermo-viscous wall loss in a mm-scale
-#   gas sphere at MHz is not computed here. Replace with a computed value when a gas loss model exists.
-GAS_Q = 3000.0
-def gas_linewidth(f):
-    """FWHM linewidth [Hz] of an HHO gas-cavity mode at f [Hz]: f / GAS_Q (assumed Q, see GAS_Q)."""
-    return f / GAS_Q
+# ---- Gas-cavity acoustic loss: derived Q, a MODULATED parameter (2026-10-19) ----
+# Q of an l=0 (radial) mode of a gas sphere of radius a inside a rigid, isothermal wall, recomputed from the operating
+# state: pressure p, temperature T, composition (mole fractions) and bubble radius a. Q = 2 pi W / (energy lost per
+# cycle) = f / FWHM = f / (2 g), g = half-width [Hz]. Loss channels [lit Moldover, Mehl & Greenspan, JASA 79, 253 (1986);
+# Morse & Ingard, Theoretical Acoustics (1968) ch. 6]:
+#   thermal boundary layer at the wall  g_th   = (gamma - 1) f delta_t / (2 a),  delta_t = sqrt(D_t / (pi f)), D_t = k/(rho cp)
+#   viscous boundary layer at the wall  g_visc = 0 for l = 0: a radial mode has no tangential velocity at the wall, so
+#                                       the no-slip shear layer carries no loss (non-zero for l >= 1, not modelled here)
+#   bulk (classical) absorption         g_cl   = (pi f^2 / c^2) [ (4/3) D_v + (gamma - 1) D_t ],  D_v = mu / rho
+#   1/Q = 1/Q_th + 1/Q_cl.  rho = p M / (R T), so D_t, D_v ~ 1/p: Q_th ~ a sqrt(f p), Q_cl ~ p / f.
+# Neglected [est]: wall thermal penetration (quartz heat capacity >> gas: isothermal wall), wall compliance/radiation into
+# the shell (the bonded-stack coupling handles that separately), molecular relaxation (H2/O2 rotational relaxation adds
+# bulk loss at MHz; not modelled), the Knudsen/slip regime (valid while the mean free path << delta_t), and discharge or
+# plasma loss. Per-species constants at 293 K [lit-typical, CRC / NIST WebBook; within a few %]: mu [Pa s], k [W/m/K],
+# M [kg/mol], gamma; T dependence mu ~ T^0.7, k ~ T^0.75 [est]. Mixtures: Wilke's rule for mu, Mason-Saxena (Wilke form)
+# for k, molar cp additive [lit Wilke, J. Chem. Phys. 18, 517 (1950)].
+R_GAS = 8.314462618
+GAS_SPECIES = {
+    "H2":  dict(mu=8.80e-6,  k=0.1805, M=2.016e-3,  gamma=1.405),
+    "O2":  dict(mu=20.2e-6,  k=0.0263, M=31.999e-3, gamma=1.395),
+    "N2":  dict(mu=17.6e-6,  k=0.0256, M=28.014e-3, gamma=1.400),
+    "Ar":  dict(mu=22.3e-6,  k=0.0177, M=39.948e-3, gamma=5 / 3),
+    "He":  dict(mu=19.6e-6,  k=0.1520, M=4.0026e-3, gamma=5 / 3),
+}
+GAS_COMPOSITIONS = {"HHO": {"H2": 2 / 3, "O2": 1 / 3}, "air": {"N2": 0.7808, "O2": 0.2095, "Ar": 0.0097}}
+GAS_COMP = "HHO"   # the cell's fill (2H2:O2); air and others are for comparison / future fills
+def _comp(comp):
+    x = (GAS_COMPOSITIONS.get(comp) or {comp: 1.0}) if isinstance(comp, str) else comp   # name, species, or {species: x}
+    tot = sum(x.values()); return {k: v / tot for k, v in x.items()}
+def gas_props(T, p, comp=None):
+    """Mixture transport properties at T [K], p [Pa]: mu, k, M, cp (J/kg/K), gamma, rho, c, D_v, D_t."""
+    x = _comp(comp or GAS_COMP); sp = {s: GAS_SPECIES[s] for s in x}
+    mu_i = {s: sp[s]["mu"] * (T / 293.0) ** 0.7 for s in x}; k_i = {s: sp[s]["k"] * (T / 293.0) ** 0.75 for s in x}
+    def wilke(v):
+        out = 0.0
+        for i in x:
+            den = sum(x[j] * (1 + math.sqrt(mu_i[i] / mu_i[j]) * (sp[j]["M"] / sp[i]["M"]) ** 0.25) ** 2
+                      / math.sqrt(8 * (1 + sp[i]["M"] / sp[j]["M"])) for j in x)
+            out += x[i] * v[i] / den
+        return out
+    mu, k = wilke(mu_i), wilke(k_i)
+    M = sum(x[s] * sp[s]["M"] for s in x)
+    cpm = sum(x[s] * sp[s]["gamma"] / (sp[s]["gamma"] - 1) * R_GAS for s in x)   # molar cp, additive
+    gamma = cpm / (cpm - R_GAS); cp = cpm / M
+    rho = p * M / (R_GAS * T); c = math.sqrt(gamma * R_GAS * T / M)
+    return dict(mu=mu, k=k, M=M, cp=cp, gamma=gamma, rho=rho, c=c, D_v=mu / rho, D_t=k / (rho * cp))
+def gas_Q_terms(f, a, p=None, T=None, comp=None):
+    """Loss breakdown of an l=0 gas-cavity mode at f [Hz], bubble radius a [m]. p, T default to the current coupled gas
+    state GAS (so Q follows the solver's p, T as they change). Returns Q, Q_th, Q_cl, delta_t, half-widths [Hz]."""
+    p = GAS["p"] if p is None else p; T = (GAS["T"] or T_REF) if T is None else T
+    g = gas_props(T, p, comp)
+    d_t = math.sqrt(g["D_t"] / (math.pi * f))
+    g_th = (g["gamma"] - 1) * f * d_t / (2 * a)
+    g_cl = math.pi * f ** 2 / g["c"] ** 2 * (4 / 3 * g["D_v"] + (g["gamma"] - 1) * g["D_t"])
+    gt = g_th + g_cl
+    return dict(Q=f / (2 * gt), Q_th=f / (2 * g_th), Q_cl=f / (2 * g_cl), g_th_Hz=g_th, g_cl_Hz=g_cl, g_visc_Hz=0.0,
+                delta_t_m=d_t, props=g)
+def gas_Q(f, a, p=None, T=None, comp=None):
+    """Derived Q of an l=0 gas-cavity mode (see block comment): a function of f, a, p, T and composition."""
+    return gas_Q_terms(f, a, p, T, comp)["Q"]
+def gas_linewidth(f, a, p=None, T=None, comp=None):
+    """FWHM linewidth [Hz] of an l=0 gas-cavity mode: f / gas_Q(f, a, p, T, comp) = 2 (g_th + g_cl)."""
+    return f / gas_Q(f, a, p, T, comp)
 def modes_lock(f1, lw1, f2, lw2):
     """Half-width overlap lock rule: |f1 - f2| <= (lw1 + lw2) / 2, all in Hz, lw = FWHM f/Q of each mode's own peak.
-    A gas mode passes its own gas_linewidth(f), so it counts towards the window rather than adding zero."""
+    A gas mode passes its own gas_linewidth(f, a, ...), so it counts towards the window rather than adding zero."""
     return abs(f1 - f2) <= 0.5 * (lw1 + lw2)
 def gas_Z(f, r_in):
     """sigma_rr/u_r presented by the HHO gas column (2:1 H2:O2, M 12.01 g/mol, gamma 1.4 [est]) times j1 (pole-free form).
