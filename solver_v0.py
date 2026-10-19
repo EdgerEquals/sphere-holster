@@ -55,7 +55,7 @@ PRESETS.insert(2, dict(id="minB", label="Minimal test B: 1 mm ID, 0.5 mm wall, 2
 for od in [1.6, 2.59, 4.19, 6.78, 10.97, 17.75]:   # golden-ratio OD sweep, case A scaling (core 0.6 OD, wall 0.2 OD) [rec shell_phi_sweep]
     PRESETS.append(dict(id=f"phi{od}", label=f"Phi sweep OD {od} mm (core 0.6*OD, wall 0.2*OD, 1 atm)", core_d=0.6 * od, wall=0.2 * od, p_atm=1.0, group="phi"))
 
-POWERS = [10.0, 100.0, 1000.0, 10000.0]
+POWERS = [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]   # W, decade steps (ascending)
 
 # ----------------------------------------------------------------------------------------------
 # Materials. rho kg/m3, cp J/kgK, k W/mK, cL/cT m/s, Q mechanical, optics dict mu_abs/mu_sca [1/m]
@@ -170,6 +170,31 @@ def propagate(f, layers, lossy=False):
     return P
 
 GAS = dict(p=101325.0, T=None)
+# ---- CHEMICAL domain constants ----
+EV, NA_, KB_ = 1.602176634e-19, 6.02214076e23, 1.380649e-23
+E_D_H2 = 4.478 * EV          # H2 bond dissociation energy D0 [lit, NIST CCCBDB / Huber & Herzberg]
+E_D_O2 = 5.116 * EV          # O2 D0 [lit, same]; listed for reference
+DH_H2O = 241.826e3 / NA_     # J per H2O formed: -dHf H2O(g) = 241.826 kJ/mol (LHV basis) [lit, NIST Chemistry WebBook]
+ETA_DISS = 0.2               # fraction of gas-deposited discharge energy spent on dissociation [PLACEHOLDER est]
+NU_CHAIN = 1.0               # H2O formed per H2 dissociated below autoignition [PLACEHOLDER est]; >>1 once H+O2->OH+O branching runs away
+WALL_RECOMB = 0.5            # share of dissociation energy returned by surface recombination on the inner quartz wall [PLACEHOLDER est]
+D_H_1ATM = 1.5e-4            # m2/s, H-atom diffusivity in the H2/O2 mix at 1 atm, 293 K [PLACEHOLDER est]; D ~ 1/p
+def chem_state(p_seal, a, P_gas):
+    V = 4 / 3 * math.pi * a ** 3; N = p_seal * V / (KB_ * T_REF); N_H2 = 2 * N / 3
+    R_d = ETA_DISS * P_gas / E_D_H2; R_w = NU_CHAIN * R_d
+    t_conv = N_H2 / R_w if R_w > 0 else float("inf")
+    E_store = (N / 3) * 2 * DH_H2O
+    D = D_H_1ATM * 101325.0 / max(p_seal, 1.0)
+    return dict(N=N, R_diss=R_d, R_water=R_w, t_conv=t_conv, E_store=E_store, P_release=(E_store / t_conv if t_conv > 0 else 0.0),
+                D_H=D, tau_D=a * a / (math.pi ** 2 * D), P_diss=ETA_DISS * P_gas, P_wall_recomb=WALL_RECOMB * ETA_DISS * P_gas)
+K_HHO0, CP_HHO = 0.1114, 2423.0   # W/m/K and J/kg/K at 293 K [rec layer1_lock_phi_calc_output]; k ~ T^0.75 [est]
+def gas_T_profile(Tw, P_cond, a, rs):
+    """steady gas temperature in the core: heat P_cond released uniformly in the gas, conducted to the wall at Tw.
+    Kirchhoff transform with k = k0 (T/293)^0.75: theta(T) = k0*293/1.75*(T/293)^1.75; theta(r) = theta(Tw) + q (a^2 - r^2)/6, q = P_cond/V.
+    Continuum conduction (Kn ~ 0.01 at 10 Torr for a 0.5 mm core); uniform deposition [est]; capped at 3000 K."""
+    q = P_cond / (4 / 3 * math.pi * a ** 3); T0 = 293.0; c = K_HHO0 * T0 / 1.75
+    th_w = c * (Tw / T0) ** 1.75
+    return [min(T0 * ((th_w + q * (a * a - r * r) / 6) / c) ** (1 / 1.75), 3000.0) for r in rs]
 def c_hho(T):
     """ideal-gas sound speed of HHO 2H2:O2: c = sqrt(gamma R T / M), M = (2*2.016+32.00)/3 = 12.01 g/mol [calc from lit molar masses],
     gamma 1.40 [est, diatomic mix near room T; falls slowly as vibrational modes open above ~1000 K, not modelled]. 533 m/s at 293 K."""
@@ -457,6 +482,7 @@ def run_case(pre, P, ref):
         if m in ac["loss"]:
             Vm = sum(th.V[j] for j, mm in enumerate(mats) if mm == m)
             q_ac[i] = ac["loss"][m] * th.V[i] / Vm
+    chem = chem_state(pre["p_atm"] * 101325.0, st["r_in"], (1.0 if bare else F_WALL) * P)   # chemical domain (core only)
     # time stepping with staggered coupling
     times = np.concatenate([[0], np.logspace(-7, 2, 46)])
     frames = [T.copy()]; history = []
@@ -470,6 +496,7 @@ def run_case(pre, P, ref):
         qo, oprof, oinfo = optical(st, F_OPT * P, T, cells, mats)
         q = qo + q_ac
         q[0] += (1.0 if bare else F_WALL) * P
+        if tk <= chem["t_conv"]: q[0] += chem["P_release"]   # transient 2H2+O2->2H2O heat release until the fill is converted
         for i in i_bto: q[i] += em["P_diel"] / len(i_bto)
         for i in i_pt: q[i] += em["P_esr"] / len(i_pt)
         for i in i_ferr: q[i] += em["P_ferr"] * th.V[i] / sum(th.V[j] for j in i_ferr)
@@ -495,16 +522,18 @@ def run_case(pre, P, ref):
     em_hot = em
     # coupled gas state [calc; gas T est = inner-wall T, a LOWER bound under discharge heating]: fixed N and V => n constant,
     # p = p_seal*T/T_seal, c = c_hho(T); gas-loaded modes recomputed hot. Paschen knee depends on n*d (constant) to first order.
-    Tg = float(min(Tss[0], 3000.0)); p_seal = GAS["p"]
+    a_ = st["r_in"]; P_cond = (1.0 if bare else F_WALL) * P   # heat that leaves the gas by conduction to the wall
+    rs_ = np.linspace(0, a_, 81); Tp_ = np.array(gas_T_profile(float(Tss[0]), P_cond, a_, rs_))
+    Tg = float(min(np.trapezoid(Tp_ * rs_ ** 2, rs_) * 3 / a_ ** 3, 3000.0)); Tg_centre = float(Tp_[0]); p_seal = GAS["p"]
     GAS["T"] = Tg; GAS["p"] = p_seal * Tg / T_REF
     hot_all = l0_modes(iso); hot_shell, hot_gas = split(hot_all, vac_modes(iso))
-    gas_hot = dict(T_gas=Tg, p_seal=p_seal, p_hot=GAS["p"], c_seal=c_hho(T_REF), c_hot=c_hho(Tg), shell=hot_shell, gas_modes=hot_gas,
+    gas_hot = dict(T_gas=Tg, T_centre=Tg_centre, T_wall=float(Tss[0]), P_cond=P_cond, p_seal=p_seal, p_hot=GAS["p"], c_seal=c_hho(T_REF), c_hot=c_hho(Tg), shell=hot_shell, gas_modes=hot_gas,
                    n_m3=p_seal / (1.380649e-23 * T_REF))
     GAS["p"] = p_seal; GAS["T"] = T_REF
     em = EM(np.full(th.n, T_REF))   # design point (293 K) used for fields, vectors, crossings
     return dict(stack=st, cells=cells, mats=mats, th=th, frames=frames, times=times, Tss=Tss, q=q,
                 ac=ac, ac_bond=ac_bond, m_iso=m_iso, m_bond=m_bond, gas_modes=gas_iso, em=em, em_hot=em_hot, oprof=oprof, oinfo=oinfo,
-                s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer, gas_hot=gas_hot)
+                s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer, gas_hot=gas_hot, chem=chem)
 
 # ------------------------------------------------- display + tracks ---------------------------
 def display_map(st):
@@ -548,7 +577,7 @@ def package(pre, runs, ref):
     rc = [0.5 * (a + b) for a, b in cells]
     R = st["layers"][-1][2]
     # radial sample grid for viewer: core + cell centres
-    r_core = list(np.linspace(0, st["r_in"], 12)[:-1])
+    r_core = list(np.linspace(0, st["r_in"], 41)[:-1])   # 40 core samples (smooth gradients in the HHO core)
     rv = r_core + rc
     rdisp = [to_disp(table, r) for r in rv]
     out = dict(id=pre["id"], label=pre["label"], group=pre["group"], note=pre.get("note", ""),
@@ -568,7 +597,7 @@ def package(pre, runs, ref):
                               cL_quartz=MAT["quartz"]["cL"], cL_quartz_danny=5900.0, alpha_quartz=6.2 / (2650 * 740),
                               alpha_gas=r4(0.12 / (rho_g * 2403)), r_in_mm=st["r_in"] / MM, r_q_mm=st["r_q"] / MM, bare=bool(pre.get("bare")),
                               note="gas k 0.12 W/mK, cp 2403 J/kgK for 2:1 H2:O2 [est]; quartz alpha from k 6.2, rho 2650, cp 740 [rec]")
-    for P, run in zip(([0.1, 1.0, 10.0] if pre.get("bare") else POWERS), runs):
+    for P, run in zip(POWERS, runs):
         ac, em, oinfo = run["ac"], run["em"], run["oinfo"]
         th = run["th"]
         # fields on viewer grid (core gets zeros except optical source / temperature of wall)
@@ -593,6 +622,29 @@ def package(pre, runs, ref):
             for r, m in zip(rc, mats):
                 Bf.append(MU0 * FERR_MU * N_TURNS * Ipk / (2 * math.pi * r) if m == "ferrite" else 0.0)
         Tss = run["Tss"]; frames = run["frames"]
+        # ---- REAL core fields (previously the core got zeros -> black disc) ----
+        gh = run["gas_hot"]; a_in = run["stack"]["r_in"]; ch = run["chem"]
+        core_T = gas_T_profile(float(Tss[0]), gh["P_cond"], a_in, r_core)
+        u_a = abs(ac["profile"][0][2]); w_ac = 2 * math.pi * ac["f"]
+        rho_g = gh["p_seal"] * 0.012011 / (8.314 * T_REF); k_g = w_ac / gh["c_hot"]
+        def j0_(x): return 1.0 if x == 0 else math.sin(x) / x
+        def j1_(x): return 0.0 if x == 0 else math.sin(x) / x ** 2 - math.cos(x) / x
+        jw = j1_(k_g * a_in)
+        core_p = [abs(u_a * rho_g * w_ac ** 2 * j0_(k_g * r) / (k_g * jw)) if jw else 0.0 for r in r_core]   # gas pressure amplitude, p = A j0(kr)
+        core_I = [float(Itot[0]) * r / a_in for r in r_core]   # net radial flux of a uniform optically-thin emitter: F = P r/(4 pi a^3) [est]
+        if bare:
+            core_E = [em["V_pk"] / (r ** 2 * em["S"]) if r >= em["r0"] else 0.0 for r in r_core]   # DBD gas field, 0 inside the 50 um electrode
+        else:
+            core_E = [0.0 for r in r_core]
+        core_B = [0.0 for r in r_core]
+        wall_peak = max(stress) if stress else 0.0
+        core_note = dict(
+            acoustic=f"HHO gas pressure in the core p = A j0(kr) (gas-loaded mode at {ac['f']/1e6:.3f} MHz, c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
+            thermal=f"steady gas T profile (uniform heating {gh['P_cond']:.3g} W conducted to the wall, k~T^0.75): centre {core_T[0]:.0f} K, wall {float(Tss[0]):.0f} K, volume mean {gh['T_gas']:.0f} K",
+            optical="net radial flux of a uniformly emitting, optically thin plasma: F(r) = P r/(4 pi a^3), zero at the centre by symmetry [est emission profile]. Log colour scale.",
+            electric=("DBD gas field E = V/(r^2 S) from the 50 um central electrode (zero inside it) [est geometry]" if bare else "E = 0 in the core in v0: the drive field is confined between the Ti/Pt and Gd-Dy electrodes (genuinely ~zero, not a rendering gap)"),
+            chemical=f"dissociation power {ch['P_diss']:.3g} W spread uniformly in the gas [est]; fill converts to H2O in {ch['t_conv']:.3g} s releasing {ch['E_store']:.3g} J (then a dissociation-recombination cycle with ~zero net heat); outside the core only surface recombination on the inner wall. Knee: not defined.",
+            magnetic="B = 0 in the core (symmetric radial current; ferrite flux confined to the ferrite shell) - genuinely zero")
         Twall = float(frames[-1][0])
         # arrival times for animation envelopes
         t_opt, t_ac = [], []; acc_o = 0.0; acc_a = 0.0
@@ -634,6 +686,9 @@ def package(pre, runs, ref):
             dict(domain="thermal", f_start=thermal_track(run["stack"], run["stack"]["r_in"] + 1e-6), f_end=thermal_track(run["stack"], R),
                  r_start=run["stack"]["r_in"], r_end=R, what="heat diffuses to the 293 K reference surface (no sink chosen)"),
         ]
+        f_chem = 2 * em["f_e"]
+        vectors.append(dict(domain="chemical", f_start=f_chem, f_end=f_chem, r_start=0.0, r_end=run["stack"]["r_in"],
+                            what="H2/O2 dissociation -> H, O, OH radicals -> 2H2+O2->2H2O heat release in the HHO core; ends at the inner wall (surface recombination). Knee: not defined"))
         for v in vectors:
             for kk in ("r_start", "r_end", "r_shift", "r_end_bonded"):
                 if v.get(kk) is not None:
@@ -664,17 +719,25 @@ def package(pre, runs, ref):
         fl(em["saturates"], f"Ferrite B_max {em['B_max']*1e3:.0f} mT near feed holes > B_sat ~{B_SAT*1e3:.0f} mT [est]")
         fl(em["J_feed"] > 0.8e9, f"Pt feed current density {em['J_feed']/1e4:.2g} A/cm2 > 0.8e5 A/cm2 contact limit")
         gh = run["gas_hot"]
-        for nm, TT in (("Quartz inner wall", Tq_in), ("Gas (est = inner wall, lower bound)", gh["T_gas"])):
+        for nm, TT in (("Quartz inner wall", Tq_in), ("Gas centre (conduction profile)", gh["T_centre"])):
             if TT >= 773.15: flags.append(f"{nm} {TT-273.15:.0f} C is IN the HHO autoignition range ~500-585 C [given range]")
             elif TT >= 723.15: flags.append(f"{nm} {TT-273.15:.0f} C is APPROACHING HHO autoignition (~500-585 C) [given range]")
+        if gh["T_centre"] >= 773.15:
+            flags.append(f"Chemical: gas centre {gh['T_centre']-273.15:.0f} C - any unconverted HHO ({run['chem']['E_store']:.2g} J stored) would autoignite (H+O2->OH+O branching); v0 assumes conversion within {run['chem']['t_conv']:.2g} s")
         fl(max(Tss) >= 2999, "Temperatures hit the 3000 K solver cap: stack has failed thermally (values not physical)")
         sel_frames = list(range(0, len(frames)))
         out["powers"][f"{P:g}"] = dict(
             P_circ=P,
-            fields=dict(optical=r4(on_grid(Itot, core_val=float(Itot[0])), 3), acoustic=r4(on_grid(stress), 3),
-                        electric=r4(on_grid(Efield), 3), magnetic=r4(on_grid(Bf), 3), thermal=r4(on_grid(Tss, core_val=Tq_in), 4)),
-            units=dict(optical="W/m2", acoustic="Pa (peak, l=0 mode)", electric="V/m (peak)", magnetic="T (peak)", thermal="K (steady)"),
-            thermal_frames=dict(t=r4(list(run["times"]), 3), T=[r4(on_grid(frames[k], core_val=float(frames[k][0])), 4) for k in sel_frames]),
+            fields=dict(optical=r4(core_I + list(Itot), 3), acoustic=r4(core_p + list(stress), 3),
+                        electric=r4(core_E + list(Efield), 3), magnetic=r4(core_B + list(Bf), 3), thermal=r4(core_T + list(Tss), 4),
+                        chemical=r4([ch["P_diss"] / (4 / 3 * math.pi * a_in ** 3)] * len(r_core) + [(ch["P_wall_recomb"] / (4 * math.pi * a_in ** 2) / (cells[0][1] - cells[0][0])) if i == 0 else 0.0 for i in range(len(cells))], 3)),
+            core_note=core_note,
+            chemical=dict(E_store_J=r4(ch["E_store"]), R_diss_per_s=r4(ch["R_diss"]), R_water_per_s=r4(ch["R_water"]), t_conv_s=r4(ch["t_conv"]),
+                          P_release_W=r4(ch["P_release"]), P_diss_W=r4(ch["P_diss"]), P_wall_recomb_W=r4(ch["P_wall_recomb"]), D_H=r4(ch["D_H"]), tau_D_s=r4(ch["tau_D"]),
+                          f=r4(2 * em["f_e"]), tau_s=r4(min(ch["t_conv"], 1e3)), knee="not defined",
+                          sources="D0(H2) 4.478 eV, D0(O2) 5.116 eV [lit NIST CCCBDB]; dHf H2O(g) -241.826 kJ/mol [lit NIST WebBook]; eta_diss 0.2, chain 1, wall share 0.5, D_H [PLACEHOLDERS]; branching H+O2->OH+O drives autoignition [lit, standard H2-O2 mechanism, e.g. Glassman, Combustion]"),
+            units=dict(optical="W/m2", acoustic="Pa (peak, l=0 mode)", electric="V/m (peak)", magnetic="T (peak)", thermal="K (steady)", chemical="W/m3 (dissociation power density in gas; surface recombination in the first quartz cell)"),
+            thermal_frames=dict(t=r4(list(run["times"]), 3), T=[r4(gas_T_profile(float(frames[k][0]), gh["P_cond"] if k > 0 else 0.0, a_in, r_core) + list(frames[k]), 4) for k in sel_frames]),
             t_opt=r4([0.0] * len(r_core) + t_opt, 3), t_ac=r4([0.0] * len(r_core) + t_ac, 3), tau_ac=r4(tau_ac), tau_e=r4(em["tau_ring"]),
             vectors=vectors, thermal_track=thermal_tr,
             acoustic=dict(f_drive=r4(ac["f"]), l0_isolated=r4(run["m_iso"]), l0_bonded=r4(run["m_bond"][:25]), gas_cavity_modes=r4(run["gas_modes"][:8]), W_mJ=r4(ac["W"] * 1e3),
@@ -692,9 +755,9 @@ def package(pre, runs, ref):
             optical=dict(P_opt=F_OPT * P, converted_W=r4(oinfo["converted_W"]), escaped_W=r4(oinfo["escaped_W"])),
             thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_phos=r4(Tph), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
                          heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum()))),
-            gas=dict(T_gas_K=r4(gh["T_gas"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),
+            gas=dict(T_gas_K=r4(gh["T_gas"]), T_centre_K=r4(gh["T_centre"]), T_wall_K=r4(gh["T_wall"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),
                      c_seal=r4(gh["c_seal"]), c_hot=r4(gh["c_hot"]), shell_l0_hot=r4(gh["shell"][:6]), gas_modes_hot=r4(gh["gas_modes"][:8]),
-                     note="computed state, not an input: gas T taken = steady inner-wall T [est lower bound]; fixed N,V => p ~ T, c ~ sqrt(T); Paschen knee ~ n d unchanged to first order"),
+                     note="computed state, not an input: gas T = volume mean of the steady conduction profile (uniform heating conducted to the inner wall); fixed N,V => p ~ T, c ~ sqrt(T); Paschen knee ~ n d unchanged to first order"),
             flags=flags)
     return out
 
@@ -756,13 +819,13 @@ def main():
     cases = []
     log = []
     for pre in presets:
-        plist = [0.1, 1.0, 10.0] if pre.get("bare") else POWERS
+        plist = POWERS   # all presets: 0.1 W ... 100 kW decades
         runs = [run_case(pre, P, ref) for P in plist]
         c = package(pre, runs, ref); find_crossings(c); cases.append(c)
         ks = list(c["powers"]); p0, p1, p10 = c["powers"][ks[0]], c["powers"][ks[1]], c["powers"][ks[-1]]
         log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in p10['acoustic']['l0_isolated'][:4]]} MHz | drive {p10['acoustic']['f_drive']/1e6:.3f} MHz "
                    f"stress@{ks[-1]}W {p10['acoustic']['peak_stress_MPa']} MPa Qeff {p10['acoustic']['Q_eff']} | f_e {p10['electric']['f_e']/1e6:.3f} MHz (0-bias {p10['electric']['f_zero_bias']/1e6:.3f}) "
-                   f"| T_gas(est) {p1['gas']['T_gas_K']} K p {p1['gas']['p_hot_Pa']} Pa c {p1['gas']['c_hot']} m/s @{ks[1]}W "
+                   f"| T_gas mean {p1["gas"]["T_gas_K"]} K centre {p1["gas"]["T_centre_K"]} K p {p1['gas']['p_hot_Pa']} Pa c {p1['gas']['c_hot']} m/s @{ks[1]}W "
                    f"| T_qz_in {ks[0]}W {p0['thermal']['T_quartz_in']} K {ks[1]}W {p1['thermal']['T_quartz_in']} K, {ks[-1]}W {p10['thermal']['T_quartz_in']} K | crossings {len(p10['crossings'])}")
         print(log[-1], flush=True)
     data = dict(meta=dict(title="Stratified bubble sphere - multi-domain radial model v0", date="2026-10-19",

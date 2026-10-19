@@ -233,11 +233,96 @@
   - vs fill (0.1–7600 Torr), with the knee curve and the peak gas voltage.
 - **Example results** (see the Minimal Test report §7): the thermal corners (gas ~20 kHz at 22 Torr; wall ~20 Hz) bracket the audio band. The acoustic modes (0.35–6.7 MHz) respond only by ringing after breakdown onsets.
 
+### 8.3 Viewer v0.2 changes (10:42–10:59 AWST steering)
+
+**Version label.** The header shows "v0.2 · built YYYY-MM-DD HH:MM AWST". build.py stamps it.
+
+**Waveforms replace the straight arrows, in both views.**
+- Each domain is drawn as an animated wave in its own wavelength:
+  - acoustic as a pressure wave;
+  - EM (optical, E, B) as a transverse wave;
+  - thermal and chemical as decaying diffusion waves.
+- **What is scaled.** Only the display wavelength. A per-domain factor S = a/(3·λ_gas) (or 1·λ for decaying waves) is printed as "λ shown ×S". Amplitudes are normalised. Times and positions are true.
+- **Physical wavelengths (no φ):**
+
+  | Domain | HHO core | Quartz |
+  |---|---|---|
+  | Acoustic | c_hot/f | 5900/f |
+  | Optical | c/f | c/f ÷ 1.554 |
+  | E / B | c/f | ÷ √4.5 |
+  | Thermal | 2π√(2α/ω) | 2π√(2α/ω) |
+  | Chemical | 2π√(2D_H/ω) | — |
+
+**Golden-ratio rule.**
+- The ONLY φ shift is at the HHO→quartz boundary (inner wall), and it is Danny's postulate, not physics.
+- "phimode" controls how it is applied:
+  - default "λ": quartz λ × φ on top of the physical ratio;
+  - "phase": +2π/φ² at the wall;
+  - "off".
+- `PHI_BOUNDARIES` has a hook `{id:'quartz_outside', apply:false}` that is not applied.
+- The waves start in the HHO core and end at the quartz outer surface. The chemical wave ends at the inner wall.
+- Nothing outside the quartz OD is computed for the waves. The outer layers are drawn greyed and labelled "outside quartz OD: not modelled yet".
+- The ID/OD sweeps and the sound-speed citation work are unchanged.
+
+**Face labels for mobile.**
+- Each face carries a large label such as "face 1 THERMAL", "face 2 ACOUSTIC" or "face 3 CHEMICAL". It updates when the Faces dropdowns change.
+- Each face has a colour-keyed outline. The legend lists face → domain.
+- Touch controls:
+  - one finger orbits;
+  - two fingers pinch-zoom and pan;
+  - the orthographic view supports pinch-zoom and pan.
+- On narrow screens the side panel stacks, and the HUD is compacted to about 16% of the height.
+
+**Power decades.**
+- Every preset is precomputed at 0.1 W, 1 W, 10 W, 100 W, 1 kW, 10 kW and 100 kW, in ascending order in the selector.
+- All panels work at every power.
+- At high power these flags fire:
+  - autoignition;
+  - quartz softening and 3000 K clamp;
+  - stress.
+
+**HHO core was a black disc: cause and fix.**
+- **Cause.** The field sampler set the core to 0 for the acoustic, E and B fields, and to a uniform value for thermal and optical. It also used only 11 samples.
+- **Fix.** The core is now sampled at 40 points with physical fields:
+  - acoustic cavity pressure p(r) ∝ j0(kr), drawn on a log colour scale over 8 decades;
+  - thermal: the conduction profile, with T_centre > T_mean > T_wall (scope at 1 W: 1228/1073/962 K);
+  - optical: net radial flux of a uniform emitter, ∝ r/a [est];
+  - electric: the bare-sphere radial E;
+  - chemical: dissociation power density.
+- B is genuinely 0 in the core for the l=0 drive. The HUD says so.
+- Each domain has a core note in the HUD.
+
+**Quartz opacity.**
+- The quartz shell defaults to opacity 0.70, with depthWrite off and a crisp white edge outline.
+- A slider sets it from 0 to 1. Shot 34 shows 0.3.
+
+**CHEMICAL as a sixth domain** (solver, viewer, drive panel, ortho, waveforms, tables, sweeps).
+- **Physics:**
+  - the discharge dissociates H2/O2 into H, O and OH radicals;
+  - stored recombination/combustion energy is 2H2+O2→2H2O;
+  - reaction progress and heat release feed the thermal solve and the autoignition flag;
+  - there is no chemistry outside the core except surface recombination on the inner wall.
+- **Literature constants:**
+  - D0(H2) = 4.478 eV and D0(O2) = 5.116 eV [lit, NIST CCCBDB / Huber & Herzberg];
+  - ΔHf H2O(g) = −241.826 kJ/mol, about 242 kJ/mol LHV [lit, NIST Chemistry WebBook];
+  - chain branching H+O2→OH+O drives autoignition [lit, standard H2–O2 mechanism, e.g. Glassman, *Combustion*].
+- **PLACEHOLDERS [est]:**
+  - dissociation share of gas-deposited discharge energy 0.2;
+  - chain length 1 H2O per dissociated H2;
+  - wall-recombination share 0.5;
+  - H-atom diffusivity 1.5e-4 m²/s at 1 atm, scaled as 1/p.
+- **Results:**
+  - scope at 1 W: stored energy 4.6e-5 J, converted in 0.41 ms, releasing 0.11 W meanwhile;
+  - base5 at 1 W: 0.095 J over 8.5 s.
+  - After conversion, the dissociation–recombination cycle gives about zero net heat.
+- **Knee: not defined.** Displayed everywhere the other domains show a knee.
+- **Flag.** "Chemical: … would autoignite" fires when the gas centre is ≥ 500 °C (773 K).
+
 ## 9. The v0 prototype: what it does not do
 
 - No l≥1 fields in the solver; no anisotropic quartz.
 - No 3D electrodes, feeds or heat sink.
-- No plasma kinetics or chemistry.
+- No plasma kinetics. Chemistry is a lumped, placeholder-parameterised model (§8.3), not a reaction mechanism.
 - No measured optical constants for the elbaite sol-gel or the phosphors beyond the [rec]/[est] values.
 - The full-stack scenario assumes every domain circulates P at once, with a 10%/90% wall/light split [est].
 - No uncertainty bands yet.
@@ -259,3 +344,8 @@ All in `/workspace/grok_thread/sphere_model_v0/screenshots/`, from headless Chro
 | 19 | lock54 spectral |
 | 20–25 | Drive panel: blank inputs refused; single cycle at 1 kHz / 22 Torr / 600 V (example inputs); f sweep; fill sweep; response table; scope orthographic with the drive f |
 | 26 | scope quarter-cut |
+| 27–30 | v0.2 scope waveforms: quarter-cut steady and after GO; orthographic shared clock and dilated |
+| 31, 32 | base5 at 10 W: waveforms, quarter-cut with outer layers greyed "not modelled yet"; orthographic |
+| 33 | minA at 100 kW: quarter-cut, face 1 CHEMICAL, flags firing |
+| 34 | scope with the quartz opacity slider at 0.3 (default 0.7 in 27) |
+| 35–38 | iPhone 390×844 (touch): face labels; after one-finger orbit; after pinch-zoom; orthographic |

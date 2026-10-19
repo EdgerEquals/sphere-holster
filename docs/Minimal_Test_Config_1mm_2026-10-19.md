@@ -247,3 +247,15 @@
 - Rigid-wall gas modes.
 - Isotropic quartz.
 - The DBD electrode geometry is an estimate.
+
+## 8. v0.2 additions for the scope (11:xx AWST)
+
+- **Powers.** Precomputed at 0.1 W to 100 kW in decades.
+- **Gas conduction profile at 1 W** [calc]: centre 1228 K, mean 1073 K, wall 962 K. The autoignition flag uses the centre value.
+- **Chemical** [lit constants + PLACEHOLDER rates]:
+  - the 1 mm core at the 10 Torr placeholder fill stores 4.6e-5 J as 2H2+O2;
+  - at 1 W it converts to water in about 0.4 ms, releasing about 0.11 W meanwhile;
+  - after that, a dissociation–recombination cycle runs with about zero net heat;
+  - knee: not defined.
+- **Waveforms** run only from the core to the quartz OD. The single φ shift is at the inner wall.
+- See Feasibility Plan §8.3.

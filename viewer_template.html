@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Stratified bubble sphere - multi-domain model v0 (ESTIMATED PHYSICS)</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Stratified bubble sphere - multi-domain model v0 (ESTIMATED PHYSICS)</title>
 <style>
 body{margin:0;background:#0b0e14;color:#dde3ee;font:12px/1.35 system-ui,Segoe UI,Arial,sans-serif;overflow:hidden}
 #banner{background:#7a1f1f;color:#fff;padding:4px 10px;font-weight:600;letter-spacing:.2px}
 #wrap{display:flex;height:calc(100vh - 26px)}
 #view{position:relative;flex:1 1 auto;min-width:0}
-#gl{width:100%;height:100%;display:block}
+#gl{width:100%;height:100%;display:block;touch-action:none}
+canvas{max-width:100%}
+#side canvas{height:auto}
+@media (max-width: 900px){ body{overflow:auto} #wrap{flex-direction:column;height:auto} #view{height:72vh;flex:none} #side{width:100%;flex:none;overflow:visible} #hud{font-size:10px;max-width:94%;max-height:16vh;overflow:auto;opacity:.92} #legend{font-size:14px;bottom:4px;right:4px;padding:3px 6px} #legend div:not(.facekey){display:none} #banner{font-size:11px} }
+#legend .facekey{font-size:15px;font-weight:700;margin:2px 0}
 #overlay{position:absolute;left:0;top:0;pointer-events:none}
 #side{width:560px;flex:0 0 560px;overflow-y:auto;background:#121722;border-left:1px solid #2a3244;padding:8px 10px;box-sizing:border-box}
 h3{margin:8px 0 4px;font-size:13px;color:#9fc3ff}
@@ -23,7 +27,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head><body>
-<div id="banner">v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
+<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.2 · built __BUILD__</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
 <div id="wrap">
  <div id="view"><canvas id="gl"></canvas><canvas id="overlay"></canvas>
   <div id="hud"></div>
@@ -36,10 +40,13 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
   <div class="row"><span class="lab">View</span>
    <select id="viewmode"><option value="cut">Quarter-cut 3D (perspective, octant removed)</option><option value="ortho">Orthographic full sphere, true scale (wavefronts)</option></select></div>
   <div class="row" id="cutopts"><span class="lab">Radial scale</span><select id="rscale"><option value="disp">thin films exaggerated (not to scale)</option><option value="true">true scale</option></select>
-   <span class="lab">Faces:</span><select id="f0"></select><select id="f1"></select><select id="f2"></select></div>
+   <span class="lab">Faces:</span><select id="f0"></select><select id="f1"></select><select id="f2"></select>
+   <span class="lab">quartz opacity</span><input type="range" id="qop" min="0" max="1" step="0.05" value="0.7" style="width:90px"><span id="qopv" class="small">0.70</span></div>
   <div class="row" id="orthoopts"><span class="lab">Ortho axis</span><select id="axis"><option value="z">view along +Z</option><option value="x">view along +X</option><option value="y">view along +Y</option></select>
    <span class="lab">Clock</span><select id="clock"><option value="shared">shared real-time clock</option><option value="dilate">per-domain time dilation</option></select>
    <label><input type="checkbox" id="pulsed" checked> &plusmn; pulsed drive</label></div>
+  <div class="row" id="wfopts"><label><input type="checkbox" id="wf" checked> waveforms (replace arrows; HHO core &rarr; quartz OD only)</label>
+   <span class="lab">&phi; shift at HHO&rarr;quartz</span><select id="phimode"><option value="lambda">wavelength &times; &phi; (Danny postulate)</option><option value="phase">phase + 2&pi;/&phi;&sup2; (golden angle)</option><option value="off">off</option></select></div>
   <div class="row"><button id="go">GO &mdash; switch ionisation ON</button><button id="reset">Reset (steady state)</button>
    <span class="lab">t</span><input type="range" id="tslider" min="0" max="1000" value="1000" style="width:170px"><span id="tval" class="small"></span></div>
   <h3 style="color:#ffd27a">Single-cycle drive &rarr; coupled response (independent drive knob; open inputs)</h3>
@@ -72,8 +79,8 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const D = window.MODEL;
-const DOMS = ['optical','acoustic','electric','magnetic','thermal'];
-const DCOL = {optical:'#ffd34d',acoustic:'#33d1ff',electric:'#ff4fd8',magnetic:'#59ff7a',thermal:'#ff6a3d'};
+const DOMS = ['optical','acoustic','electric','magnetic','thermal','chemical']; const SECT=360/DOMS.length;
+const DCOL = {optical:'#ffd34d',acoustic:'#33d1ff',electric:'#ff4fd8',magnetic:'#59ff7a',thermal:'#ff6a3d',chemical:'#b98cff'};
 const LCOL = {core:'#2b3f73',quartz:'#cfe8ff',layer2:'#e8a6c8',phos_in:'#b6ff7a',tipt:'#c0c0c0',bto:'#ffcc66',gddy:'#8888aa',calorivac:'#8a6d4a',phos_out:'#ffe680',ferrite:'#454552'};
 const $ = id => document.getElementById(id);
 const fmt = (x,n=3) => (x===null||x===undefined)?'–':(Math.abs(x)>=1e4||Math.abs(x)<1e-2&&x!==0)?x.toExponential(n-1):(+x).toPrecision(n);
@@ -95,11 +102,13 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuf
 renderer.setPixelRatio(1);
 const scene=new THREE.Scene(); scene.background=new THREE.Color('#0b0e14');
 const cam=new THREE.PerspectiveCamera(40,1,0.01,100); cam.position.set(2.3,1.7,2.4);
-const controls=new OrbitControls(cam,canvas); controls.target.set(0.15,0.1,0.15);
+const controls=new OrbitControls(cam,canvas); controls.target.set(0.15,0.1,0.15); controls.enableZoom=true; controls.enablePan=true; controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
+let ocontrols=null; // created after ocam (pinch-zoom / pan in the orthographic view)
 scene.add(new THREE.AmbientLight(0xffffff,0.75)); const dl=new THREE.DirectionalLight(0xffffff,0.9); dl.position.set(3,5,4); scene.add(dl);
 const oscene=new THREE.Scene(); oscene.background=new THREE.Color('#05070c');
 const ocam=new THREE.OrthographicCamera(-1,1,1,-1,-100,100);
 let cutGroup=new THREE.Group(), orthoGroup=new THREE.Group(); scene.add(cutGroup); oscene.add(orthoGroup);
+ocontrols=new OrbitControls(ocam,canvas); ocontrols.enableRotate=false; ocontrols.enabled=false; ocontrols.screenSpacePanning=true; ocontrols.touches={ONE:THREE.TOUCH.PAN,TWO:THREE.TOUCH.DOLLY_PAN};
 
 function resize(){const v=$('view');const w=v.clientWidth,h=v.clientHeight;renderer.setSize(w,h,false);overlay.width=w;overlay.height=h;cam.aspect=w/h;cam.updateProjectionMatrix();setOrthoFrustum();}
 window.addEventListener('resize',resize);
@@ -129,12 +138,14 @@ function fieldNow(dom,t){
   for(let i=0;i<n;i++){ let env=1;
     if(dom==='optical') env = t>=PD.t_opt[i]?1:0;
     else if(dom==='acoustic') env = t>=PD.t_ac[i]? (1-Math.exp(-t/PD.tau_ac)) : 0;
+    else if(dom==='chemical') env = 1-Math.exp(-t/Math.max(PD.chemical.tau_D_s,1e-12));
     else env = 1-Math.exp(-t/Math.max(PD.tau_e,1e-12));
     out[i]=F[i]*env; }
   return out;}
 function normField(dom,vals){
   if(dom==='thermal'){ const mx=Math.max(...PD.fields.thermal); return vals.map(v=>(v-293)/Math.max(mx-293,1)); }
   const mx=Math.max(...PD.fields[dom].map(Math.abs)); if(!(mx>0)) return vals.map(()=>0);
+  if(dom==='acoustic'||dom==='chemical'){ const lo=Math.log10(mx)-8; return vals.map(v=>Math.abs(v)>0?Math.max(0,(Math.log10(Math.abs(v))-lo)/8):0); }
   if(dom==='optical'){ const pos=PD.fields.optical.filter(v=>v>0); const mn=Math.max(Math.min(...pos),mx*1e-8); return vals.map(v=>v>0?(Math.log10(v)-Math.log10(mn))/(Math.log10(mx)-Math.log10(mn)):0); }
   return vals.map(v=>Math.abs(v)/mx);}
 
@@ -153,42 +164,114 @@ function buildCut(){
     // layer boundary arcs
     C.layers.forEach(L=>{ const r=mmToWorld(L.b_mm); const pts=[]; for(let j=0;j<=40;j++){const a=j/40*Math.PI/2; pts.push(pl[0].clone().multiplyScalar(r*Math.cos(a)).add(pl[1].clone().multiplyScalar(r*Math.sin(a))).multiplyScalar(1.001));}
       cutGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:LCOL[L.key]||'#888',transparent:true,opacity:0.75}))); });
-    const lbl=textSprite(['face 1','face 2','face 3'][k],'#ffffff',0.05); const c=pl[0].clone().add(pl[1]).multiplyScalar(0.36); lbl.position.copy(c); cutGroup.add(lbl); faces[k].lbl=lbl;
+    faces[k].pl=pl;
   });
-  // outer shell with octant removed
-  const R=1.0, mat=new THREE.MeshPhongMaterial({color:LCOL[C.layers[C.layers.length-1].key],side:THREE.DoubleSide,transparent:true,opacity:0.92,shininess:40});
-  cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(R,64,32,Math.PI,1.5*Math.PI,0,Math.PI/2),mat));
-  cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(R,64,32,0,2*Math.PI,Math.PI/2,Math.PI/2),mat));
-  // quartz OD ghost shell for context
-  const rq=mmToWorld(C.OD_quartz_mm/2);
-  if(rq<0.98) cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(rq,48,24,Math.PI,1.5*Math.PI,0,Math.PI/2),new THREE.MeshPhongMaterial({color:'#cfe8ff',transparent:true,opacity:0.18,side:THREE.DoubleSide,depthWrite:false})));
+  // outer shell with octant removed (outside the quartz: greyed + 'not modelled yet' in waveform view)
+  const R=1.0, rq=mmToWorld(C.OD_quartz_mm/2), wf=$('wf').checked, outerIsQuartz = rq>=0.98;
+  if(!outerIsQuartz){
+    const mat=new THREE.MeshPhongMaterial({color: wf?'#3b3f47':LCOL[C.layers[C.layers.length-1].key],side:THREE.DoubleSide,transparent:true,opacity: wf?0.22:0.92,shininess:40,depthWrite:!wf});
+    cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(R,64,32,Math.PI,1.5*Math.PI,0,Math.PI/2),mat));
+    cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(R,64,32,0,2*Math.PI,Math.PI/2,Math.PI/2),mat));
+    if(wf){ const l=textSprite('outside quartz OD: not modelled yet','#b8bcc6',0.045); l.position.set(-0.2,1.08,0.2); cutGroup.add(l); }
+  }
+  // crystal-quartz shell: user opacity (default 0.70), depthWrite off, crisp edge outline
+  const qmat=new THREE.MeshPhongMaterial({color:'#d9ecff',side:THREE.DoubleSide,transparent:true,opacity:+$('qop').value,shininess:60,depthWrite:false});
+  const qa=mmToWorld(C.propagation.r_in_mm);
+  [[Math.PI,1.5*Math.PI,0,Math.PI/2],[0,2*Math.PI,Math.PI/2,Math.PI/2]].forEach(([p0,pl,t0,tl])=>{ cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(rq,72,36,p0,pl,t0,tl),qmat)); cutGroup.add(new THREE.Mesh(new THREE.SphereGeometry(qa,48,24,p0,pl,t0,tl),qmat)); });
+  window._qmat=qmat;
+  [[1,0,0,0,1,0],[0,1,0,0,0,1],[1,0,0,0,0,1]].forEach(v=>{ [rq,qa].forEach(rr=>{ const pts=[];for(let j=0;j<=48;j++){const a=j/48*Math.PI/2;pts.push(new THREE.Vector3(v[0]*Math.cos(a)+v[3]*Math.sin(a),v[1]*Math.cos(a)+v[4]*Math.sin(a),v[2]*Math.cos(a)+v[5]*Math.sin(a)).multiplyScalar(rr*1.003));}
+    cutGroup.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),48,0.0045,6,false),new THREE.MeshBasicMaterial({color:'#ffffff'}))); }); });
   // domain vectors in the removed octant
-  const dirs={optical:[1,.28,.22],acoustic:[.25,1,.3],electric:[.3,.22,1],magnetic:[.8,.75,.35],thermal:[.45,.7,.9]};
+  const dirs={optical:[1,.28,.22],acoustic:[.25,1,.3],electric:[.3,.22,1],magnetic:[.8,.75,.35],thermal:[.45,.7,.9],chemical:[.75,.4,.7]};
   PD.vectors.forEach(v=>{ const d=new THREE.Vector3(...dirs[v.domain]).normalize(); const r0=mmToWorld(v.r_start_mm), r1=Math.max(mmToWorld(v.r_end_mm),r0+0.02);
     const grp=new THREE.Group();
     const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([d.clone().multiplyScalar(0),d.clone().multiplyScalar(r0)]),new THREE.LineDashedMaterial({color:DCOL[v.domain],dashSize:0.02,gapSize:0.02,transparent:true,opacity:0.5})); line.computeLineDistances(); grp.add(line);
-    const len=r1-r0; const arrow=new THREE.ArrowHelper(d,d.clone().multiplyScalar(r0),len,new THREE.Color(DCOL[v.domain]),Math.min(0.08,len*0.3),0.035); grp.add(arrow);
-    C.stations_mm.forEach((s,k)=>{ if(s>=v.r_start_mm*0.999 && s<=v.r_end_mm*1.001){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.014,12,8),new THREE.MeshBasicMaterial({color:DCOL[v.domain]})); b.position.copy(d.clone().multiplyScalar(mmToWorld(s))); grp.add(b);} });
+    const len=r1-r0; let arrow=null, wave=null;
+    if(wf){ wave=makeWaveLine(v.domain); grp.add(wave.line); grp.add(wave.mark); }
+    else { arrow=new THREE.ArrowHelper(d,d.clone().multiplyScalar(r0),len,new THREE.Color(DCOL[v.domain]),Math.min(0.08,len*0.3),0.035); grp.add(arrow); }
+    if(!wf) C.stations_mm.forEach((s,k)=>{ if(s>=v.r_start_mm*0.999 && s<=v.r_end_mm*1.001){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.014,12,8),new THREE.MeshBasicMaterial({color:DCOL[v.domain]})); b.position.copy(d.clone().multiplyScalar(mmToWorld(s))); grp.add(b);} });
     const bead=new THREE.Mesh(new THREE.SphereGeometry(0.026,16,10),new THREE.MeshBasicMaterial({color:'#ffffff'})); bead.visible=false; grp.add(bead);
-    const lab=textSprite(v.domain+' '+fmtF(v.f_start),DCOL[v.domain],0.045); lab.position.copy(d.clone().multiplyScalar(r1+0.12)); grp.add(lab);
-    cutGroup.add(grp); vecObjs.push({v,d,r0,r1,bead,arrow});});
-  // phi station rings on face 3 floor
-  C.stations_mm.forEach(s=>{ if(s<=C.R_outer_mm){const r=mmToWorld(s);const pts=[];for(let j=0;j<=30;j++){const a=j/30*Math.PI/2;pts.push(new THREE.Vector3(r*Math.cos(a),0.002,r*Math.sin(a)));}
+    const labTxt = wf? v.domain+' '+fmtF(domainFreq(v.domain))+' · λ shown ×'+waveSpec(v.domain).S.toExponential(1) : v.domain+' '+fmtF(v.f_start);
+    const lab=textSprite(labTxt,DCOL[v.domain],0.045); lab.position.copy(d.clone().multiplyScalar((wf?rq:r1)+0.14)); grp.add(lab);
+    cutGroup.add(grp); vecObjs.push({v,d,r0,r1,bead,arrow,wave,perp:new THREE.Vector3().crossVectors(d,Math.abs(d.y)>0.9?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0)).normalize()});});
+  decorateFaces();
+  // phi station rings on face 3 floor (arrow mode only; waveform view models the quartz only)
+  if(!wf) C.stations_mm.forEach(s=>{ if(s<=C.R_outer_mm){const r=mmToWorld(s);const pts=[];for(let j=0;j<=30;j++){const a=j/30*Math.PI/2;pts.push(new THREE.Vector3(r*Math.cos(a),0.002,r*Math.sin(a)));}
     cutGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineDashedMaterial({color:'#ffffff',dashSize:0.01,gapSize:0.015})).computeLineDistances());}});
 }
 function updateCut(t){
   const sel=[$('f0').value,$('f1').value,$('f2').value];
   faces.forEach((F,k)=>{ const dom=sel[k]; const vals=normField(dom,fieldNow(dom,t)); const col=F.mesh.geometry.attributes.color;
-    for(let i=0;i<F.nR;i++){const c=colormap(vals[i]);for(let j=0;j<F.nA;j++)col.setXYZ(i*F.nA+j,c[0],c[1],c[2]);} col.needsUpdate=true;});
+    const wfOn=$('wf').checked, rqmm=C.OD_quartz_mm/2;
+    for(let i=0;i<F.nR;i++){const c=(wfOn && C.r_mm[i]>rqmm*1.0001)?[0.16,0.17,0.19]:colormap(vals[i]);for(let j=0;j<F.nA;j++)col.setXYZ(i*F.nA+j,c[0],c[1],c[2]);} col.needsUpdate=true;});
   const ph=performance.now()/1000;
   vecObjs.forEach((o,k)=>{ // breathing pulse along each vector; bead at the computed front where meaningful
     let frac=1; if(t!==null){ frac=frontFraction(o.v.domain,t); }
     o.bead.visible = t!==null; o.bead.position.copy(o.d.clone().multiplyScalar(o.r0+(o.r1-o.r0)*frac));
-    const s=1+0.08*Math.sin(2*Math.PI*(0.6+0.15*k)*ph); o.arrow.scale.set(s,1,s);});
+    if(o.arrow){ const s=1+0.08*Math.sin(2*Math.PI*(0.6+0.15*k)*ph); o.arrow.scale.set(s,1,s); }
+    if(o.wave){ o.bead.visible=false; fillWave(o.wave,o.v.domain,t,(r,y)=>o.d.clone().multiplyScalar(mmToWorld(r)).add(o.perp.clone().multiplyScalar(y*0.05))); }});
 }
 function frontFraction(dom,t){ // fraction of the vector the domain front has covered by time t (true-scale propagation)
   const v=PD.vectors.find(x=>x.domain===dom); const P=propForDomain(dom); const r=Math.min(frontRadius(P,t),v.r_end_mm);
   return Math.max(0,Math.min(1,(r-v.r_start_mm)/Math.max(v.r_end_mm-v.r_start_mm,1e-9)));}
+
+// ---------------- waveforms (HHO core -> quartz OD only) ----------------
+const PHI=(1+Math.sqrt(5))/2;
+// golden-ratio coupling: ONLY the HHO->quartz boundary is applied. quartz->outside is a HOOK for the next step (apply:false).
+const PHI_BOUNDARIES=[{id:'hho_quartz',apply:true,r:()=>C.propagation.r_in_mm},{id:'quartz_outside',apply:false,r:()=>C.OD_quartz_mm/2}];
+function waveSpec(dom){
+  const a=C.propagation.r_in_mm, b=C.OD_quartz_mm/2, f=domainFreq(dom), g=PD.gas||{};
+  const cg=g.c_hot||C.propagation.c_sound_gas, rhoG=(g.p_seal_Pa||C.p_atm*101325)*0.012011/(8.314*293);
+  const kG=0.1114*Math.pow((g.T_gas_K||293)/293,0.75), aG=kG/(rhoG*2423), aQ=6.2/(2650*740);
+  let lg,lq,decay=false, what;
+  if(dom==='optical'){ lg=2.998e8/f; lq=lg/1.554; what='transverse E of Balmer light (λ/n)'; }
+  else if(dom==='acoustic'){ lg=cg/f; lq=5900/f; what='pressure p(r) (longitudinal wave, plotted transverse)'; }
+  else if(dom==='electric'){ lg=2.998e8/f; lq=lg/Math.sqrt(4.5); what='transverse E (λ = c/(f√ε))'; }
+  else if(dom==='magnetic'){ lg=2.998e8/f; lq=lg/Math.sqrt(4.5); what=C.propagation.bare?'B = 0 in the bare test (flat, dashed)':'transverse B'; }
+  else if(dom==='chemical'){ const w=2*Math.PI*f, D=PD.chemical.D_H; lg=2*Math.PI*Math.sqrt(2*D/w); lq=lg; decay=true; what='radical (H, O, OH) concentration diffusion wave; ends at the inner wall (surface recombination)'; }
+  else { const w=2*Math.PI*f; lg=2*Math.PI*Math.sqrt(2*aG/w); lq=2*Math.PI*Math.sqrt(2*aQ/w); decay=true; what='damped thermal wave (amplitude e^-2π per λ, log-compressed)'; }
+  const Ncore=decay?1.0:3.0, S=a/(Ncore*lg*1e3);   // displayed λ = S × physical λ (one S per domain)
+  const mode=$('phimode').value, bnd=PHI_BOUNDARIES[0];
+  const lamQ = S*lq*1e3*(bnd.apply&&mode==='lambda'?PHI:1), jump=(bnd.apply&&mode==='phase')?2*Math.PI/(PHI*PHI):0;
+  return {a,b:(dom==='chemical'?a:b),f,S,lgD:S*lg*1e3,lqD:lamQ,lg,lq,jump,decay,what,ratioPhys:lq/lg,zero:(dom==='magnetic'&&C.propagation.bare)};
+}
+function makeWaveLine(dom){
+  const N=1600, geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array((N+1)*3),3));
+  const mat = (dom==='magnetic'&&C.propagation.bare)? new THREE.LineDashedMaterial({color:DCOL[dom],dashSize:0.02,gapSize:0.02}) : new THREE.LineBasicMaterial({color:DCOL[dom]});
+  const line=new THREE.Line(geo,mat); line.frustumCulled=false;
+  const mark=new THREE.Mesh(new THREE.SphereGeometry(0.016,12,8),new THREE.MeshBasicMaterial({color:'#ffffff'}));
+  return {line,mark,N,dom};
+}
+function wavePhaseAt(W,r){ return r<=W.a? r/W.lgD : W.a/W.lgD+(r-W.a)/W.lqD; }
+function fillWave(wv,dom,t,map){
+  const W=waveSpec(dom), pos=wv.line.geometry.attributes.position, tau=performance.now()/1000;
+  let rf=W.b; if(t!==null){ rf=Math.min(frontRadius(propForDomain(dom),t),W.b); }
+  let n=0;
+  for(let i=0;i<=wv.N;i++){ const r=W.b*i/wv.N; if(r>rf) break;
+    const cyc=wavePhaseAt(W,r); let y=0;
+    if(!W.zero){ const ph=2*Math.PI*(cyc-tau/2)+(r>W.a?W.jump:0); y=Math.cos(ph);
+      if(W.decay){ const nd= r<=W.a? r/(W.lg*1e3/(2*Math.PI)) : W.a/(W.lg*1e3/(2*Math.PI))+(r-W.a)/(W.lq*1e3/(2*Math.PI)); y*=Math.max(0,1-nd/12); } }
+    const p=map(r,y); pos.setXYZ(n++,p.x,p.y,p.z); }
+  wv.line.geometry.setDrawRange(0,n); pos.needsUpdate=true; if(wv.line.computeLineDistances) wv.line.computeLineDistances();
+  const pm=map(W.a,0); wv.mark.position.copy(pm); wv.mark.visible = rf>=W.a;
+}
+// ---------------- face labels / outlines / legend (mobile-readable) ----------------
+let faceDeco=null;
+function bigLabel(txt,color,h=0.11){ const c=document.createElement('canvas'); c.width=1024; c.height=150; const g=c.getContext('2d'); g.font='bold 92px system-ui';
+  const w=Math.min(1010,g.measureText(txt).width+40); g.fillStyle='rgba(8,10,16,0.82)'; g.fillRect(0,0,w,150); g.strokeStyle=color; g.lineWidth=8; g.strokeRect(4,4,w-8,142); g.fillStyle=color; g.fillText(txt,20,108);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true})); s.scale.set(h*1024/150,h,1); s.center.set((w/2)/1024,0.5); s.renderOrder=10; return s; }
+function decorateFaces(){
+  if(faceDeco){ cutGroup.remove(faceDeco); } faceDeco=new THREE.Group(); cutGroup.add(faceDeco);
+  const sel=[$('f0').value,$('f1').value,$('f2').value];
+  faces.forEach((F,k)=>{ const pl=F.pl, dom=sel[k], col=DCOL[dom];
+    const L=bigLabel('face '+(k+1)+' '+dom.toUpperCase(),col,0.085); L.position.copy(pl[0].clone().add(pl[1]).multiplyScalar(0.47)); faceDeco.add(L);
+    const pts=[new THREE.Vector3(0,0,0)]; for(let j=0;j<=40;j++){const a=j/40*Math.PI/2; pts.push(pl[0].clone().multiplyScalar(Math.cos(a)).add(pl[1].clone().multiplyScalar(Math.sin(a))).multiplyScalar(0.995));} pts.push(new THREE.Vector3(0,0,0));
+    const segs=[]; for(let i=0;i<pts.length-1;i++) segs.push(new THREE.LineCurve3(pts[i],pts[i+1])); const cp=new THREE.CurvePath(); segs.forEach(s=>cp.add(s));
+    faceDeco.add(new THREE.Mesh(new THREE.TubeGeometry(cp,200,0.007,6,false),new THREE.MeshBasicMaterial({color:col}))); });
+  if($('legend')) $('legend').innerHTML = legendHTML();
+}
+function legendHTML(){ const sel=[$('f0').value,$('f1').value,$('f2').value];
+  return sel.map((d,k)=>`<div class="facekey" style="color:${DCOL[d]}">face ${k+1} → ${d.toUpperCase()}</div>`).join('')+DOMS.map(d=>`<div><span class="sw" style="background:${DCOL[d]}"></span>${d}</div>`).join('')+'<div class="small">faces: inferno colormap (normalised per field; acoustic, optical &amp; chemical log scale)</div>'; }
 
 // ---------------- propagation model (true scale, mm & s) ----------------
 const MATN={quartz:1.554,layer2:1.42,phos_in:1.8,bto:2.4,phos_out:1.41}; // optical index (rec/est); metals absorb
@@ -200,6 +283,7 @@ function propForDomain(dom){
     if(dom==='optical'){ v = m.key==='gas'||m.key==='air'? pr.c : (MATN[m.key]? pr.c/(m.key==='quartz'?pr.n_group_quartz_486:MATN[m.key]) : null); }
     else if(dom==='electric'||dom==='magnetic'){ v = m.key==='gas'||m.key==='air'? pr.c : pr.c/Math.sqrt(EPSRF[m.key]||4); }
     else if(dom==='acoustic'){ v = m.key==='gas'? pr.c_sound_gas : m.key==='air'? 343 : (m.key==='quartz'? pr.cL_quartz_danny : M[m.key].cL); }
+    else if(dom==='chemical'){ alpha = m.key==='gas'? PD.chemical.D_H : null; v=null; }
     else { alpha = m.key==='gas'? pr.alpha_gas : m.key==='air'? 2.2e-5 : M[m.key].k/(M[m.key].rho*M[m.key].cp); }
     segs.push({a:m.a,b:m.b,v,alpha,key:m.key}); }
   return segs;}
@@ -209,11 +293,11 @@ function arrivalTime(segs,r){ // r in mm
   return segs[0].alpha!=null? s*s : t;}
 function frontRadius(segs,t){ let lo=0, hi=segs[segs.length-1].b; if(arrivalTime(segs,hi)<=t) return hi;
   for(let k=0;k<50;k++){const m=0.5*(lo+hi); if(arrivalTime(segs,m)<=t) lo=m; else hi=m;} return lo;}
-function domainFreq(dom){ if((dom==='electric'||dom==='magnetic') && window.DRIVE_F) return window.DRIVE_F; if(dom==='optical') return 2.998e8/486.1e-9; if(dom==='acoustic') return PD.acoustic.f_drive; if(dom==='thermal') return 2*(window.DRIVE_F||PD.electric.f_e); return PD.electric.f_e; }
-function termRadius(dom){ const v=PD.vectors.find(x=>x.domain===dom); return dom==='optical'&&C.propagation.bare? C.R_outer_mm*1.5 : v.r_end_mm; }
+function domainFreq(dom){ if((dom==='electric'||dom==='magnetic') && window.DRIVE_F) return window.DRIVE_F; if(dom==='optical') return 2.998e8/486.1e-9; if(dom==='acoustic') return PD.acoustic.f_drive; if(dom==='thermal'||dom==='chemical') return 2*(window.DRIVE_F||PD.electric.f_e); return PD.electric.f_e; }
+function termRadius(dom){ const v=PD.vectors.find(x=>x.domain===dom); const r= dom==='optical'&&C.propagation.bare? C.R_outer_mm*1.5 : v.r_end_mm; return ($('wf')&&$('wf').checked)? Math.min(r,C.OD_quartz_mm/2) : r; }
 
 // ---------------- orthographic scene ----------------
-let orthoSectors=[], orthoFronts=[], OSC=1;
+let orthoSectors=[], orthoFronts=[], orthoWaves=[], OSC=1;
 function setOrthoFrustum(){ const v=$('view'); const w=v.clientWidth||800,h=v.clientHeight||600; if(!C) return; const R=C.R_outer_mm*2.05; const asp=w/h;
   ocam.left=-R*asp; ocam.right=R*asp; ocam.top=R; ocam.bottom=-R; ocam.updateProjectionMatrix(); OSC=h/(2*R);}
 function buildOrtho(){
@@ -221,10 +305,11 @@ function buildOrtho(){
   const R=C.R_outer_mm;
   // layers as true-scale filled rings
   const L=[{key:'core',a:0,b:C.propagation.r_in_mm}].concat(C.layers.filter(l=>l.key!=='core').map(l=>({key:l.key,a:l.a_mm,b:l.b_mm})));
-  L.forEach(l=>{ const g=new THREE.RingGeometry(Math.max(l.a,1e-6),l.b,160,1); const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:LCOL[l.key]||'#777',transparent:true,opacity:l.key==='core'?0.30:0.22,side:THREE.DoubleSide,depthWrite:false})); m.position.z=-1; orthoGroup.add(m);
+  const wfO=$('wf').checked, rqO=C.OD_quartz_mm/2;
+  L.forEach(l=>{ const out=wfO && l.a>=rqO-1e-9; const g=new THREE.RingGeometry(Math.max(l.a,1e-6),l.b,160,1); const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:out?'#30333a':(LCOL[l.key]||'#777'),transparent:true,opacity:l.key==='core'?0.30:0.22,side:THREE.DoubleSide,depthWrite:false})); m.position.z=-1; orthoGroup.add(m);
     const pts=[];for(let j=0;j<=200;j++){const a=j/200*2*Math.PI;pts.push(new THREE.Vector3(l.b*Math.cos(a),l.b*Math.sin(a),0));} orthoGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:LCOL[l.key]||'#999'}))); });
   // sectors per domain: radial strips coloured by instantaneous field
-  DOMS.forEach((dom,k)=>{ const a0=(k*72+4)*Math.PI/180, a1=((k+1)*72-4)*Math.PI/180; const nR=220, nA=10, rmax=R*1.5;
+  DOMS.forEach((dom,k)=>{ const a0=(k*SECT+3)*Math.PI/180, a1=((k+1)*SECT-3)*Math.PI/180; const nR=220, nA=10, rmax=R*1.5;
     const pos=new Float32Array((nR+1)*(nA+1)*3), col=new Float32Array((nR+1)*(nA+1)*3), idx=[];
     for(let i=0;i<=nR;i++){const r=i/nR*rmax; for(let j=0;j<=nA;j++){const a=a0+(a1-a0)*j/nA; pos.set([r*Math.cos(a),r*Math.sin(a),0.5],(i*(nA+1)+j)*3);} }
     for(let i=0;i<nR;i++)for(let j=0;j<nA;j++){const p=i*(nA+1)+j,q=p+1,s=p+nA+1,u=s+1;idx.push(p,s,q,q,s,u);}
@@ -237,11 +322,12 @@ function buildOrtho(){
     // sector boundary spokes
     [a0,a1].forEach(a=>{orthoGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0.6),new THREE.Vector3(rmax*Math.cos(a),rmax*Math.sin(a),0.6)]),new THREE.LineBasicMaterial({color:'#333b4d'})));});
   });
+  orthoWaves=[]; if(wfO){ DOMS.forEach((dom,k)=>{ const wv=makeWaveLine(dom); wv.line.position.z=1.2; wv.mark.scale.setScalar(C.R_outer_mm*0.9); wv.mark.position.z=1.2; orthoGroup.add(wv.line); orthoGroup.add(wv.mark); orthoWaves.push({dom,wv,th:((k+0.5)*SECT)*Math.PI/180}); }); }
   // radial tick axis along -x
   const ax=[new THREE.Vector3(0,0,0.9),new THREE.Vector3(R*1.45,0,0.9)]; orthoGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ax),new THREE.LineBasicMaterial({color:'#bbbbbb'})));
   setOrthoFrustum(); applyAxis();
 }
-function applyAxis(){ const a=$('axis').value; ocam.position.set(0,0,0); ocam.up.set(0,1,0); orthoGroup.rotation.set(0,0,0);
+function applyAxis(){ const a=$('axis').value; ocam.zoom=1; ocam.updateProjectionMatrix(); if(ocontrols){ocontrols.target.set(0,0,0);} ocam.position.set(0,0,0); ocam.up.set(0,1,0); orthoGroup.rotation.set(0,0,0);
   if(a==='z'){ ocam.position.set(0,0,10); } if(a==='x'){ ocam.position.set(10,0,0); orthoGroup.rotation.set(0,Math.PI/2,0);} if(a==='y'){ ocam.position.set(0,10,0); ocam.up.set(0,0,-1); orthoGroup.rotation.set(-Math.PI/2,0,0);} ocam.lookAt(0,0,0); }
 function tickStep(R){ const raw=R/6; const p=Math.pow(10,Math.floor(Math.log10(raw))); for(const m of [1,2,5,10]) if(m*p>=raw) return m*p; return p*10;}
 let domClock={};
@@ -256,7 +342,7 @@ function updateOrtho(tShared){
     domClock[S.dom]={t,factor,f};
     const rf=Math.min(frontRadius(segs,t),rEnd); domClock[S.dom].rf=rf;
     const col=S.mesh.geometry.attributes.color; const base=new THREE.Color(DCOL[S.dom]);
-    const pxPerMM=OSC; const amp0 = (S.dom==='magnetic' && C.propagation.bare)? 0.0 : 1.0;
+    const pxPerMM=OSC*ocam.zoom; const amp0 = (S.dom==='magnetic' && C.propagation.bare)? 0.0 : 1.0;
     for(let i=0;i<=S.nR;i++){ const r=i/S.nR*S.rmax; let w=0;
       if(r<=rf && r<=rEnd){ const ta=arrivalTime(segs,r); const loc=segs.find(g=>r>=g.a&&r<=g.b)||segs[0];
         let lam = loc.alpha!=null? 2*Math.PI*Math.sqrt(loc.alpha/(Math.PI*f))*1e3 : (loc.v||1)/f*1e3; // mm
@@ -268,6 +354,8 @@ function updateOrtho(tShared){
     col.needsUpdate=true;
     const F=orthoFronts[k]; F.line.scale.set(Math.max(rf,1e-6),Math.max(rf,1e-6),1); F.line2.scale.set(Math.max(rf,1e-6)*1.004,Math.max(rf,1e-6)*1.004,1);
   });
+  orthoWaves.forEach(o=>{ const c=Math.cos(o.th), s_=Math.sin(o.th), A=C.R_outer_mm*0.06; const t=(mode==='dilate')? (domClock[o.dom]?domClock[o.dom].t:null) : tShared;
+    fillWave(o.wv,o.dom,t===null?null:t,(r,y)=>new THREE.Vector3(r*c-y*A*s_, r*s_+y*A*c, 1.2)); });
   drawOrthoOverlay(tShared,mode);
 }
 function w2s(x,y,z=0){ const v=new THREE.Vector3(x,y,z).applyMatrix4(orthoGroup.matrixWorld).project(ocam); return [(v.x+1)/2*overlay.width,(1-v.y)/2*overlay.height]; }
@@ -279,21 +367,24 @@ function drawOrthoOverlay(tShared,mode){
   for(let r=0;r<=R*1.45+1e-9;r+=st/5){ const [x,y]=w2s(r,0,0.9); const big=Math.abs(r/st-Math.round(r/st))<1e-6; g.beginPath(); g.moveTo(x,y-(big?7:3)); g.lineTo(x,y+(big?7:3)); g.stroke(); if(big) g.fillText(r.toFixed(st<0.1?2:st<1?1:0),x-8,y+19); }
   { const [x,y]=w2s(R*1.45,0,0.9); g.fillText('mm',x+6,y+4); }
   // scale bar
-  const [sx,sy]=[30,overlay.height-30]; const len=st*OSC; g.fillRect(sx,sy,len,4); g.fillText(st+' mm (true scale)',sx,sy-6);
+  const [sx,sy]=[30,overlay.height-30]; const len=st*OSC*ocam.zoom; g.fillRect(sx,sy,len,4); g.fillText(st+' mm (true scale)',sx,sy-6);
   // labels per sector
-  DOMS.forEach((dom,k)=>{ const a=((k+0.5)*72)*Math.PI/180; const rr=R*1.58; const [x,y]=w2s(rr*Math.cos(a),rr*Math.sin(a)); const c=domClock[dom]; if(!c) return;
+  DOMS.forEach((dom,k)=>{ const a=((k+0.5)*SECT)*Math.PI/180; const rr=R*1.58; const [x,y]=w2s(rr*Math.cos(a),rr*Math.sin(a)); const c=domClock[dom]; if(!c) return;
     g.fillStyle=DCOL[dom]; g.font='bold 13px system-ui'; g.fillText(dom.toUpperCase(),x-40,y-22); g.font='11px system-ui';
     const seg=propForDomain(dom); const loc=seg.find(s=>c.rf>=s.a&&c.rf<=s.b)||seg[1]; const lam=loc.alpha!=null? 2*Math.PI*Math.sqrt(loc.alpha/(Math.PI*c.f)) : (loc.v||0)/c.f;
     g.fillText('f '+fmtF(c.f)+'  λ_local '+(lam<1e-3?(lam*1e6).toPrecision(3)+' µm':lam<1?(lam*1e3).toPrecision(3)+' mm':lam.toPrecision(3)+' m'),x-40,y-8);
     g.fillText('front r = '+c.rf.toPrecision(3)+' mm',x-40,y+6);
     g.fillText(mode==='dilate'? 'own clock '+fmtT(c.t)+'  (×'+c.factor.toExponential(2)+' of display s)' : 't '+fmtT(c.t),x-40,y+20);
     const ph=((2*Math.PI*c.f*c.t)%(2*Math.PI)); const cx=x+150,cy=y-4; g.strokeStyle=DCOL[dom]; g.beginPath(); g.arc(cx,cy,10,0,2*Math.PI); g.stroke(); g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx+10*Math.cos(ph),cy-10*Math.sin(ph)); g.stroke();
+    if($('wf').checked){ const W=waveSpec(dom); g.fillText('wave λ shown ×'+W.S.toExponential(1)+'; quartz/HHO λ '+W.ratioPhys.toPrecision(3)+(W.jump?' , φ phase step':($('phimode').value==='lambda'?' ×φ':'')),x-40,y+48); }
     if(dom==='thermal') g.fillText('thermal wave decays within δ=λ/2π',x-40,y+34);
+    if(dom==='chemical') g.fillText('core only; ends at inner wall · knee: not defined',x-40,y+34);
     if(dom==='magnetic'&&C.propagation.bare) g.fillText('B ≈ 0 (no magnetic element; symmetric current)',x-40,y+34);
   });
+  if($('wf').checked && C.R_outer_mm>C.OD_quartz_mm/2*1.001){ const [qx,qy]=w2s(0,-(C.OD_quartz_mm/2+C.R_outer_mm)/2,1); g.fillStyle='#b8bcc6'; g.font='bold 12px system-ui'; g.fillText('outside quartz OD: not modelled yet',qx-100,qy); }
   g.fillStyle='#ffffff'; g.font='bold 13px system-ui'; g.fillText(C.label+' · '+PD.P_circ+' W', 10, 18);
   g.fillStyle='#ffd27a'; g.font='bold 12px system-ui';
-  g.fillText(mode==='dilate'? 'PER-DOMAIN TIME DILATION: each domain on its own clock (front reaches its end in 6 display-s); factor per sector. Phases NOT simultaneous.' : 'SHARED REAL-TIME CLOCK: all five fronts at the same physical time t = '+(tShared===null?'steady state (press GO)':fmtT(tShared)), 10, 36);
+  g.fillText(mode==='dilate'? 'PER-DOMAIN TIME DILATION: each domain on its own clock (front reaches its end in 6 display-s); factor per sector. Phases NOT simultaneous.' : 'SHARED REAL-TIME CLOCK: all six fronts at the same physical time t = '+(tShared===null?'steady state (press GO)':fmtT(tShared)), 10, 36);
   if(window.DRIVE_F){ g.fillStyle='#ffd27a'; g.font='11px system-ui'; g.fillText('E/B sectors at the user drive f = '+fmtF(window.DRIVE_F)+' (one cycle = '+fmtT(1/window.DRIVE_F)+'); λ ≫ sphere so the field is quasi-static (flat tint).',10,66); }
   g.fillStyle='#9aa6bd'; g.font='11px system-ui';
   g.fillText('Orthographic, view along +'+$('axis').value.toUpperCase()+'. Radial (l=0) model: all axes look the same in v0. Stripes = cos(2πf(t−t_arr)); flat tint = λ < 3 px. Thermal = diffusion envelope. E/B front at c/√ε_RF.', 10, 52);
@@ -321,6 +412,7 @@ function drawSpec(){
   const fe0=PD.electric.f_zero_bias, fe=PD.electric.f_e; const x0=X(mmToDisp(V.electric.r_start_mm)), x1=Math.max(X(mmToDisp(V.electric.r_end_mm)),x0+4);
   g.fillStyle=DCOL.electric+'55'; g.fillRect(x0,Math.min(Y(fe0),Y(fe))-2,x1-x0,Math.abs(Y(fe0)-Y(fe))+4); hline(fe,mmToDisp(V.electric.r_start_mm),mmToDisp(V.electric.r_end_mm),DCOL.electric);
   if(!C.propagation.bare) hline(fe,mmToDisp(V.magnetic.r_start_mm),mmToDisp(V.magnetic.r_end_mm),DCOL.magnetic,false,3);
+  if(V.chemical) hline(V.chemical.f_start,0,mmToDisp(V.chemical.r_end_mm),DCOL.chemical);   // chemical: discharge-pulse rate, core only
   // thermal track
   g.strokeStyle=DCOL.thermal; g.lineWidth=2; g.beginPath(); PD.thermal_track.forEach(([r,f],i)=>{ if(!f) return; const x=X(mmToDisp(r)), y=Y(f); i?g.lineTo(x,y):g.moveTo(x,y);}); g.stroke(); g.lineWidth=1;
   [[11,'11 Hz rung'],[35,'35 Hz'],[1e3,'1 kHz']].forEach(([f,l])=>{ hline(f,0,1,'#ffffff33',true,1); g.fillStyle='#ffffff77'; g.fillText(l,W-Rt-50,Y(f)-2); });
@@ -341,28 +433,32 @@ function fillSide(){
    <tr><td>Magnetic</td><td>${m.none?m.note:`L ${fmt(m.L_nH)} nH (1 turn); Q_f ${fmt(m.Q_f)}; ferrite loss ${fmt(m.P_ferr)} W; B equator ${fmt(m.B_eq_mT)} mT, near feed holes ${fmt(m.B_max_mT)} mT`}</td></tr>
    <tr><td>Optical</td><td>Balmer out of core ${fmt(o.P_opt)} W; downshifted ${fmt(o.converted_W)} W; escaping ${fmt(o.escaped_W)} W</td></tr>
    ${PD.gas?`<tr><td>HHO gas state (computed, coupled)</td><td>T_gas ${fmt(PD.gas.T_gas_K)} K [est = inner wall, lower bound]; sealed ${fmt(PD.gas.p_seal_Pa)} Pa at ${PD.gas.T_seal_K} K → p ${fmt(PD.gas.p_hot_Pa)} Pa (fixed N, V); c ${fmt(PD.gas.c_seal)} → ${fmt(PD.gas.c_hot)} m/s; hot gas-loaded modes ${(PD.gas.gas_modes_hot||[]).slice(0,3).map(fmtF).join(', ')}; Paschen knee ∝ n·d (unchanged to first order)</td></tr>`:''}
+   ${PD.chemical?`<tr><td style="color:${DCOL.chemical}">Chemical</td><td>stored 2H2+O2→2H2O ${fmt(PD.chemical.E_store_J)} J; dissociation ${fmt(PD.chemical.P_diss_W)} W ⇒ ${fmt(PD.chemical.R_diss_per_s)} H2/s; fill converted in ${fmtT(PD.chemical.t_conv_s)} releasing ${fmt(PD.chemical.P_release_W)} W meanwhile (fed to thermal); wall recombination ${fmt(PD.chemical.P_wall_recomb_W)} W; H diffusion τ ${fmtT(PD.chemical.tau_D_s)}; <b>knee: not defined</b>. <span class="small">${PD.chemical.sources}</span></td></tr>`:''}
    <tr><td>Thermal (steady)</td><td>quartz inner ${fmt(t.T_quartz_in)} K / outer ${fmt(t.T_quartz_out)} K; wall ΔT ${fmt(t.dT_wall)} K${C.propagation.bare?'':`; phosphor ${fmt(t.T_phos)} K; BTO ${fmt(t.T_bto)} K; Gd-Dy ${fmt(t.T_gddy)} K; CALORIVAC max ${fmt(t.T_calorivac_max)} K`}; total heat ${fmt(t.total_heat_W)} W</td></tr></table>`;
   $('flags').innerHTML = PD.flags.length? PD.flags.map(f=>`<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No limit crossed at this power (estimated physics).</div>';
   $('vecs').innerHTML = '<table>'+PD.vectors.map(v=>`<tr><td style="color:${DCOL[v.domain]}">${v.domain}</td><td>${fmtF(v.f_start)}${v.f_end!==v.f_start?' → '+fmtF(v.f_end):''}</td><td>${fmt(v.r_start_mm,4)} → ${fmt(v.r_end_mm,4)} mm</td><td class="small">${v.what}</td></tr>`).join('')+'</table>';
   $('layers').innerHTML = '<table>'+C.layers.map(l=>`<tr><td><span class="sw" style="background:${LCOL[l.key]}"></span>${l.name}</td><td>${fmt(l.a_mm,5)}–${fmt(l.b_mm,5)} mm</td><td class="small">${l.tags}</td></tr>`).join('')+'</table>'+(C.note?`<div class="small">${C.note}</div>`:'');
-  $('legend').innerHTML = DOMS.map(d=>`<div><span class="sw" style="background:${DCOL[d]}"></span>${d}</div>`).join('')+'<div class="small">faces: inferno colormap (normalised per field)</div>';
+  $('legend').innerHTML = legendHTML();
 }
 function hud(t){
   const mode=$('viewmode').value; $('hud').style.display = mode==='cut'?'block':'none'; $('legend').style.display = mode==='cut'?'block':'none';
   $('hud').innerHTML = `<b>${C.label}</b><br>${PD.P_circ} W ${C.propagation.bare?'plasma heat / circulating':'circulating per domain'} · ${t===null?'<b>steady state</b> (press GO)':'<b>t = '+fmtT(t)+'</b> after ionisation ON'}<br>`+
-   (mode==='cut'? `Quarter-cut: faces = ${$('f0').value} / ${$('f1').value} / ${$('f2').value}. ${$('rscale').value==='true'?'True radial scale.':'Thin films exaggerated (not to scale).'} Arrows: domain vectors (start freq labelled), beads = φ stations, white bead = computed front.` : `Orthographic true-scale view; ${$('clock').value==='dilate'?'per-domain time dilation':'shared real-time clock'}.`);
+   (mode==='cut'? `Quarter-cut: faces = ${$('f0').value} / ${$('f1').value} / ${$('f2').value}. ${$('rscale').value==='true'?'True radial scale.':'Thin films exaggerated (not to scale).'} ${$('wf').checked?`Waveforms (HHO core → quartz OD only): each domain's own λ, shown ×S (labelled); φ step ONLY at HHO→quartz (${$('phimode').value==='lambda'?'quartz λ_shown ×φ on top of the physical speed ratio':$('phimode').value==='phase'?'phase +2π/φ² at the inner wall':'off'}); white dot = φ boundary; outside quartz not modelled yet.`:'Arrows: domain vectors (start freq labelled), beads = φ stations, white bead = computed front.'}<br><span class="small">Core: ${[...new Set([$('f0').value,$('f1').value,$('f2').value])].map(d=>`<b style="color:${DCOL[d]}">${d}</b> ${(PD.core_note||{})[d]||''}`).join('<br>')}</span>` : `Orthographic true-scale view; ${$('clock').value==='dilate'?'per-domain time dilation':'shared real-time clock'}.`);
   $('tval').textContent = t===null?'steady':fmtT(t);
 }
 
 // ---------------- control wiring ----------------
-function loadCase(){ C=D.cases[+$('preset').value]; window.CUR_CASE=C; if(window.drivePresetChanged) window.drivePresetChanged(C); const keys=Object.keys(C.powers); const cur=$('power').value;
+function loadCase(){ C=D.cases[+$('preset').value]; window.CUR_CASE=C; if(window.drivePresetChanged) window.drivePresetChanged(C); const keys=Object.keys(C.powers).sort((x,y)=>(+x)-(+y)); const cur=$('power').value;
   $('power').innerHTML=keys.map(k=>`<option value="${k}">${(+k)>=1000?(+k/1000)+' kW':k+' W'}</option>`).join(''); $('power').value= keys.includes(cur)?cur:keys[Math.min(1,keys.length-1)];
   $('pnote').textContent = C.propagation.bare? '(bare test: P = plasma heat on inner wall)' : '(each domain circulates P at once)';
   loadPower(); }
-function loadPower(){ PD=C.powers[$('power').value]; buildCut(); buildOrtho(); fillSide(); drawSpec(); stop(); }
+function loadPower(){ octx.clearRect(0,0,overlay.width,overlay.height); PD=C.powers[$('power').value]; buildCut(); buildOrtho(); fillSide(); drawSpec(); stop(); }
 function stop(){ running=false; tNow=null; $('go').classList.remove('on'); $('go').textContent='GO — switch ionisation ON'; $('tslider').value=1000; }
+['f0','f1','f2'].forEach(id=>$(id).addEventListener('change',()=>decorateFaces()));
+$('wf').onchange=()=>{buildCut(); buildOrtho();}; $('phimode').onchange=()=>{buildCut(); buildOrtho();};
+$('qop').oninput=()=>{ $('qopv').textContent=(+$('qop').value).toFixed(2); if(window._qmat){ window._qmat.opacity=+$('qop').value; window._qmat.needsUpdate=true; } };
 $('preset').onchange=loadCase; $('power').onchange=loadPower; $('rscale').onchange=()=>{buildCut();};
-$('viewmode').onchange=()=>{ $('cutopts').style.display=$('viewmode').value==='cut'?'flex':'none'; $('orthoopts').style.display=$('viewmode').value==='ortho'?'flex':'none'; };
+$('viewmode').onchange=()=>{ octx.clearRect(0,0,overlay.width,overlay.height); controls.enabled=$('viewmode').value==='cut'; ocontrols.enabled=$('viewmode').value==='ortho'; $('cutopts').style.display=$('viewmode').value==='cut'?'flex':'none'; $('orthoopts').style.display=$('viewmode').value==='ortho'?'flex':'none'; };
 $('axis').onchange=applyAxis;
 $('go').onclick=()=>{ if(running){stop();return;} running=true; t0wall=performance.now(); dispT=0; tNow=T_MIN; $('go').classList.add('on'); $('go').textContent='■ stop (ionisation ON)'; };
 $('reset').onclick=stop;
@@ -380,7 +476,7 @@ function frame(){
 function frameBody(){
   if(running){ const el=(performance.now()-t0wall)/1000; dispT=el; tNow=Math.exp(Math.log(T_MIN)+(Math.log(T_MAX)-Math.log(T_MIN))*Math.min(1,el/24)); $('tslider').value=Math.round(1000*Math.min(1,el/24)); if(el>26) running=false; }
   if($('viewmode').value==='cut'){ updateCut(tNow); controls.update(); renderer.render(scene,cam); octx.clearRect(0,0,overlay.width,overlay.height); }
-  else { updateOrtho(tNow); renderer.render(oscene,ocam); }
+  else { ocontrols.update(); updateOrtho(tNow); renderer.render(oscene,ocam); }
   hud(tNow);
 }
 resize(); loadCase(); requestAnimationFrame(frame); window.VIEWER_READY=true;

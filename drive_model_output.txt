@@ -4,21 +4,21 @@ Example inputs only (fill, amplitude and frequency are OPEN user inputs; nothing
 DBD geometry [est]: r0 50 um, gas gap 0.45 mm, C_gas 6.181e-15 F, C_barrier 5.007e-13 F, gas share 98.8 %; Paschen-min fill for this gap 22.2 Torr
 HHO c(T) = sqrt(1.4 R T / 0.012011): 293 K 532.9 m/s, 400 K 622.6, 773 K 865.5 m/s
 
-fill 22 Torr (N 3.794e+14), 600 V, f 1000 Hz (cycle 1.000e-3 s): knee 332 V | E/cycle 1.316e-7 J | dT_gas 2.153e-1 K | dT_wall 4.023e-4 K | p_max 2.935e+3 Pa | gas l0 762.7 kHz Q 12.7 | ring gas 4.045e-1 Pa, shell 1.100e-2 Pa | corners 2.00e+4 Hz, 20.3 Hz, 0.0102 Hz | flags: none
-fill 22 Torr (N 3.794e+14), 600 V, f 20 Hz (cycle 5.000e-2 s): knee 332 V | E/cycle 1.316e-7 J | dT_gas 4.541e-3 K | dT_wall 5.748e-5 K | p_max 2.933e+3 Pa | gas l0 762.4 kHz Q 12.7 | ring gas 8.093e-3 Pa, shell 2.200e-4 Pa | corners 2.00e+4 Hz, 20.3 Hz, 0.0102 Hz | flags: none
-fill 22 Torr (N 3.794e+14), 600 V, f 20000 Hz (cycle 5.000e-5 s): knee 332 V | E/cycle 1.316e-7 J | dT_gas 2.187e+0 K | dT_wall 7.235e-4 K | p_max 2.955e+3 Pa | gas l0 765.2 kHz Q 12.7 | ring gas 8.063e+0 Pa, shell 2.200e-1 Pa | corners 2.01e+4 Hz, 20.2 Hz, 0.0102 Hz | flags: none
-fill 10 Torr (N 1.725e+14), 600 V, f 1000 Hz (cycle 1.000e-3 s): knee 743 V | E/cycle 0.000e+0 J | dT_gas 2.302e-10 K | dT_wall 2.302e-10 K | p_max 1.333e+3 Pa | gas l0 762.4 kHz Q 6.6 | ring gas 0.000e+0 Pa, shell 0.000e+0 Pa | corners 4.40e+4 Hz, 20.3 Hz, 0.0102 Hz | flags: no ionisation: peak gas voltage 593 V < knee 743 V
-fill 100 Torr (N 1.725e+15), 2000 V, f 1000 Hz (cycle 1.000e-3 s): knee 596 V | E/cycle 1.487e-6 J | dT_gas 1.282e+0 K | dT_wall 3.467e-3 K | p_max 1.339e+4 Pa | gas l0 764.0 kHz Q 40.8 | ring gas 3.843e+0 Pa, shell 1.047e-1 Pa | corners 4.41e+3 Hz, 20.2 Hz, 0.0102 Hz | flags: none
-fill 760 Torr (N 1.311e+16), 5000 V, f 1000 Hz (cycle 1.000e-3 s): knee 2504 V | E/cycle 9.272e-6 J | dT_gas 5.797e+0 K | dT_wall 1.975e-2 K | p_max 1.033e+5 Pa | gas l0 769.9 kHz Q 156.1 | ring gas 1.023e+1 Pa, shell 2.807e-1 Pa | corners 587 Hz, 19.9 Hz, 0.0102 Hz | flags: none
+fill 22 Torr (N 3.794e+14), 600 V, f 1000 Hz (cycle 1.000e-3 s): knee 332 V | E/cycle 1.316e-7 J | dT_gas 2.394e-1 K | dT_wall 4.323e-4 K | p_max 2.935e+3 Pa | gas l0 762.7 kHz Q 12.7 | ring gas 4.045e-1 Pa, shell 1.100e-2 Pa | corners 2.00e+4 Hz, 20.3 Hz, 0.0102 Hz | chem heat 8.839e-9 J, H2 converted 8.701e-3 % (knee: not defined) | flags: none
+fill 22 Torr (N 3.794e+14), 600 V, f 20 Hz (cycle 5.000e-2 s): knee 332 V | E/cycle 1.316e-7 J | dT_gas 5.049e-3 K | dT_wall 6.177e-5 K | p_max 2.933e+3 Pa | gas l0 762.4 kHz Q 12.7 | ring gas 8.093e-3 Pa, shell 2.200e-4 Pa | corners 2.00e+4 Hz, 20.3 Hz, 0.0102 Hz | chem heat 8.839e-9 J, H2 converted 8.701e-3 % (knee: not defined) | flags: none
+fill 22 Torr (N 3.794e+14), 600 V, f 20000 Hz (cycle 5.000e-5 s): knee 332 V | E/cycle 1.316e-7 J | dT_gas 2.431e+0 K | dT_wall 7.771e-4 K | p_max 2.957e+3 Pa | gas l0 765.5 kHz Q 12.7 | ring gas 8.060e+0 Pa, shell 2.200e-1 Pa | corners 2.01e+4 Hz, 20.2 Hz, 0.0102 Hz | chem heat 8.839e-9 J, H2 converted 8.701e-3 % (knee: not defined) | flags: none
+fill 10 Torr (N 1.725e+14), 600 V, f 1000 Hz (cycle 1.000e-3 s): knee 743 V | E/cycle 0.000e+0 J | dT_gas 2.302e-10 K | dT_wall 2.302e-10 K | p_max 1.333e+3 Pa | gas l0 762.4 kHz Q 6.6 | ring gas 0.000e+0 Pa, shell 0.000e+0 Pa | corners 4.40e+4 Hz, 20.3 Hz, 0.0102 Hz | chem heat 0.000e+0 J, H2 converted 0.000e+0 % (knee: not defined) | flags: no ionisation: peak gas voltage 593 V < knee 743 V
+fill 100 Torr (N 1.725e+15), 2000 V, f 1000 Hz (cycle 1.000e-3 s): knee 596 V | E/cycle 1.487e-6 J | dT_gas 1.425e+0 K | dT_wall 3.725e-3 K | p_max 1.340e+4 Pa | gas l0 764.2 kHz Q 40.8 | ring gas 3.842e+0 Pa, shell 1.047e-1 Pa | corners 4.41e+3 Hz, 20.2 Hz, 0.0102 Hz | chem heat 9.991e-8 J, H2 converted 2.164e-2 % (knee: not defined) | flags: none
+fill 760 Torr (N 1.311e+16), 5000 V, f 1000 Hz (cycle 1.000e-3 s): knee 2504 V | E/cycle 9.272e-6 J | dT_gas 6.442e+0 K | dT_wall 2.101e-2 K | p_max 1.036e+5 Pa | gas l0 770.7 kHz Q 156.0 | ring gas 1.021e+1 Pa, shell 2.807e-1 Pa | corners 588 Hz, 19.9 Hz, 0.0102 Hz | chem heat 6.227e-7 J, H2 converted 1.775e-2 % (knee: not defined) | flags: none
 
 Sweep drive f (fill 22 Torr, 600 V):
-  f 20.00 Hz: E 1.316e-7 J, dT_gas 4.535e-3 K, dT_wall 5.746e-5 K, ring gas 4.047e-3 Pa, shell 1.100e-4 Pa
-  f 63.25 Hz: E 1.316e-7 J, dT_gas 1.427e-2 K, dT_wall 1.103e-4 K, ring gas 1.280e-2 Pa, shell 3.478e-4 Pa
-  f 200.0 Hz: E 1.316e-7 J, dT_gas 4.475e-2 K, dT_wall 2.002e-4 K, ring gas 4.046e-2 Pa, shell 1.100e-3 Pa
-  f 632.5 Hz: E 1.316e-7 J, dT_gas 1.383e-1 K, dT_wall 3.361e-4 K, ring gas 1.279e-1 Pa, shell 3.478e-3 Pa
-  f 2000 Hz: E 1.316e-7 J, dT_gas 4.073e-1 K, dT_wall 5.072e-4 K, ring gas 4.044e-1 Pa, shell 1.100e-2 Pa
-  f 6325 Hz: E 1.316e-7 J, dT_gas 1.052e+0 K, dT_wall 6.545e-4 K, ring gas 1.277e+0 Pa, shell 3.478e-2 Pa
-  f 2.000e+4 Hz: E 1.316e-7 J, dT_gas 2.183e+0 K, dT_wall 7.232e-4 K, ring gas 4.032e+0 Pa, shell 1.100e-1 Pa
+  f 20.00 Hz: E 1.316e-7 J, dT_gas 5.041e-3 K, dT_wall 6.175e-5 K, ring gas 4.047e-3 Pa, shell 1.100e-4 Pa
+  f 63.25 Hz: E 1.316e-7 J, dT_gas 1.587e-2 K, dT_wall 1.185e-4 K, ring gas 1.280e-2 Pa, shell 3.478e-4 Pa
+  f 200.0 Hz: E 1.316e-7 J, dT_gas 4.976e-2 K, dT_wall 2.151e-4 K, ring gas 4.046e-2 Pa, shell 1.100e-3 Pa
+  f 632.5 Hz: E 1.316e-7 J, dT_gas 1.538e-1 K, dT_wall 3.612e-4 K, ring gas 1.279e-1 Pa, shell 3.478e-3 Pa
+  f 2000 Hz: E 1.316e-7 J, dT_gas 4.529e-1 K, dT_wall 5.450e-4 K, ring gas 4.043e-1 Pa, shell 1.100e-2 Pa
+  f 6325 Hz: E 1.316e-7 J, dT_gas 1.169e+0 K, dT_wall 7.030e-4 K, ring gas 1.277e+0 Pa, shell 3.478e-2 Pa
+  f 2.000e+4 Hz: E 1.316e-7 J, dT_gas 2.427e+0 K, dT_wall 7.768e-4 K, ring gas 4.030e+0 Pa, shell 1.100e-1 Pa
 
 Sweep fill (f 1 kHz, 600 V):
   fill 0.100 Torr: knee inf V, E 0.000e+0 J, dT_gas 5.036e-10 K, gas l0 762.4 kHz
@@ -26,9 +26,9 @@ Sweep fill (f 1 kHz, 600 V):
   fill 0.651 Torr: knee inf V, E 0.000e+0 J, dT_gas 8.077e-10 K, gas l0 762.4 kHz
   fill 1.66 Torr: knee inf V, E 0.000e+0 J, dT_gas 4.483e-10 K, gas l0 762.4 kHz
   fill 4.24 Torr: knee inf V, E 0.000e+0 J, dT_gas 3.030e-11 K, gas l0 762.4 kHz
-  fill 10.8 Torr: knee 579 V, E 1.173e-8 J, dT_gas 8.925e-2 K, gas l0 762.5 kHz
-  fill 27.6 Torr: knee 339 V, E 1.308e-7 J, dT_gas 2.143e-1 K, gas l0 762.7 kHz
-  fill 70.3 Torr: knee 488 V, E 7.762e-8 J, dT_gas 1.747e-1 K, gas l0 762.6 kHz
+  fill 10.8 Torr: knee 579 V, E 1.173e-8 J, dT_gas 9.924e-2 K, gas l0 762.5 kHz
+  fill 27.6 Torr: knee 339 V, E 1.308e-7 J, dT_gas 2.383e-1 K, gas l0 762.7 kHz
+  fill 70.3 Torr: knee 488 V, E 7.762e-8 J, dT_gas 1.943e-1 K, gas l0 762.6 kHz
   fill 179 Torr: knee 868 V, E 0.000e+0 J, dT_gas 3.763e-10 K, gas l0 762.4 kHz
   fill 458 Torr: knee 1698 V, E 0.000e+0 J, dT_gas 6.991e-10 K, gas l0 762.4 kHz
   fill 1.17e+3 Torr: knee 3515 V, E 0.000e+0 J, dT_gas 4.474e-10 K, gas l0 762.4 kHz
