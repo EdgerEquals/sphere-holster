@@ -5,8 +5,9 @@
 set -o pipefail
 cd "$(dirname "$0")"
 mkdir -p out
-[ -f /home/user/.bashrc ] && source /home/user/.bashrc >/dev/null 2>&1 || true
-RA=$(command -v run_aster || ls /opt/*/bin/run_aster /opt/*/*/bin/run_aster 2>/dev/null | head -n1)
+# The image puts run_aster on PATH from ~/.bashrc of an interactive shell
+# (the workflow uses `bash -ic`); fall back to the spack install prefix.
+RA=$(command -v run_aster || ls /opt/spack/opt/spack/*/code-aster-*/bin/run_aster 2>/dev/null | head -n1)
 echo "run_aster: $RA"
 "$RA" --version 2>&1 | tee out/version.txt || true
 "$RA" cantilever.export > out/run_cantilever.log 2>&1

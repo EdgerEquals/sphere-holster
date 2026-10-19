@@ -2,10 +2,11 @@
 # Runs inside the pinned OpenFOAM container. Copies the stock icoFoam
 # lid-driven cavity tutorial, meshes it, solves to t = 0.5 s, and leaves the
 # logs + final fields in sim/openfoam/out for check_cavity.py.
+RC=$(ls /usr/lib/openfoam/openfoam*/etc/bashrc /opt/openfoam*/etc/bashrc 2>/dev/null | head -n1)
+[ -n "$RC" ] || { echo "OpenFOAM bashrc not found"; exit 1; }
+# OpenFOAM's bashrc must be sourced at top level with errexit off
+source "$RC" || true
 set -eo pipefail
-for rc in /usr/lib/openfoam/openfoam*/etc/bashrc /opt/openfoam*/etc/bashrc; do
-  [ -f "$rc" ] && { set +u; source "$rc"; break; }
-done
 command -v icoFoam >/dev/null || { echo "OpenFOAM environment not found"; exit 1; }
 OUT="$(cd "$(dirname "$0")" && pwd)/out"
 rm -rf "$OUT/cavity" && mkdir -p "$OUT"

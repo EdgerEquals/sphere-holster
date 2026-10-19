@@ -116,7 +116,7 @@ jobs:
         run: |
           mkdir -p sim/code_aster/out && chmod -R a+rwX sim
           docker run --rm -v "$PWD:/home/user/repo" -w /home/user/repo "$CODE_ASTER_IMAGE" \
-            bash -lc 'bash sim/code_aster/run_aster_smoke.sh'
+            bash -ic 'bash sim/code_aster/run_aster_smoke.sh'
       - name: Smoke test (assert tip deflection)
         run: python3 sim/code_aster/check_aster.py
       - name: Summary
