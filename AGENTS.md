@@ -122,6 +122,6 @@ Reviewers FAIL any reintroduction. A deterministic scan (`harness/retired.txt`) 
 ## Limits for every agent
 
 - Do not edit `.github/workflows/` from an automated reviewer. Do not merge to main from a reviewer.
-- Do not add Perplexity, Qwen or other reviewers without Danny's go-ahead.
+- Do not add Perplexity, or connect Qwen or any other reviewer, without Danny's go-ahead.
 - A Kimi or DeepSeek PASS never counts toward "locked" / "validated"; that still needs deep Claude + Grok.
 - Physics values carry a tag: [lit] / [rec] / [calc] / [est]. Viewer flags validity limits instead of fabricating results.

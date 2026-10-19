@@ -33,5 +33,5 @@ Optional scope: append `domains=thermal,chemical` (or `domains=all`) to `/claude
 
 ## Never
 - Never reintroduce a retired item: oil bath; slotted Cu/Ag shell; ribs/segments; 6.75 kHz (except labelled as history); 0.2 T; 13 GHz atom-count ceiling; cold-regime work; `Backwards_Derived_Spec_from_Ionisation`.
-- Never add Perplexity or Qwen (not in use for now).
+- Never add Perplexity (not in use for now). Qwen is not connected yet: do not wire it without Danny's go-ahead.
 - Never let a reviewer edit `.github/workflows/` or merge to main.
