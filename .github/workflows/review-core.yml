@@ -1,0 +1,247 @@
+# Reusable core for the information-layer reviewers. Called by claude-audit.yml and grok-check.yml.
+# Not triggered directly. Scripts are always run from the DEFAULT BRANCH checkout; the reviewed
+# ref is only fetched as data (git diff), never executed.
+name: review-core
+
+on:
+  workflow_call:
+    inputs:
+      reviewer:        { type: string, required: true }   # claude | grok
+      trigger_phrase:  { type: string, required: true }   # /claude-audit | /grok-check
+      depth:           { type: string, required: false, default: "" }
+      target_ref:      { type: string, required: false, default: "" }
+      base_ref:        { type: string, required: false, default: "" }
+      pr_number:       { type: string, required: false, default: "" }
+      mode:            { type: string, required: false, default: "" }
+      domains:         { type: string, required: false, default: "" }
+      allow_push_gate: { type: boolean, required: false, default: false }
+    secrets:
+      ANTHROPIC_API_KEY: { required: false }
+      XAI_API_KEY:       { required: false }
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write   # to add an "eyes" reaction to the trigger comment
+    outputs:
+      run:     ${{ steps.g.outputs.run }}
+      depth:   ${{ steps.g.outputs.depth }}
+      mode:    ${{ steps.g.outputs.mode }}
+      target:  ${{ steps.g.outputs.target }}
+      base:    ${{ steps.g.outputs.base }}
+      pr:      ${{ steps.g.outputs.pr }}
+      domains: ${{ steps.g.outputs.domains }}
+      reason:  ${{ steps.g.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 1 }
+      - id: g
+        name: Decide whether to run, and on what
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PHRASE: ${{ inputs.trigger_phrase }}
+          IN_DEPTH: ${{ inputs.depth }}
+          IN_TARGET: ${{ inputs.target_ref }}
+          IN_BASE: ${{ inputs.base_ref }}
+          IN_PR: ${{ inputs.pr_number }}
+          IN_MODE: ${{ inputs.mode }}
+          IN_DOMAINS: ${{ inputs.domains }}
+          PUSH_GATE: ${{ inputs.allow_push_gate }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          AUTHOR_ASSOC: ${{ github.event.comment.author_association }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          IS_PR: ${{ github.event.issue.pull_request.url }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          set -f   # no globbing of comment words
+          run=false; depth=""; mode=review; target=""; base=""; pr=""; domains=auto; reason=""
+          every=$(sed -n 's/^audit_every_n_rounds:[[:space:]]*\([0-9][0-9]*\).*/\1/p' harness/dial.yml); every=${every:-3}
+          case "$EVENT" in
+            issue_comment)
+              first=$(printf '%s\n' "$COMMENT_BODY" | head -n1 | tr -d '\r')
+              case "$first" in
+                "$PHRASE"|"$PHRASE "*) ;;
+                *) reason="comment does not start with $PHRASE"; first="";;
+              esac
+              if [ -n "$first" ]; then
+                case "$AUTHOR_ASSOC" in
+                  OWNER|MEMBER|COLLABORATOR) run=true ;;
+                  *) reason="ignored: $AUTHOR_ASSOC users cannot trigger paid reviews on this public repo" ;;
+                esac
+              fi
+              if [ "$run" = true ]; then
+                for w in ${first#"$PHRASE"}; do
+                  case "$w" in
+                    shallow|deep) depth=$w ;;
+                    cross|crosscheck) mode=crosscheck ;;
+                    domains=*) domains=${w#domains=} ;;
+                  esac
+                done
+                gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null || true
+                if [ -n "$IS_PR" ]; then
+                  pr=$ISSUE_NUMBER
+                  target="refs/pull/$pr/head"
+                  base=$(gh pr view "$pr" -R "$REPO" --json baseRefName --jq .baseRefName)
+                else
+                  target="$DEFAULT_BRANCH"   # comment on a plain issue: review latest default-branch commit
+                fi
+              fi ;;
+            push)
+              if [ "$PUSH_GATE" != true ]; then
+                reason="push gate disabled for this reviewer"
+              elif printf '%s' "$COMMIT_MSG" | grep -qiF '[audit]'; then
+                run=true; reason="[audit] in commit message"
+              else
+                n=$(printf '%s' "$COMMIT_MSG" | sed -n 's/.*\[round[[:space:]]*\([0-9][0-9]*\)\].*/\1/Ip' | head -n1)
+                if [ -n "$n" ] && [ $((n % every)) -eq 0 ]; then run=true; reason="round $n (every $every)";
+                else reason="round '${n:-none}' not a multiple of $every and no [audit] tag; skipping"; fi
+              fi
+              if printf '%s' "$COMMIT_MSG" | grep -qiF '[deep]'; then depth=deep; fi
+              target=$PUSH_SHA
+              if [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != 0000000000000000000000000000000000000000 ]; then base=$PUSH_BEFORE; fi
+              pr=$(gh api "repos/$REPO/commits/$PUSH_SHA/pulls" --jq '.[0].number // empty' 2>/dev/null || true) ;;
+            workflow_dispatch)
+              run=true; depth=$IN_DEPTH; mode=${IN_MODE:-review}; target=${IN_TARGET:-$DEFAULT_BRANCH}
+              base=$IN_BASE; pr=$IN_PR; domains=${IN_DOMAINS:-auto} ;;
+            *) reason="unsupported event $EVENT" ;;
+          esac
+          {
+            echo "run=$run"; echo "depth=$depth"; echo "mode=$mode"; echo "target=$target"
+            echo "base=$base"; echo "pr=$pr"; echo "domains=$domains"; echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+          echo "gate: run=$run depth=${depth:-default} mode=$mode target=$target base=${base:-auto} pr=${pr:-none} :: $reason"
+
+  review:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read    # to fetch the other reviewer's verdict artifact (cross-check mode)
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      REVIEWER: ${{ inputs.reviewer }}
+      OTHER: ${{ inputs.reviewer == 'claude' && 'grok' || 'claude' }}
+      SECRET_NAME: ${{ inputs.reviewer == 'claude' && 'ANTHROPIC_API_KEY' || 'XAI_API_KEY' }}
+      DEPTH: ${{ needs.gate.outputs.depth }}
+      MODE: ${{ needs.gate.outputs.mode }}
+      TARGET: ${{ needs.gate.outputs.target }}
+      BASE: ${{ needs.gate.outputs.base }}
+      PR: ${{ needs.gate.outputs.pr }}
+      DOMAINS: ${{ needs.gate.outputs.domains }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+
+      - name: Fetch the ref under review (as data only)
+        id: refs
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$TARGET:refs/review/head"
+          head_sha=$(git rev-parse refs/review/head)
+          if [ -n "$BASE" ]; then
+            git fetch --no-tags origin "$BASE" 2>/dev/null || true
+            base_ref=$(git rev-parse --verify -q "origin/$BASE" || git rev-parse --verify -q "$BASE" || true)
+            [ -n "$base_ref" ] && base_sha=$(git merge-base "$base_ref" "$head_sha" || echo "$base_ref") || base_sha=""
+          else base_sha=""; fi
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          if [ -n "$PR" ]; then gh pr view "$PR" -R "$REPO" --json title,body --jq '"\(.title)\n\n\(.body)"' > intent.txt || : > intent.txt
+          else git log -1 --format=%B "$head_sha" > intent.txt; fi
+
+      - name: Fetch the other reviewer's latest verdict (cross-check mode)
+        if: needs.gate.outputs.mode == 'crosscheck'
+        env:
+          HEAD_SHA: ${{ steps.refs.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "repos/$REPO/actions/artifacts?name=$OTHER-verdict-$HEAD_SHA&per_page=5" \
+                 --jq '[.artifacts[] | select(.expired==false)][0].id // empty')
+          note="same commit"
+          if [ -z "$id" ]; then
+            id=$(gh api "repos/$REPO/actions/artifacts?per_page=100" \
+                   --jq "[.artifacts[] | select(.expired==false and (.name|startswith(\"$OTHER-verdict-\")))][0].id // empty")
+            note="NOT the same commit (latest available)"
+          fi
+          if [ -z "$id" ]; then
+            echo "::warning title=No $OTHER verdict found::Cross-check requested but no $OTHER verdict artifact exists yet. Running a normal review."
+            exit 0
+          fi
+          mkdir -p other && gh api "repos/$REPO/actions/artifacts/$id/zip" > other.zip && unzip -o -q other.zip -d other
+          echo "Using $OTHER verdict artifact $id ($note)"
+
+      - name: Run ${{ inputs.reviewer }} review
+        id: run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          HEAD_SHA: ${{ steps.refs.outputs.head_sha }}
+          BASE_SHA: ${{ steps.refs.outputs.base_sha }}
+        run: |
+          set +e
+          args=(--head "$HEAD_SHA" --domains "${DOMAINS:-auto}" --mode "${MODE:-review}" --out review-out --intent "$(cat intent.txt)")
+          [ -n "$DEPTH" ] && args+=(--depth "$DEPTH")
+          [ -n "$BASE_SHA" ] && args+=(--base "$BASE_SHA")
+          [ -f other/verdict.json ] && args+=(--other-verdict other/verdict.json)
+          python "scripts/review_$REVIEWER.py" "${args[@]}"
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          verdict=$(python -c "import json;print(json.load(open('review-out/verdict.json'))['overall_verdict'])" 2>/dev/null || echo ERROR)
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload verdict artifact
+        if: always() && hashFiles('review-out/verdict.json') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.reviewer }}-verdict-${{ steps.refs.outputs.head_sha }}
+          path: review-out/
+          retention-days: 30
+          overwrite: true
+
+      - name: Post verdict (PR comment, else issue)
+        if: always() && hashFiles('review-out/verdict.md') != ''
+        env:
+          VERDICT: ${{ steps.run.outputs.verdict }}
+          HEAD_SHA: ${{ steps.refs.outputs.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          { cat review-out/verdict.md; echo; echo "<sub>[Run log and JSON artifact]($RUN_URL)</sub>"; } > body.md
+          if [ -n "$PR" ]; then
+            gh pr comment "$PR" -R "$REPO" --body-file body.md
+          else
+            gh issue create -R "$REPO" --title "[$REVIEWER] $VERDICT for ${HEAD_SHA:0:12}" --body-file body.md
+          fi
+
+      - name: Final status
+        env:
+          CODE: ${{ steps.run.outputs.exit_code }}
+          VERDICT: ${{ steps.run.outputs.verdict }}
+        run: |
+          case "$CODE" in
+            2) echo "::error title=Missing secret $SECRET_NAME::Repository secret $SECRET_NAME is not set, so the $REVIEWER review was skipped (no tokens used). Add it under Settings > Secrets and variables > Actions."; exit 1 ;;
+            3) echo "::error title=$REVIEWER review error::The API call failed or returned no parseable verdict. See the step log above."; exit 1 ;;
+          esac
+          if [ "$VERDICT" = FAIL ]; then echo "::error title=$REVIEWER verdict FAIL::See the posted comment; this goes back to Cursor."; exit 1; fi
+          echo "$REVIEWER verdict: $VERDICT"
