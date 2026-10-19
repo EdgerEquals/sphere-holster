@@ -95,6 +95,7 @@ jobs:
             python scripts/ledger_score.py offline > /dev/null
             python scripts/ledger_costs.py --all > /dev/null
           }
+          export -f regen   # the commit helper runs in a child bash
           scripts/ledger_commit.sh "ledger: append records ($EVENT ${RUN_ID:-$ISSUE})" regen
           python scripts/ledger.py validate | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Auto-mirror (only if enabled in harness/ledger.json)

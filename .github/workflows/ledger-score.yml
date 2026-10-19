@@ -72,5 +72,6 @@ jobs:
             python scripts/ledger_score.py offline > /dev/null
             python scripts/ledger_costs.py --all > /dev/null
           }
+          export -f regen   # the commit helper runs in a child bash
           scripts/ledger_commit.sh "ledger: scorecards ($MODE)" regen
           cat ledger/scorecards.md >> "$GITHUB_STEP_SUMMARY"

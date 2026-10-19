@@ -62,5 +62,6 @@ jobs:
             fi
             python scripts/ledger_costs.py ${MONTH:+--month "$MONTH"} > /dev/null
           }
+          export -f regen   # the commit helper runs in a child bash
           scripts/ledger_commit.sh "ledger: monthly cost rollup" regen
           cat ledger/costs_*.md | tail -n 40 >> "$GITHUB_STEP_SUMMARY"
