@@ -37,9 +37,8 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ledger-main
-  cancel-in-progress: false
+# No workflow-level concurrency group: GitHub cancels queued runs in a group, which could drop an ingest.
+# Races on main are handled by scripts/ledger_commit.sh (reset, re-apply, retry).
 
 jobs:
   ingest:
