@@ -173,6 +173,30 @@ Placeholder options to debate:
 
 **Status:** threshold definition = **TBD** (team proposes → human gate approves).
 
+
+---
+
+## 5b. Sequencing (threshold first — sweep is not first)
+
+**Order of operations for round 6** (fixed unless the human gate reorders it):
+
+1. **Threshold debate first.** The team (**Kimi, DeepSeek, Claude, Grok**) debates and proposes the automated-gate threshold (**measure + value**) as their **first open question** (see §5).
+2. **Human gate settles the threshold.** **Edger_Equals** makes the **final call** on that definition.
+3. **Only then** run the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core.
+4. Prediction checks, both gates, and any feedback fan-out follow the two-gate rules in §5.
+
+The **4 W amplitude sweep is NOT the first step.** Do not start §2 sweep work until the threshold is settled (or Edger_Equals explicitly waives that hold).
+
+### Team ask — recommendations on this sequencing
+
+Each of the four models should **recommend** whether this order is the next best step:
+
+- Agree with **threshold-debate → human approval → then sweep**, with brief reasoning; or
+- Propose a **different order**, with brief reasoning (what moves, what waits, and why).
+
+Capture replies under this folder (e.g. in each model’s `.md` or a shared `sequencing.md`). The human gate decides whether to keep or change the order.
+
+
 ---
 
 ## 6. Go / no-go checklist (declare “run started” only if all GO)
@@ -191,6 +215,7 @@ Placeholder options to debate:
 | 10 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
 | 11 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
 | 12 | Threshold | Defined by the team (first open question), **approved by the human gate** (Edger_Equals) |
+| 13 | Sequencing | Team recommendations on threshold-first vs alternate order **received** |
 
 **NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
 
