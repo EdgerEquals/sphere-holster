@@ -127,6 +127,14 @@ Reviewers FAIL any reintroduction. A deterministic scan (`harness/retired.txt`) 
 - 13 GHz atom-count ceiling
 - Cold-regime work
 - `Backwards_Derived_Spec_from_Ionisation` (do not cite, rebuild from, or restore)
+- Electrodes of any kind (2026-10-19): Ti/Pt film, ITO / transparent-electrode case, central 50 µm wire / DBD centre electrode. There are no electrodes in the design. How the gas is driven without them is open for Danny; do not answer it.
+
+## Protected conventions (locked 2026-10-19)
+
+- **Kelvin reference:** the 293 K outer reference temperatures stay. Danny uses them to place thermal active materials in the tone. Do not replace them with required-conductance output (rejected, round 5).
+- **Kelvin canonical:** calculations, the solver, data files and `DESIGN_STATE.md` use K. °C appears only in the GUI, alongside K. Reviewers flag any °C in calculations/solver/data/spec and any GUI temperature without its °C pair.
+- **GUI ambient** is a linked K/°C pair: enter either, the other updates (K = °C + 273.15).
+- Round-5 decisions (fold / cut / keep / defer): `DESIGN_STATE.md`, "Danny's decisions on round-5 review (2026-10-19)".
 
 ## Limits for every agent
 

@@ -8,3 +8,4 @@ ribs / segments | \bribs?\b|\bribbed\b|\bsegment(ed|s)?\s+(shell|layer|sphere)|s
 13 GHz atom-count ceiling | 13\s*ghz | retired atom-count ceiling argument
 cold-regime work | cold[- ]regime | retired line of work
 Backwards_Derived_Spec_from_Ionisation | backwards[_ ]derived[_ ]spec | retired spec document; do not cite or rebuild from it
+electrodes (Ti/Pt, ITO, central wire) | \belectrodes?\b|\bTi\s*/\s*Pt\b|(?-i:\bITO\b)|indium[- ]tin[- ]oxide|central\s+(50\s*[µu]m\s+)?wire | retired 2026-10-19 (Danny): there are NO electrodes in the design - no Ti/Pt film, no ITO/transparent-electrode case, no central 50 um wire / DBD centre electrode; how the gas is driven without electrodes is open for Danny

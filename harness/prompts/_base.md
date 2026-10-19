@@ -10,7 +10,9 @@ Rules for every review:
 3. Check units, orders of magnitude, sign conventions and limits of validity (e.g. quasi-static field model fails when wavelength approaches sphere size; a single EM cycle shorter than gas breakdown time cannot ionise).
 4. Check the domain couplings: does a change in one domain update the source terms it feeds into others?
 5. Retired items (listed below) must not be reintroduced. Any reintroduction is a FAIL unless clearly labelled as history.
-6. List every physics/source claim that should get an external source cross-check (Grok) in "claims_needing_source_check".
+6. Temperatures: Kelvin is canonical in calculations, the solver, data files and DESIGN_STATE.md. Flag any °C used there (major). °C appears only in the GUI, alongside K; flag any GUI temperature shown without its °C pair (minor). In the GUI, ambient is a linked K/°C pair (K = °C + 273.15).
+7. Locked, do not propose replacing: the Kelvin reference (293 K outer reference temperatures), which Danny uses to place thermal active materials in the tone. A suggestion to replace it with required-conductance output was rejected on 2026-10-19.
+8. List every physics/source claim that should get an external source cross-check (Grok) in "claims_needing_source_check".
 
 Output format — end your reply with exactly one fenced JSON block:
 ```json

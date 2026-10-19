@@ -14,8 +14,8 @@ Every tool working on this project reads this file first, never reintroduces a r
 
 ### Core: HHO
 - **Fill:** HHO at a 2:1 H₂:O₂ ratio. The fill amount is open and can be swept.
-- **Ionisation knee:** about 10 Torr for a 1 mm gap, or about 22 Torr with a central electrode (0.45 mm gap).
-- **Electrodes:** a metal film on the inner wall screens the gas. Ionising it needs a central electrode (DBD, dielectric barrier discharge) or an external field.
+- **Ionisation knee:** about 10 Torr for a 1 mm gap. The earlier ~22 Torr figure assumed a 0.45 mm gap to a central electrode, which is retired (2026-10-19); how the gas is driven without electrodes is Open item 8.
+- **Electrodes:** none. There are no electrodes in the design (Danny, 2026-10-19): no Ti/Pt film, no ITO/transparent electrode, no central wire. See Retired.
 
 ### Layer 1: quartz
 - **Shape:** a sphere unless Danny says tube.
@@ -37,7 +37,7 @@ Every tool working on this project reads this file first, never reintroduces a r
 
 ### Layer 3: elbaite tourmaline sol-gel
 - **Thickness:** about 5 µm, within a 3–8 µm range.
-- **Binder:** a silica sol-gel (MTES:TEOS 80:20). Pt needs a 10 nm SiO₂ or TiO₂ primer, and the tourmaline needs a silica shell formed at pH 8–9.
+- **Binder:** a silica sol-gel (MTES:TEOS 80:20). (The earlier Pt-primer note is moot: electrodes are retired, 2026-10-19.) The tourmaline needs a silica shell formed at pH 8–9.
 
 ### Layer 4: downshifting phosphor
 - **Options:** KSF, which saturates at about 8–16 W, or CASN, which saturates at about 80 W.
@@ -47,15 +47,22 @@ Every tool working on this project reads this file first, never reintroduces a r
 - **Magnetic or caloric option:** ferrite, Gd-Dy or CALORIVAC.
 - **Heat sink:** Danny's choice, still open.
 
+### Thermal reference and temperature convention (locked 2026-10-19)
+- **Kelvin reference: locked.** The 293 K outer reference temperatures stay. Danny uses them to select thermal active materials placement in the tone. Do not replace them with required-conductance output (reviewer suggestion rejected, round 5).
+- **Kelvin is canonical.** All calculations, the solver, data files and this spec use Kelvin, from 0 K up. Celsius is never used in a calculation, solver, data file or spec value.
+- **Celsius is a GUI-only display rule.** In the viewer/visualisation layer every displayed temperature shows its °C value alongside the K value.
+- **Ambient in the GUI is a linked K/°C pair:** enter either; the other updates automatically (K = °C + 273.15). The model receives K.
+- **Supersession chain (all 2026-10-19):** 293 K single reference → K + °C everywhere → Celsius-only ambient → linked K/°C ambient → **Kelvin canonical, °C in the GUI only** (current). Earlier wording that the spec states every temperature in both K and °C is superseded: the spec states K; the K + °C pairing is a GUI rule. No bulk °C conversion of the spec is needed.
+
 ## Open
 1. Which quartz shell: the 5.4 mm lock shell, the 6.78 mm φ shell, or the 1×2 mm test shell. Sphere or tube.
 2. The heat path. At 1 W in still air, the test shell's inner wall gets past HHO autoignition.
 3. The BTO thickness, and how to keep it below its Curie point.
 4. The tourmaline thickness, traded against scattering at 434 nm. Also the cure temperature and whether it sits inside or outside the BTO.
-5. Which phosphor, and whether the electrodes sit in layer 4. Ti/Pt blocks light, and that is the main source of heat.
+5. Which phosphor. (The electrode-placement / Ti/Pt light-blocking question is closed: electrodes are retired, 2026-10-19.)
 6. Which layer 5 option.
 7. The HHO fill amount.
-8. Central electrode or external field.
+8. **How the gas is driven with no electrodes.** Open for Danny. The old "central electrode or external field" choice is superseded because electrodes are retired. Note: `drive_model.js` still models a DBD across a central-electrode gap, so its Paschen/breakdown numbers and the 10.71–98.95 Torr window (600 V) rest on a gap that does not exist.
 
 ## Retired (never reintroduce)
 - Oil bath
@@ -67,6 +74,7 @@ Every tool working on this project reads this file first, never reintroduces a r
 - Cold-regime work
 - `Backwards_Derived_Spec_from_Ionisation`: its numbers and layer roles
 - Grok's radial diamond spokes
+- Electrodes of any kind (2026-10-19): Ti/Pt film, ITO/transparent-electrode case, central 50 µm wire / DBD centre electrode. There are no electrodes in the design.
 
 ---
 
@@ -127,3 +135,29 @@ Workflow `.github/workflows/sim-stack.yml` (one job per tool; push to `sim/**`, 
 | CalculiX | ccx 2.21 (Ubuntu 24.04 apt 2.21-1) | B32 cantilever vs PL³/3EI, 2 % | PASS |
 | Code_Aster | 18.1.0 (simvia Docker, digest-pinned) | POU_D_E cantilever vs PL³/3EI + bundled forma01a | PASS |
 | Gwyddion | 2.64 (Ubuntu 24.04 apt 2.64-1.1build3) | load .gsf via Gwyddion GSF module, size + RMS = A/√2 | PASS |
+
+## Danny's decisions on round-5 review (2026-10-19)
+Source: `reviews/2026-10-19_round5/` (Claude and Grok replies to the open repo prompt). Decided by Danny on 2026-10-19. Staged ledger dispositions: `ledger/pending/2026-10-19_round5_dispositions.jsonl` (not yet ingested; the ledger is CI-written).
+
+### Fold (accepted; to be built later, after Danny's validation)
+1. **One geometry-of-record file** read by both this file and the solver, with a CI check that fails on drift (Grok).
+2. **Recompute drive frequencies from that file**, with the sound speed and formula recorded in the output. This settles 3.236 vs 3.018 MHz (Grok).
+3. **A power budget that sums to the input**, tested, with no double-counted loss (Grok).
+4. **Keep placeholder chemistry (`P_release`) out of the heat sources**; ignition becomes a validity flag (Grok).
+5. **Small number fixes:** `phos_out` cT = 25 m/s; the BTO ε(T) curve's "Curie-Weiss" label; the layer-2 "50 nm" label vs 5 µm (Grok).
+6. **Fix the factor-of-2 ring-jump bug** in `drive_model.js` (`maxJump` taken from the partial-step Ed/dt), with an ncyc-invariance test (Claude found the split; traced 2026-10-19).
+7. **GUI temperatures: K with °C alongside, ambient as a linked pair** (Danny's clarification, 2026-10-19): every temperature the viewer displays shows °C next to K, and the Kelvin-only ambient field (`dTa`, commit 21b5fa5) becomes two linked fields, K and °C, that sync both ways (K = °C + 273.15). The model, solver, data files and spec stay in K; no bulk °C conversion of the spec. Not built yet. Known K-canonical gap for this fold: `drive_model.js` compares the autoignition range in °C (`AUTOIGN_C = [500, 585]`) and prints flags in °C; that should become K internally (773.15–858.15 K) with °C only in the display.
+
+### Cut (rejected)
+- **All electrode items.** There are no electrodes in the design, period: no Ti/Pt film, no ITO/transparent-electrode case, no central 50 µm wire / DBD centre electrode. Added to Retired.
+- **Open consequence (not answered here):** `drive_model.js` is a DBD with a centre-electrode gap, so its Paschen/breakdown numbers and the 10.71–98.95 Torr window rest on a gap that does not exist. How the gas is driven without electrodes is an open question for Danny (Open item 8).
+
+### Keep (reviewer suggestion rejected)
+- **The Kelvin reference** (293 K outer reference temperatures) stays, because Danny uses it to select thermal active materials placement in the tone. Grok's suggestion to replace it with required-conductance output is rejected. Locked above.
+
+### Deferred (sounded good; later)
+- Claude's three labelled temperatures (peak / cycle average / periodic steady state).
+- A single solver entry point.
+- Uncertainty bands.
+- l ≥ 1 and anisotropic quartz modes.
+- FEniCS / MEEP / OpenFOAM cases, held until folds 1–3 pass.
