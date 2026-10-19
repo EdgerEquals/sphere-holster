@@ -417,3 +417,12 @@ Danny's decision (2026-10-19), following the flag above.
 - **Removed:** the 2 MHz selection target (`f_target = 2.0e6` and the nearest-to-2 MHz selection) has been removed from `solver_v0.py` and from `tests/test_piezo_pyro_couplings.py`.
 - **New rule:** the solver now selects the lowest computed l=0 shell mode (the fundamental), for the isolated shell and likewise for the bonded stack, from the geometry alone. It still reports all computed modes (`l0_isolated`, `l0_bonded`, gas-cavity modes). If no shell mode is computed, no frequency is invented.
 - **Leftovers:** if the team finds any remaining detection of 2 MHz in outputs, labels or docs, it is a leftover artifact of the removed target, not a design value. Treat it as noise to clean up, not a target to optimize toward.
+
+## Design framing: modes lock where they lock; the sweep searches for maximum locking (2026-10-19)
+Danny's framing (2026-10-19), following the 2 MHz removal note above. Not built.
+
+- **The solver does not select a mode.** The modes are what the geometry produces, and the solver lists them all. The modes lock where they lock.
+- **The geometry sweep's job:** optimise for maximum locking, that is, find the geometry where the most modes lock at once.
+- **Golden-ratio tracking:** the path walked through the geometry space.
+- **In-phase round-trip score:** boundary reflections landing on real modes, knees crossed at the right thresholds, and the cascade holding together. This is what tells you when a good spot has been found.
+- **The sweep is a search, not a prediction.**
