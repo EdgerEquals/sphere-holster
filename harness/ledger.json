@@ -1,0 +1,93 @@
+{
+  "_comment": "Ledger config (issue #7). Trigger words are stored WITHOUT their leading slash / at-sign / brackets; code rebuilds the live patterns, so the literal trigger strings never appear in anything the ledger posts.",
+  "schema_version": 1,
+  "ledger_path": "ledger/findings.jsonl",
+  "storage": "main",
+  "review_workflows": [
+    "claude-audit",
+    "grok-check",
+    "kimi-check",
+    "deepseek-check"
+  ],
+  "gateway_workflows": [
+    "mcp-gateway"
+  ],
+  "file_issues": {
+    "auto_on_workflow_run": false,
+    "min_severity": "major",
+    "daily_cap": 5,
+    "base_label": "ledger"
+  },
+  "sanitise": {
+    "slash_commands": [
+      "claude-audit",
+      "grok-check",
+      "kimi-check",
+      "deepseek-check",
+      "tavily-search"
+    ],
+    "bracket_tags": [
+      "audit",
+      "deep",
+      "round"
+    ],
+    "max_text_chars": 1500,
+    "injection_phrases": [
+      "ignore (all |any )?(previous|prior|above) instructions",
+      "disregard (the |all )?(previous|prior|above)",
+      "you are now",
+      "system prompt",
+      "act as",
+      "new instructions",
+      "do not tell",
+      "exfiltrat",
+      "curl ",
+      "wget "
+    ]
+  },
+  "severity_order": [
+    "note",
+    "minor",
+    "major",
+    "blocker"
+  ],
+  "severity_aliases": {
+    "info": "note",
+    "information": "note",
+    "low": "minor",
+    "medium": "major",
+    "high": "major",
+    "critical": "blocker"
+  },
+  "prices_usd_per_mtok": {
+    "_source": "Same tables as reviews/2026-10-19_round1/run_round.py and scripts/review_*.py (fetched 2026-10-19). cache_write = Anthropic 5-minute cache write (1.25x input). Models without an entry (e.g. claude-opus-5-5) get cost null unless the source recorded a cost.",
+    "claude-sonnet-5-5": {
+      "in": 2.0,
+      "cached": 0.1,
+      "cache_write": 2.5,
+      "out": 10.0
+    },
+    "grok-4.7": {
+      "in": 2.0,
+      "cached": 0.5,
+      "out": 6.0
+    },
+    "kimi-k2.6": {
+      "in": 0.95,
+      "cached": 0.16,
+      "out": 4.0
+    },
+    "deepseek-flash": {
+      "in": 0.3,
+      "cached": 0.006,
+      "out": 1.2,
+      "offpeak_factor": 0.5
+    },
+    "deepseek-v4-pro": {
+      "in": 1.32,
+      "cached": 0.044,
+      "out": 3.96,
+      "offpeak_factor": 0.5
+    }
+  }
+}

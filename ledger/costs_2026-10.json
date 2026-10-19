@@ -1,0 +1,101 @@
+{
+  "month": "2026-10",
+  "generated_utc": "2026-10-19T05:48:36Z",
+  "rows": [
+    {
+      "reviewer": "Claude",
+      "model": "claude-sonnet-5-5",
+      "calls": 5,
+      "input": 45515,
+      "cached": 0,
+      "cache_write": 32874,
+      "output": 10875,
+      "reasoning": 6000,
+      "cost_usd": 0.216217,
+      "calls_without_cost": 0,
+      "credits": 0.0,
+      "sources": [
+        "review_round",
+        "verdict_artifact"
+      ]
+    },
+    {
+      "reviewer": "Grok",
+      "model": "grok-4.7",
+      "calls": 6,
+      "input": 220764,
+      "cached": 90112,
+      "cache_write": 0,
+      "output": 27728,
+      "reasoning": 20692,
+      "cost_usd": 0.551,
+      "calls_without_cost": 0,
+      "credits": 0.0,
+      "sources": [
+        "review_round",
+        "verdict_artifact"
+      ]
+    },
+    {
+      "reviewer": "Kimi",
+      "model": "kimi-k2.6",
+      "calls": 5,
+      "input": 9870,
+      "cached": 2048,
+      "cache_write": 0,
+      "output": 21112,
+      "reasoning": 19745,
+      "cost_usd": 0.092206,
+      "calls_without_cost": 0,
+      "credits": 0.0,
+      "sources": [
+        "ping_artifact",
+        "review_round"
+      ]
+    },
+    {
+      "reviewer": "DeepSeek",
+      "model": "deepseek-flash",
+      "calls": 4,
+      "input": 7967,
+      "cached": 0,
+      "cache_write": 0,
+      "output": 8899,
+      "reasoning": 7280,
+      "cost_usd": 0.006534,
+      "calls_without_cost": 0,
+      "credits": 0.0,
+      "sources": [
+        "ping_artifact",
+        "review_round"
+      ]
+    },
+    {
+      "reviewer": "Tavily",
+      "model": "tavily-basic",
+      "calls": 3,
+      "input": 0,
+      "cached": 0,
+      "cache_write": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cost_usd": 0.0,
+      "calls_without_cost": 0,
+      "credits": 3.0,
+      "sources": [
+        "review_round"
+      ]
+    }
+  ],
+  "per_reviewer_usd": {
+    "Claude": 0.216217,
+    "Grok": 0.551,
+    "Kimi": 0.092206,
+    "DeepSeek": 0.006534,
+    "Tavily": 0.0
+  },
+  "total_usd": 0.865957,
+  "tavily_credits": 3.0,
+  "calls_without_cost": 0,
+  "note": "Costs are as reported by the APIs (Grok ticks, oai_compat cost_usd, round runners) or computed from harness/ledger.json list prices. Only spend that reached the ledger is counted; calls made outside the harness (e.g. ad-hoc local tests) are not included."
+}

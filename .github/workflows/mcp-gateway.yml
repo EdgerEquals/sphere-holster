@@ -1,0 +1,65 @@
+# MCP gateway smoke test (#10): builds the gateway containers, starts each one on demand with no network, a
+# read-only root filesystem, non-root user and read-only sim/ mount, then drives it over MCP stdio with a plain
+# Python client (no LLM): initialize, tools/list, one solver tool call. Results go to a gateway-run artifact that
+# the ledger workflow ingests (kind gateway_run). Also tries the upstream dolfinx-mcp server (experimental).
+name: mcp-gateway
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "gateway/**"
+      - ".github/workflows/mcp-gateway.yml"
+
+permissions:
+  contents: read
+
+env:
+  HARDEN: >-
+    --rm -i --network none --read-only --user 10001:10001 --cap-drop ALL
+    --security-opt no-new-privileges:true --tmpfs /tmp:rw,exec,nosuid,nodev,size=2g
+  UPSTREAM_REPO: https://github.com/ekstanley/ccFenics-plugin.git
+  UPSTREAM_SHA: cedb5f805c5068ad5514c52683a2e3c4031bf308
+  DOLFINX_IMAGE: dolfinx/dolfinx:v0.11.0@sha256:2ae4bfbc0d9077268880faf04c72750528bee986c94ab223a2c159969bd56fa8
+
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build gateway images
+        run: |
+          docker build -q -f gateway/Dockerfile.fenics -t ssm-gateway-fenics:ci .
+          docker build -q -f gateway/Dockerfile.openfoam -t ssm-gateway-openfoam:ci .
+      - name: FEniCS gateway - tools/list + fenics_poisson_smoke
+        run: |
+          python3 gateway/mcp_smoke_client.py --server-name ssm-fenics --call fenics_poisson_smoke --out gateway-out -- \
+            docker run $HARDEN -v "$PWD/sim:/opt/ssm/sim:ro" ssm-gateway-fenics:ci
+      - name: OpenFOAM gateway - tools/list + openfoam_cavity_smoke
+        run: |
+          python3 gateway/mcp_smoke_client.py --server-name ssm-openfoam --call openfoam_cavity_smoke --out gateway-out -- \
+            docker run $HARDEN -v "$PWD/sim:/opt/ssm/sim:ro" ssm-gateway-openfoam:ci
+      - name: Upstream dolfinx-mcp (experimental, pinned commit, same pinned base image)
+        id: upstream
+        continue-on-error: true
+        run: |
+          git clone -q "$UPSTREAM_REPO" upstream && git -C upstream checkout -q "$UPSTREAM_SHA"
+          sed -i "s|^FROM dolfinx/dolfinx:stable|FROM $DOLFINX_IMAGE|" upstream/Dockerfile
+          docker build -q -t dolfinx-mcp:ci upstream
+          python3 gateway/mcp_smoke_client.py --server-name dolfinx-mcp --out gateway-out -- \
+            docker run --rm -i --network none --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=2g \
+              --tmpfs /workspace:rw,mode=1777,size=512m --cap-drop ALL --security-opt no-new-privileges:true dolfinx-mcp:ci
+      - name: Summary
+        if: always()
+        run: |
+          echo "## MCP gateway smoke test" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"; cat gateway-out/gateway_run.json >> "$GITHUB_STEP_SUMMARY" 2>/dev/null; echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Upstream dolfinx-mcp step: ${{ steps.upstream.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload gateway-run artifact (ingested by the ledger workflow)
+        if: always() && hashFiles('gateway-out/gateway_run.json') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: gateway-run-${{ github.run_id }}
+          path: gateway-out/

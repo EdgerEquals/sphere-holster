@@ -1,0 +1,66 @@
+# Monthly cost rollup per model (issue #9). No model calls.
+# Ingests any verdict/ping/Tavily artifacts from the last 35 days the ledger has not seen yet (dedup makes this
+# idempotent), then writes ledger/costs_YYYY-MM.{json,md} and ledger/index.html (visible on GitHub Pages).
+name: ledger-costs
+
+on:
+  schedule:
+    - cron: "7 16 1 * *"    # 1st of each month, 00:07 Perth (UTC+8): closes out the previous month
+  workflow_dispatch:
+    inputs:
+      month:
+        description: YYYY-MM (default current UTC month; the scheduled run also redoes the previous month)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ledger-main
+  cancel-in-progress: false
+
+jobs:
+  rollup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # ledger/ on main
+      actions: read     # list and download run artifacts
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Download recent reviewer artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p arts
+          since=$(date -u -d '35 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh api --paginate "repos/$REPO/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.expired==false and .created_at >= \"$since\") | select(.name|test(\"-(verdict|ping)-|^tavily-results-|^gateway-run-\")) | \"\(.id) \(.name) \(.workflow_run.id)\"" > list.txt || true
+          while read -r id name run; do
+            mkdir -p "arts/$id"
+            gh api "repos/$REPO/actions/artifacts/$id/zip" > "arts/$id.zip" && unzip -qo "arts/$id.zip" -d "arts/$id" && rm "arts/$id.zip"
+            printf '{"name": "%s", "run_id": "%s"}' "$name" "$run" > "arts/$id/artifact.json"
+          done < list.txt
+          wc -l < list.txt
+      - name: Ingest, roll up, commit
+        env:
+          MONTH: ${{ inputs.month }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          regen() {
+            python scripts/ledger.py backfill --artifacts "$GITHUB_WORKSPACE/arts"
+            python scripts/ledger_score.py offline > /dev/null
+            if [ "$EVENT" = schedule ]; then
+              python scripts/ledger_costs.py --month "$(date -u -d 'yesterday' +%Y-%m)" > /dev/null
+            fi
+            python scripts/ledger_costs.py ${MONTH:+--month "$MONTH"} > /dev/null
+          }
+          scripts/ledger_commit.sh "ledger: monthly cost rollup" regen
+          cat ledger/costs_*.md | tail -n 40 >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,135 @@
+# Review ledger (issue #7): files every reviewer finding into ledger/findings.jsonl (append-only, on main) and,
+# above a severity threshold and a daily cap, mirrors it to a labelled GitHub issue. No model calls.
+#   - workflow_run: after any review workflow (or the MCP gateway smoke test) finishes, ingest its artifacts.
+#     Issue filing on workflow_run is OFF unless harness/ledger.json file_issues.auto_on_workflow_run is true.
+#   - issues closed/labeled: a ledger issue's outcome becomes a status record (closed completed = fixed,
+#     closed not planned = rejected, label status:accepted/rejected/fixed wins), then scorecards are refreshed.
+#   - workflow_dispatch: ingest a given run, backfill, validate, or mirror (dry-run unless apply=true).
+# Pushes use the workflow GITHUB_TOKEN, which does not trigger other workflows (no CI or paid-audit churn).
+name: ledger
+
+on:
+  workflow_run:
+    workflows: [claude-audit, grok-check, kimi-check, deepseek-check, mcp-gateway]
+    types: [completed]
+  issues:
+    types: [closed, labeled]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: validate | ingest-run | backfill | mirror
+        type: choice
+        options: [validate, ingest-run, backfill, mirror]
+        default: validate
+      run_id:
+        description: Workflow run id to ingest (ingest-run)
+        type: string
+        default: ""
+      apply:
+        description: mirror only. false = dry run (prints what it would file, posts nothing)
+        type: boolean
+        default: false
+      min_severity:
+        description: mirror only. Lowest severity to file (default from harness/ledger.json)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ledger-main
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'skipped') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action != 'mirror') ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'ledger'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # append to ledger/ on main
+      actions: read     # download the finished run's artifacts
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Download artifacts of the finished run
+        if: github.event_name == 'workflow_run' || inputs.action == 'ingest-run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p arts
+          [ -n "$RUN_ID" ] || { echo "::error::run_id is required"; exit 1; }
+          gh run download "$RUN_ID" -R "$REPO" -D arts || echo "no artifacts for run $RUN_ID"
+          ls arts || true
+      - name: Ingest, refresh scorecards and cost rollup, commit
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+          ACTION: ${{ inputs.action }}
+          EVENT: ${{ github.event_name }}
+          ISSUE: ${{ github.event.issue.number }}
+          STATE: ${{ github.event.issue.state }}
+          REASON: ${{ github.event.issue.state_reason }}
+          LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+        run: |
+          regen() {
+            if [ "$EVENT" = issues ]; then
+              python scripts/ledger.py status --issue "$ISSUE" --state "$STATE" --reason "$REASON" --labels "$LABELS"
+            elif [ "$ACTION" = backfill ]; then
+              python scripts/ledger.py backfill
+            elif [ "$ACTION" = validate ]; then
+              python scripts/ledger.py validate
+            else
+              for d in "$GITHUB_WORKSPACE"/arts/*/; do
+                [ -d "$d" ] && python scripts/ledger.py ingest --dir "$d" --ref "$(basename "$d")" --run-id "$RUN_ID"
+              done
+            fi
+            python scripts/ledger_score.py offline > /dev/null
+            python scripts/ledger_costs.py --all > /dev/null
+          }
+          scripts/ledger_commit.sh "ledger: append records ($EVENT ${RUN_ID:-$ISSUE})" regen
+          python scripts/ledger.py validate | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Auto-mirror (only if enabled in harness/ledger.json)
+        if: github.event_name == 'workflow_run'
+        run: |
+          auto=$(python -c "import json;print(str(json.load(open('harness/ledger.json'))['file_issues']['auto_on_workflow_run']).lower())")
+          echo "auto_on_workflow_run=$auto"
+          [ "$auto" = true ] && echo "Auto filing is enabled; run the mirror job via dispatch with apply=true to file." || true
+
+  mirror:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'mirror'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # record which issue mirrors which finding
+      issues: write     # file issues (apply=true only)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Mirror findings to issues
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          APPLY: ${{ inputs.apply }}
+          MIN_SEV: ${{ inputs.min_severity }}
+        run: |
+          args=()
+          [ -n "$MIN_SEV" ] && args+=(--min-severity "$MIN_SEV")
+          if [ "$APPLY" = true ]; then
+            # File once; the commit helper re-appends the saved mirror records after any rebase (never re-files).
+            python scripts/ledger.py mirror --apply --records-out /tmp/mirror_new.jsonl "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+            scripts/ledger_commit.sh "ledger: mirror findings to issues" python scripts/ledger.py append-file --file /tmp/mirror_new.jsonl
+          else
+            python scripts/ledger.py mirror "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,19 @@
+{
+  "fixture": "planted-v1",
+  "rendered_path": "planted/v1/lock_shell_summary.md",
+  "description": "Eight seeded mistakes (2 units, 2 arithmetic, 2 retired items, 2 consistency with DESIGN_STATE.md) plus two correct control lines (8, 9). Retired items are stored as {{RETIRED:n}} placeholders (n = index of the non-comment line in harness/retired.txt) so the retired text never sits in the repo literally.",
+  "keys": [
+    {"id": "U1", "category": "units", "line": 2, "truth": "5900 m/s, not km/s", "match": ["km/s", "km ?s", "m/s.{0,40}(not|instead|should)"]},
+    {"id": "U2", "category": "units", "line": 1, "truth": "wall 0.944 mm, not m", "match": ["0\\.944 ?m\\b", "wall.{0,40}(metre|meter|\\bm\\b|mm)", "0\\.944 mm"]},
+    {"id": "A1", "category": "arithmetic", "line": 5, "truth": "1 W / 1 mm^2 = 1e6 W/m^2", "match": ["1[, ]?000[, ]?000", "1e6", "10\\^6", "10⁶", "1 ?MW/m", "heat flux.{0,60}(wrong|error|should|incorrect|off)"]},
+    {"id": "A2", "category": "arithmetic", "line": 3, "truth": "5900/(2*0.944e-3) = 3.125 MHz, not 6.25", "match": ["3\\.12", "6\\.25", "factor of (2|two)"]},
+    {"id": "R1", "category": "retired", "line": 6, "retired_index": 0, "match": []},
+    {"id": "R2", "category": "retired", "line": 7, "retired_index": 4, "match": []},
+    {"id": "C1", "category": "consistency", "line": 1, "truth": "DESIGN_STATE: lock shell OD 5.4 mm", "match": ["6\\.4 ?mm", "5\\.4 ?mm"]},
+    {"id": "C2", "category": "consistency", "line": 4, "truth": "DESIGN_STATE: thickness mode 3.236 MHz", "match": ["3\\.236", "3\\.5 ?MHz"]}
+  ],
+  "controls": [
+    {"line": 8, "note": "correct: (0.944e-3)^2 / 8.4e-7 = 1.06 s"},
+    {"line": 9, "note": "correct: 4*pi*2.7^2 = 91.6 mm^2"}
+  ]
+}

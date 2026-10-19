@@ -1,0 +1,11 @@
+# ssm-sim-gateway, FEniCSx service (#10). Same digest-pinned DOLFINx image as sim-stack.yml.
+# Runtime hardening comes from docker-compose.yml / the run flags: --network none, --read-only, tmpfs /tmp,
+# cap_drop ALL, no-new-privileges, sim/ mounted read-only.
+FROM dolfinx/dolfinx:v0.11.0@sha256:2ae4bfbc0d9077268880faf04c72750528bee986c94ab223a2c159969bd56fa8
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin mcp
+COPY gateway/ssm_mcp_server.py /opt/ssm/gateway/ssm_mcp_server.py
+COPY sim/ /opt/ssm/sim/
+ENV HOME=/tmp/home XDG_CACHE_HOME=/tmp/cache TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 SSM_SIM_ROOT=/opt/ssm/sim \
+    OMPI_MCA_rmaps_base_oversubscribe=1
+USER 10001:10001
+ENTRYPOINT ["python3", "-u", "/opt/ssm/gateway/ssm_mcp_server.py"]

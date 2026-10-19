@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "ssm-fenics": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "--network", "none", "--read-only", "--user", "10001:10001",
+               "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+               "--tmpfs", "/tmp:rw,exec,nosuid,nodev,size=2g",
+               "-v", "${workspaceFolder}/sim:/opt/ssm/sim:ro", "ssm-gateway-fenics:local"]
+    },
+    "ssm-openfoam": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "--network", "none", "--read-only", "--user", "10001:10001",
+               "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+               "--tmpfs", "/tmp:rw,exec,nosuid,nodev,size=2g",
+               "-v", "${workspaceFolder}/sim:/opt/ssm/sim:ro", "ssm-gateway-openfoam:local"]
+    }
+  }
+}

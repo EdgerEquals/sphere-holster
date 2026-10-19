@@ -1,0 +1,11 @@
+# ssm-sim-gateway, OpenFOAM service (#10). Same digest-pinned OpenFOAM v2512 image as sim-stack.yml, plus python3
+# for the stdlib MCP server (installed at build time; the running container has no network).
+FROM opencfd/openfoam-default:2512@sha256:33fb575aa9980d2bc42fd58c75ae698c489293ba30c991380fe3f899c622f319
+USER root
+RUN (command -v python3 >/dev/null || (apt-get update && apt-get install -y --no-install-recommends python3 \
+     && rm -rf /var/lib/apt/lists/*)) && useradd --uid 10001 --create-home --shell /usr/sbin/nologin mcp
+COPY gateway/ssm_mcp_server.py /opt/ssm/gateway/ssm_mcp_server.py
+COPY sim/ /opt/ssm/sim/
+ENV HOME=/tmp/home TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1 SSM_SIM_ROOT=/opt/ssm/sim
+USER 10001:10001
+ENTRYPOINT ["python3", "-u", "/opt/ssm/gateway/ssm_mcp_server.py"]

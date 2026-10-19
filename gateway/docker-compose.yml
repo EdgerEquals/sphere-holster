@@ -1,0 +1,26 @@
+# ssm-sim-gateway (#10): MCP servers for the open simulation stack, started on demand (stdio, no ports).
+# Build:  docker compose -f gateway/docker-compose.yml build
+# Use:    docker compose -f gateway/docker-compose.yml run --rm -T fenics     (speaks MCP on stdin/stdout)
+x-hardening: &hardening
+  network_mode: none            # no network at runtime
+  read_only: true               # read-only root filesystem
+  user: "10001:10001"           # non-root
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 512
+  mem_limit: 4g
+  stdin_open: true
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,size=2g   # the only writable path (DOLFINx JIT needs exec)
+  volumes:
+    - ../sim:/opt/ssm/sim:ro    # live repo sim/ tests, read-only
+
+services:
+  fenics:
+    <<: *hardening
+    build: {context: .., dockerfile: gateway/Dockerfile.fenics}
+    image: ssm-gateway-fenics:local
+  openfoam:
+    <<: *hardening
+    build: {context: .., dockerfile: gateway/Dockerfile.openfoam}
+    image: ssm-gateway-openfoam:local

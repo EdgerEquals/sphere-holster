@@ -1,0 +1,76 @@
+# Reviewer scoring (issue #8). Dispatch only.
+#   mode=offline (default): rescore what is already in the ledger. No model calls, free.
+#   mode=planted-live: PAID. Renders the planted-mistake fixture into a throwaway local commit (never pushed) and
+#     runs the normal reviewer scripts on it, then scores precision/recall against ledger/planted/v1/keys.json.
+#     Requires confirm=spend. Approximate cost per run (shallow): Kimi ~$0.02, DeepSeek ~$0.002, Claude ~$0.03,
+#     Grok ~$0.02; all four ~$0.07. Grok's script sends no search tools here (no Tavily pre-search step).
+name: ledger-score
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: offline (free) | planted-live (PAID, needs confirm=spend)
+        type: choice
+        options: [offline, planted-live]
+        default: offline
+      reviewers:
+        description: planted-live only. Comma list of kimi, deepseek, claude, grok
+        type: string
+        default: kimi,deepseek
+      depth:
+        description: planted-live only. shallow | deep
+        type: choice
+        options: [shallow, deep]
+        default: shallow
+      confirm:
+        description: planted-live only. Type "spend" to allow paid model calls
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ledger-main
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # scorecards + planted findings go into ledger/ on main
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Planted-mistake run (PAID; only with confirm=spend)
+        if: inputs.mode == 'planted-live'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          REVIEWERS: ${{ inputs.reviewers }}
+          DEPTH: ${{ inputs.depth }}
+          ANTHROPIC_API_KEY: ${{ contains(inputs.reviewers, 'claude') && secrets.ANTHROPIC_API_KEY || '' }}
+          XAI_API_KEY: ${{ contains(inputs.reviewers, 'grok') && secrets.XAI_API_KEY || '' }}
+          MOONSHOT_API_KEY: ${{ contains(inputs.reviewers, 'kimi') && secrets.MOONSHOT_API_KEY || '' }}
+          DEEPSEEK_API_KEY: ${{ contains(inputs.reviewers, 'deepseek') && secrets.DEEPSEEK_API_KEY || '' }}
+        run: |
+          [ "$CONFIRM" = spend ] || { echo "::error::planted-live makes paid calls; set confirm=spend"; exit 1; }
+          python scripts/ledger_score.py planted-live --reviewers "$REVIEWERS" --depth "$DEPTH" --confirm spend \
+            --run-id "gh${{ github.run_id }}" --records-out /tmp/planted_new.jsonl | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Score and commit
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          [ -f /tmp/planted_new.jsonl ] || : > /tmp/planted_new.jsonl
+          regen() {
+            python scripts/ledger.py append-file --file /tmp/planted_new.jsonl
+            python scripts/ledger_score.py offline > /dev/null
+            python scripts/ledger_costs.py --all > /dev/null
+          }
+          scripts/ledger_commit.sh "ledger: scorecards ($MODE)" regen
+          cat ledger/scorecards.md >> "$GITHUB_STEP_SUMMARY"
