@@ -8,7 +8,7 @@ body{margin:0;background:#0b0e14;color:#dde3ee;font:12px/1.35 system-ui,Segoe UI
 #gl{width:100%;height:100%;display:block;touch-action:none}
 canvas{max-width:100%}
 #side canvas{height:auto}
-@media (max-width: 900px){ body{overflow:auto} #wrap{flex-direction:column;height:auto} #view{height:72vh;flex:none} #side{width:100%;flex:none;overflow:visible} #hud{font-size:10px;max-width:94%;max-height:16vh;overflow:auto;opacity:.92} #legend{font-size:14px;bottom:4px;right:4px;padding:3px 6px} #legend div:not(.facekey){display:none} #banner{font-size:11px} }
+@media (max-width: 900px){ body{overflow:auto} #wrap{flex-direction:column;height:auto} #view{height:72vh;flex:none} #side{width:100%;flex:none;overflow:visible} #hud{font-size:10px;max-width:94%;max-height:16vh;overflow:auto;opacity:.92} #legend{font-size:14px;bottom:4px;right:4px;padding:3px 6px} #legend div:not(.facekey){display:none} #banner{font-size:11px} #dFs,#dFax,#dTr,#dModes,#dSw{width:100%!important;height:auto} }
 #legend .facekey{font-size:15px;font-weight:700;margin:2px 0}
 #overlay{position:absolute;left:0;top:0;pointer-events:none}
 #side{width:560px;flex:0 0 560px;overflow-y:auto;background:#121722;border-left:1px solid #2a3244;padding:8px 10px;box-sizing:border-box}
@@ -24,10 +24,11 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
 #hud{position:absolute;left:8px;top:8px;background:rgba(10,14,22,.82);padding:6px 8px;border:1px solid #2a3244;border-radius:4px;max-width:520px;pointer-events:none}
 #legend{position:absolute;right:8px;bottom:8px;background:rgba(10,14,22,.82);padding:6px 8px;border:1px solid #2a3244;border-radius:4px;pointer-events:none}
 .sw{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:middle}
+@media (max-width: 900px){ #side{width:100%!important;flex:none!important;max-width:100vw} #side table{width:100%;table-layout:fixed;word-break:break-word} #side .row{flex-wrap:wrap} }
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head><body>
-<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.2 · built __BUILD__</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
+<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.3 · built __BUILD__</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
 <div id="wrap">
  <div id="view"><canvas id="gl"></canvas><canvas id="overlay"></canvas>
   <div id="hud"></div>
@@ -55,11 +56,18 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
   <div class="row"><span class="lab">Fill: HHO amount</span><input id="dFill" type="number" placeholder="required" style="width:90px"><select id="dFillU"><option value="torr">Torr at sealing</option><option value="mol">molecules</option></select>
    <span class="lab">initial/ambient (sealing) T</span><input id="dTs" type="number" value="293.15" style="width:64px"><span class="lab">K &mdash; initial condition, not a control</span></div>
   <div class="row"><span class="lab">Drive: amplitude</span><input id="dV" type="number" placeholder="required" style="width:70px"><span class="lab">V peak (applied, DBD 50 &micro;m centre electrode [est])</span></div>
-  <div class="row"><span class="lab">EMF frequency</span><input id="dF" type="number" placeholder="unset" style="width:80px"><span class="lab">Hz</span><input type="range" id="dFs" min="0" max="1000" value="500" style="width:170px"><span class="small">20 Hz &ndash; 20 kHz (log; slider position means nothing until you move it or type a value); one cycle, duration 1/f = <span id="dT">&ndash;</span></span></div>
-  <div class="row"><button id="dRun">Run single cycle</button><select id="dSweep"><option value="f">sweep drive f 20 Hz&ndash;20 kHz</option><option value="fill">sweep HHO fill 0.1&ndash;7600 Torr</option></select><button id="dSweepGo">Run sweep</button><span id="dMsg" class="small flag"></span></div>
+  <div class="row"><span class="lab">EMF frequency</span><input id="dF" type="text" placeholder="unset, e.g. 2.5M" style="width:90px"><span class="lab">Hz (suffix k M G T P)</span><span class="small">one cycle, duration 1/f = <span id="dT">&ndash;</span></span></div>
+  <div class="row"><input type="range" id="dFs" min="0" max="1000" value="500" list="dFticks" style="width:540px;margin:0"><datalist id="dFticks"><option value="0"><option value="100"><option value="200"><option value="300"><option value="400"><option value="500"><option value="600"><option value="700"><option value="800"><option value="900"><option value="1000"></datalist></div>
+  <canvas id="dFax" width="540" height="58" style="background:#0d111a;border:1px solid #2a3244"></canvas>
+  <div class="small">log slider 100 kHz &ndash; 1000 THz, decade ticks; marked: natural acoustic modes (cyan), Balmer H&alpha;&ndash;H&delta; (white), visible band, quasi-static limit / EM resonance / breakdown-formation limit (dashed). Slider position means nothing until you move it or type a value.</div>
+  <div id="dReg"></div>
+  <div class="row"><span class="lab">Sound speeds</span><select id="dQz"><option value="vrh">quartz &alpha; VRH aggregate 6048/4090 m/s [lit]</option><option value="z">quartz single crystal &parallel;Z 6330/4685 [lit]</option><option value="x">quartz single crystal &parallel;X 5710/5200 [lit]</option><option value="danny">Danny 5900 m/s (cT 4090 VRH)</option><option value="v0">v0/v0.2 6153/4210 [rec]</option></select></div>
+  <div id="dQzSrc" class="small"></div>
+  <div class="row"><button id="dRun">Run single cycle</button><select id="dSweep"><option value="f">sweep drive f (100 kHz&ndash;1000 THz)</option><option value="fill">sweep HHO fill (Torr)</option><option value="ID">sweep inner diameter ID</option><option value="OD">sweep outer diameter OD</option></select><button id="dSweepGo">Run sweep</button></div>
+  <div class="row"><span class="lab">from</span><input id="dLo" type="text" style="width:64px"><span class="lab">to</span><input id="dHi" type="text" style="width:64px"><span class="lab">points</span><input id="dN" type="number" min="2" max="200" style="width:50px"><span id="dSwU" class="small"></span><span id="dMsg" class="small flag"></span></div>
   <canvas id="dTr" width="540" height="300" style="background:#0d111a;border:1px solid #2a3244"></canvas>
   <canvas id="dModes" width="540" height="120" style="background:#0d111a;border:1px solid #2a3244"></canvas>
-  <canvas id="dSw" width="540" height="260" style="background:#0d111a;border:1px solid #2a3244"></canvas>
+  <canvas id="dSw" width="540" height="330" style="background:#0d111a;border:1px solid #2a3244"></canvas>
   <div id="dOut"></div>
   <h3>Spectral map along the domain vectors (frequency vs radius) &mdash; crossings marked &#9711;</h3>
   <canvas id="spec" width="540" height="330"></canvas>
@@ -225,7 +233,7 @@ function waveSpec(dom){
   const kG=0.1114*Math.pow((g.T_gas_K||293)/293,0.75), aG=kG/(rhoG*2423), aQ=6.2/(2650*740);
   let lg,lq,decay=false, what;
   if(dom==='optical'){ lg=2.998e8/f; lq=lg/1.554; what='transverse E of Balmer light (λ/n)'; }
-  else if(dom==='acoustic'){ lg=cg/f; lq=5900/f; what='pressure p(r) (longitudinal wave, plotted transverse)'; }
+  else if(dom==='acoustic'){ lg=cg/f; lq=(window.QZ_CL||C.propagation.cL_quartz)/f; what='pressure p(r) (longitudinal wave, plotted transverse)'; }
   else if(dom==='electric'){ lg=2.998e8/f; lq=lg/Math.sqrt(4.5); what='transverse E (λ = c/(f√ε))'; }
   else if(dom==='magnetic'){ lg=2.998e8/f; lq=lg/Math.sqrt(4.5); what=C.propagation.bare?'B = 0 in the bare test (flat, dashed)':'transverse B'; }
   else if(dom==='chemical'){ const w=2*Math.PI*f, D=PD.chemical.D_H; lg=2*Math.PI*Math.sqrt(2*D/w); lq=lg; decay=true; what='radical (H, O, OH) concentration diffusion wave; ends at the inner wall (surface recombination)'; }
@@ -282,7 +290,7 @@ function propForDomain(dom){
   for(const m of mediaList()){ let v=null, alpha=null;
     if(dom==='optical'){ v = m.key==='gas'||m.key==='air'? pr.c : (MATN[m.key]? pr.c/(m.key==='quartz'?pr.n_group_quartz_486:MATN[m.key]) : null); }
     else if(dom==='electric'||dom==='magnetic'){ v = m.key==='gas'||m.key==='air'? pr.c : pr.c/Math.sqrt(EPSRF[m.key]||4); }
-    else if(dom==='acoustic'){ v = m.key==='gas'? pr.c_sound_gas : m.key==='air'? 343 : (m.key==='quartz'? pr.cL_quartz_danny : M[m.key].cL); }
+    else if(dom==='acoustic'){ v = m.key==='gas'? pr.c_sound_gas : m.key==='air'? 343 : (m.key==='quartz'? (window.QZ_CL||pr.cL_quartz) : M[m.key].cL); }
     else if(dom==='chemical'){ alpha = m.key==='gas'? PD.chemical.D_H : null; v=null; }
     else { alpha = m.key==='gas'? pr.alpha_gas : m.key==='air'? 2.2e-5 : M[m.key].k/(M[m.key].rho*M[m.key].cp); }
     segs.push({a:m.a,b:m.b,v,alpha,key:m.key}); }

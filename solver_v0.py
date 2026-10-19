@@ -195,6 +195,30 @@ def gas_T_profile(Tw, P_cond, a, rs):
     q = P_cond / (4 / 3 * math.pi * a ** 3); T0 = 293.0; c = K_HHO0 * T0 / 1.75
     th_w = c * (Tw / T0) ** 1.75
     return [min(T0 * ((th_w + q * (a * a - r * r) / 6) / c) ** (1 / 1.75), 3000.0) for r in rs]
+# ---- Sound speeds (v0.3) ----
+# Crystal-quartz acoustic speeds, selectable (--qz-sound). Every value carries its source.
+QZ_SOUND = {
+    "vrh":   dict(cL=6048.0, cT=4090.0, label="alpha-quartz isotropic VRH aggregate",
+                  src="[lit] Schmitt 2015, Treatise on Geophysics 2nd ed. vol 11, 'Geophysical properties of the near surface Earth: seismic properties', Table 2 (alpha-quartz rho 2648, K 37.8, mu 44.3 GPa -> VP 6048, VS 4090 m/s); cf. Mavko, Mukerji & Dvorkin, Rock Physics Handbook (K 37, mu 44 GPa -> 6008/4075 m/s)"),
+    "z":     dict(cL=6330.0, cT=4685.0, label="single crystal, along Z (c-axis)",
+                  src="[lit] cL 6.33(3) km/s Z-cut: J. Appl. Phys. 44, 5 (1973), doi:10.1063/1.1661916 (agrees with McSkimin, JASA 34, 1271 (1962)); cT = sqrt(C44/rho) = sqrt(58.14 GPa/2649) [calc from lit C44: Ohno et al., J. Appl. Phys. 100, 2006, doi:10.1063/1.2335684]"),
+    "x":     dict(cL=5710.0, cT=5200.0, label="single crystal, along X",
+                  src="[lit] X-cut cL 5.71(5), cT 5.20(5) km/s (one of the two transverse branches): J. Appl. Phys. 44, 5 (1973), doi:10.1063/1.1661916"),
+    "danny": dict(cL=5900.0, cT=4090.0, label="Danny's value",
+                  src="cL 5900 m/s [given by Danny]; cT 4090 m/s taken from the VRH entry [lit Schmitt 2015] because no shear value was given"),
+    "v0":    dict(cL=6153.0, cT=4210.0, label="v0/v0.2 value",
+                  src="[rec shell_phi_sweep] isotropic VRH as used by the other worker's sweep; superseded in v0.3 by the cited VRH entry"),
+}
+QZ_SOUND_SEL = "vrh"
+def set_qz_sound(key):
+    global QZ_SOUND_SEL
+    QZ_SOUND_SEL = key; MAT["quartz"]["cL"] = QZ_SOUND[key]["cL"]; MAT["quartz"]["cT"] = QZ_SOUND[key]["cT"]
+    MAT["quartz"]["tags"] = re.sub(r"cL,cT [^;]*;", "cL,cT " + key + " " + QZ_SOUND[key]["src"].replace(";", ",") + ";", MAT["quartz"]["tags"])
+# HHO gas: c(T) = sqrt(gamma R T / M), ideal gas.
+#   M = (2 x 2.016 + 32.00)/3 g/mol = 12.01 g/mol [calc; molar masses from IUPAC standard atomic weights H 1.008, O 15.999]
+#   gamma = 1.40 [lit-typical: H2 and O2 are both ~1.40 near 300 K (NIST Chemistry WebBook, Thermophysical Properties of Fluid Systems);
+#   a 2:1 mix of two gamma~1.4 diatomics stays ~1.40 [calc]; falls as vibration opens above ~1000 K, not modelled [est]]
+#   R = 8.314462618 J/mol/K [lit CODATA]. -> 533 m/s at 293 K, c ~ sqrt(T).
 def c_hho(T):
     """ideal-gas sound speed of HHO 2H2:O2: c = sqrt(gamma R T / M), M = (2*2.016+32.00)/3 = 12.01 g/mol [calc from lit molar masses],
     gamma 1.40 [est, diatomic mix near room T; falls slowly as vibrational modes open above ~1000 K, not modelled]. 533 m/s at 293 K."""
@@ -594,7 +618,8 @@ def package(pre, runs, ref):
     out["acoustic_ref_l_ge_1"] = {k: r4(v) for k, v in ac_ref.items()}
     pg = pre["p_atm"] * 101325.0; rho_g = pg * 0.012011 / (8.314 * T_REF)
     out["propagation"] = dict(c=C0, n_group_quartz_486=1.584, n_rf_quartz=math.sqrt(4.5), c_sound_gas=math.sqrt(1.4 * 8.314 * T_REF / 0.012011),
-                              cL_quartz=MAT["quartz"]["cL"], cL_quartz_danny=5900.0, alpha_quartz=6.2 / (2650 * 740),
+                              cL_quartz=MAT["quartz"]["cL"], cT_quartz=MAT["quartz"]["cT"], cL_quartz_danny=5900.0, qz_sound_sel=QZ_SOUND_SEL, qz_sound=QZ_SOUND,
+                              c_gas_formula="c = sqrt(gamma R T / M), gamma 1.40, M 12.01 g/mol, R 8.314462618; 533 m/s at 293 K", alpha_quartz=6.2 / (2650 * 740),
                               alpha_gas=r4(0.12 / (rho_g * 2403)), r_in_mm=st["r_in"] / MM, r_q_mm=st["r_q"] / MM, bare=bool(pre.get("bare")),
                               note="gas k 0.12 W/mK, cp 2403 J/kgK for 2:1 H2:O2 [est]; quartz alpha from k 6.2, rho 2650, cp 740 [rec]")
     for P, run in zip(POWERS, runs):
@@ -808,7 +833,9 @@ def main():
     ap.add_argument("--wall", type=float, help="custom preset: quartz wall mm")
     ap.add_argument("--p-atm", type=float, default=1.0, help="custom preset: HHO fill pressure atm")
     ap.add_argument("--only", help="comma list of preset ids")
+    ap.add_argument("--qz-sound", default="vrh", choices=sorted(QZ_SOUND), help="crystal-quartz cL/cT set (see QZ_SOUND)")
     args = ap.parse_args()
+    set_qz_sound(args.qz_sound)
     presets = list(PRESETS)
     if args.core_d is not None and args.wall is not None:
         presets.insert(0, dict(id="custom", label=f"Custom: core d {args.core_d} mm, wall {args.wall} mm, {args.p_atm} atm HHO",

@@ -318,6 +318,72 @@
 - **Knee: not defined.** Displayed everywhere the other domains show a knee.
 - **Flag.** "Chemical: … would autoignite" fires when the gas centre is ≥ 500 °C (773 K).
 
+### 8.4 Viewer v0.3 changes (11:33 AWST steering): drive range, sweeps, sound speeds
+
+**(a) EMF drive frequency: 100 kHz to 1000 THz.**
+- The frequency is typed with SI suffixes (k M G T P, e.g. `2.5M`, `600T`) or set with a log slider that has decade ticks.
+- An axis strip under the slider marks:
+  - the natural acoustic modes of the current geometry (cyan): gas modes from c(T), and quartz shell l=0 modes computed for the selected sound speeds;
+  - the Balmer lines Hα 656.28, Hβ 486.13, Hγ 434.05 and Hδ 410.17 nm [lit NIST ASD];
+  - the visible band 380–750 nm (400–789 THz);
+  - three dashed limits: quasi-static, EM resonance and breakdown formation.
+- **Regime flags** (`regime()` in drive_model.js), all shown live:
+
+  | Flag | Fires when | Scope (2 mm OD) |
+  |---|---|---|
+  | Quasi-static degrading | OD·√εr > λ/10, i.e. f > c/(10·OD·√4.5) | ~7.07 GHz |
+  | Quasi-static INVALID | f ≥ first dielectric-sphere EM resonance, c·2/(2π b √εr) [est] | ~45.0 GHz |
+  | No discharge forms | half-cycle < electron-avalanche formation time ln(1+1/γ)·gap/v_e; the knee is then set to ∞ | ~20.8 ns (above ~24 MHz) |
+  | Static knee not reached | half-cycle < Townsend ion-feedback time gap/v_i | ~225 ns (above ~2.2 MHz) |
+  | OPTICAL BAND: drive is light | drive λ is visible | — |
+  | Infrared / ultraviolet | drive λ is IR or UV | — |
+  | Within 1% of a Balmer line | drive λ matches Hα–Hδ to 1% | — |
+
+  The formation times use PLACEHOLDER drift velocities v_e = 1e5 and v_i = 2e3 m/s [est]. In the IR, UV and optical bands the circuit/DBD drive model does not apply.
+
+**(b) Typed sweep bounds.**
+- Each sweep has lower and upper bounds with SI suffixes and a point count (2–200).
+- Sweep types: drive f (default 100k–1000T), fill (Torr), ID and OD.
+- Invalid bounds are refused with a message.
+
+**(c) ID and OD sweeps.**
+- The ID sweep holds OD fixed; the OD sweep holds ID fixed. OD > ID is enforced, and ID must exceed the 0.1 mm electrode. Invalid points are counted and skipped.
+- **Top panel, per-domain response** (each curve normalised to its maximum):
+  - optical: light per cycle;
+  - acoustic: gas l=0 and shell 0S0 ring;
+  - electric: peak gas voltage;
+  - thermal: ΔT of the gas;
+  - chemical: heat per cycle;
+  - magnetic: stated as B = 0.
+  - The knee V_b(geometry) is drawn dashed. Its minimum and the ionisation on/off crossings are marked.
+- **Bottom panel, natural modes vs geometry** (log f):
+  - gas l=0 modes, shell l=0 modes, thermal and chemical corners, and the EM resonance;
+  - the drive f as a white line, with ○ where a mode crosses the drive;
+  - "Chemical knee: not defined".
+
+**(d) Sound speeds, cited and selectable.**
+- **HHO gas.** c(T) = √(γRT/M) with:
+  - γ = 1.40 [lit-typical: H2 and O2 both ≈1.40 near 300 K, NIST Chemistry WebBook fluid data];
+  - M = 12.01 g/mol [calc from IUPAC atomic weights];
+  - R = 8.314462618 [CODATA].
+  - This gives 533 m/s at 293 K, rising with the computed gas T.
+- **Crystal quartz**, selector `dQz`:
+
+  | Option | cL / cT (m/s) | Source |
+  |---|---|---|
+  | VRH aggregate (default) | 6048 / 4090 | [lit] Schmitt 2015, Treatise on Geophysics 2nd ed. vol 11, Table 2; cf. Mavko et al., Rock Physics Handbook 6008/4075 |
+  | Single crystal ∥Z | 6330 / 4685 | cL [lit] J. Appl. Phys. 44, 5 (1973), doi:10.1063/1.1661916; cT = √(C44/ρ) with C44 = 58.14 GPa [lit Ohno et al. 2006, doi:10.1063/1.2335684] |
+  | Single crystal ∥X | 5710 / 5200 | [lit] same 1973 paper |
+  | Danny | 5900 / 4090 | cL [given by Danny]; cT from VRH |
+  | v0 | 6153 / 4210 | [rec shell_phi_sweep], superseded |
+
+- The selector drives:
+  - the drive panel's computed free-shell l=0 modes, from the exact j1/y1 traction-free root;
+  - all sweeps;
+  - the quartz wavelength of the acoustic waveform.
+- The precomputed 3-D presets were rerun with `--qz-sound vrh` (the default), which moves scope 0S0 from 1.868 to 1.855 MHz.
+- The other worker's Shell_Diameter_Phi_Sweep still uses 6153/4210 and was not edited.
+
 ## 9. The v0 prototype: what it does not do
 
 - No l≥1 fields in the solver; no anisotropic quartz.
@@ -349,3 +415,9 @@ All in `/workspace/grok_thread/sphere_model_v0/screenshots/`, from headless Chro
 | 33 | minA at 100 kW: quarter-cut, face 1 CHEMICAL, flags firing |
 | 34 | scope with the quartz opacity slider at 0.3 (default 0.7 in 27) |
 | 35–38 | iPhone 390×844 (touch): face labels; after one-finger orbit; after pinch-zoom; orthographic |
+| 39–41 | v0.3 drive frequency axis and regime flags at 2.5 MHz (ion-feedback caution), 50 GHz (quasi-static invalid, no formation) and 600 THz (optical band) |
+| 42 | f sweep, 100k–1000T, 60 points |
+| 43, 44 | ID sweep (OD 2 mm) and OD sweep (ID 1 mm) at 2 MHz: per-domain response, knee, modes vs geometry with crossings |
+| 45 | fill sweep with typed bounds 1–1k Torr, 25 points |
+| 46, 47 | sound-speed selector on Danny 5900 m/s, with sources; quarter-cut waveforms using quartz 5900 |
+| 48–50 | iPhone: frequency axis and regime flags; ID sweep; top with the v0.3 label |
