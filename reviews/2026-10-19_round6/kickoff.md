@@ -196,6 +196,15 @@ Each of the four models should **recommend** whether this order is the next best
 
 Capture replies under this folder (e.g. in each model’s `.md` or a shared `sequencing.md`). The human gate decides whether to keep or change the order.
 
+### Peer scoring of threshold proposals
+
+After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **measures and values**:
+
+1. Each model **scores the other models’ proposals** — **not its own**.
+2. Suggested score axes (adjust if the team agrees): **clarity**, **falsifiability**, and **practicality** (can Claude Code automate the check?).
+3. Peer scores are filed into the **existing GitHub review ledger** the same way other findings are scored (append-only JSONL / staging under `ledger/pending/`, labelled issues when mirroring allows; domain `information`).
+4. The **human gate (Edger_Equals)** makes the **final call** on the threshold using both the **proposals** and the **peer scores**.
+
 
 ---
 
@@ -216,6 +225,7 @@ Capture replies under this folder (e.g. in each model’s `.md` or a shared `seq
 | 11 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
 | 12 | Threshold | Defined by the team (first open question), **approved by the human gate** (Edger_Equals) |
 | 13 | Sequencing | Team recommendations on threshold-first vs alternate order **received** |
+| 14 | Peer scores | Peer scores on threshold proposals **recorded in the ledger** |
 
 **NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
 
