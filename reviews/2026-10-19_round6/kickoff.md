@@ -1,24 +1,28 @@
-# Round 6 kickoff — 4 W amplitude sweep (drive_W=1)
+# Round 6 kickoff — threshold debate, sequencing, peer scoring
 
 **Branch:** `holster-loop-2026-10-19`  
 **Team brief (verbatim):** [`prompt.md`](prompt.md)  
-**Bundle on origin:** `da37b3c`  
-**Do not push** unless the caller says so. This file is documentation only — it does not run tests or the sweep.
+**Bundle on origin:** `da37b3c` (docs have advanced since; use current HEAD)  
+**Do not push** unless the caller says so. This file is documentation only — it does not run tests or a sweep.
 
-Core locked for this run (do not re-open): bubble **0.57295 mm**, wall **1.43463 mm**, tourbillon **9.12441 µm**, fill **0.1044 × ambient** (HHO 2:1), window **1 Hz–50 MHz**, drive **`drive_W=1`** (= 1 W × 4 domains = **4 W total**).
+**Round 6 scope:** threshold measure + value (first open question), sequencing recommendations, peer scoring into the ledger, two-gate rules. **No amplitude sweep in this round.**
+
+**Round 7 (not this kickoff):** the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core is kicked off **only after** the threshold is defined by the team and **approved by the human gate (Edger_Equals)**. See §2.
+
+Core geometry remains locked for later rounds (do not re-open here): bubble **0.57295 mm**, wall **1.43463 mm**, tourbillon **9.12441 µm**, fill **0.1044 × ambient** (HHO 2:1), window **1 Hz–50 MHz**.
 
 ---
 
 ## 1. Pre-flight — full test suite (required)
 
-Per `prompt.md` §5, Claude Code (executor) must confirm the suite is green **before** any sweep commit or ledger entry. Coordinator / caller should run the same check before declaring the run started.
+Per `prompt.md` §5, Claude Code (executor) must confirm the suite is green **before** any ledger entry or local commit for this round. Coordinator / caller should run the same check before declaring round 6 started.
 
 From the repo root (use the project venv if present; otherwise one that has the test deps):
 
 ```bash
 cd /path/to/sphere-holster
 git checkout holster-loop-2026-10-19
-git rev-parse --short HEAD   # expect da37b3c or a descendant that still carries round-6
+git rev-parse --short HEAD   # expect a tip that carries round-6 docs
 
 # Full suite
 python -m pytest -q --tb=line
@@ -28,81 +32,36 @@ python -m pytest -q --tb=line
 
 **Pass criterion:** last line reports all green, e.g. `178 passed in …` (count may rise if new tests land; record the **actual** pass/fail + count in every ledger entry).
 
-**No-go if:** any failure, collection error, or missing deps. Fix first; do not start the sweep.
-
-Optional drive smoke (does not replace the full suite):
-
-```bash
-python -m pytest -q tests/test_drive_1W.py --tb=short
-```
+**No-go if:** any failure, collection error, or missing deps. Fix first; do not declare round 6 started.
 
 ---
 
-## 2. Launch the 4 W (drive_W=1) amplitude sweep
+## 2. Round 7 note — 4 W amplitude sweep (deferred)
 
-There is **no** dedicated `drive_4W_*.py` harness in tree yet. Geometry sweeps (`geometry_sweep_v0.py`, `geometry_fill_sweep_v0.py`) are **no-source** lock searches. Round 6 **creates** the first driven amplitude artifact.
+**Round 6 has no sweep work.** Do not run `drive_W=1` sweeps, single-point drive smokes for kickoff, or write `drive_4W_*.json` / `geometry_drive_4W_sweep_v0.json` as round-6 deliverables.
 
-### 2a. Single-point smoke on the rarefied core (executor first step)
+The **4 W** (`drive_W=1`; 1 W × four domains) amplitude sweep on the rarefied core is **round 7**. It is kicked off **only after**:
 
-```bash
-python - <<'PY'
-import json
-import solver_v0 as S
+1. The team has proposed and peer-scored the automated-gate threshold (measure + value), and  
+2. The **human gate (Edger_Equals)** has **approved** that threshold.
 
-pre = next(p for p in S.PRESETS if p["id"] == "base5")
-# base5 must already be the rarefied winner (0.57295 / 1.43463 / 9.12441 µm @ 0.1044×)
-run = S.run_case(pre, {}, drive_W=1.0)
-d = run["drive"]
-out = {
-    "drive_W": d["drive_W"],
-    "n_modes_driven": d["n_modes_driven"],
-    "P_src_per_mode_W": d["P_src_per_mode_W"],
-    "f_Hz_first_last": [d["f_Hz"][0], d["f_Hz"][-1]] if d.get("f_Hz") else None,
-    "W_ac_sum_J": d.get("W_ac_sum_J", run.get("W_ac")),
-    "P_gas": run["P_gas"],
-    "Tss_min_max": [float(min(run["Tss"])), float(max(run["Tss"]))],
-    "geometry": {
-        "a_mm": pre.get("a") or pre.get("a_mm"),
-        "w_mm": pre.get("w") or pre.get("w_mm"),
-        "t2_um": pre.get("t2") or pre.get("t2_um"),
-        "p_factor": getattr(S, "CORE_P_FACTOR", None) or pre.get("p_factor"),
-    },
-}
-print(json.dumps(out, indent=2))
-PY
-```
-
-Expect `drive_W == 1.0`, `P_gas == 1.0`, `n_modes_driven > 0`, frequencies inside **1 Hz–50 MHz**.
-
-### 2b. Team sweep deliverable (write new artifact)
-
-Per `prompt.md` Task 1, the team/executor:
-
-1. Agrees the grid (geometry + mix fixed; optional fully-rarefied pressure or envelope grid only).
-2. Runs `run_case(..., drive_W=1.0)` (or a thin wrapper script they add) at each point.
-3. Writes results to the repo root (or this folder), suggested names:
-   - `drive_4W_amplitude_v0.json`, or
-   - `geometry_drive_4W_sweep_v0.json`
-4. Records best locks, amplitudes / energies, frequencies, pressures, tree commit hash, and exact `drive_W` / acoustic split.
-5. Re-runs the **full suite** (§1); only then stages a local commit / ledger entry with `N passed` in the body.
-
-Claude Code CLI is the intended executor for steps 2b–5; chat Claude does **not** run the solver.
+Round-7 launch commands, smoke scripts, and sweep artifact paths belong in a future `reviews/…_round7/` kickoff (or an addendum after threshold lock). Until then, treat any sweep instructions in older drafts of this file or in `prompt.md` Task 1 as **deferred to round 7**.
 
 ---
 
 ## 3. Four-model role assignment
 
-Give **every** model the same verbatim text from [`prompt.md`](prompt.md). Roles below match that brief:
+Give **every** model the same verbatim text from [`prompt.md`](prompt.md), with the round-6 scope override above: **threshold / sequencing / peer scoring / gates first; no sweep this round.** Roles:
 
 | Model | Role this round | How to reach (typical) |
 |---|---|---|
-| **Kimi** | Cheap rote: units, power bookkeeping (1+1+1+1=4), retired-item scan, DESIGN_STATE consistency, JSON completeness | `python scripts/review_kimi.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` (or holster `/kimi-check` / workflow ping with the prompt) |
+| **Kimi** | Cheap rote: units, consistency vs DESIGN_STATE / this kickoff, retired-item scan, JSON / ledger completeness | `python scripts/review_kimi.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` (or holster `/kimi-check` / workflow ping) |
 | **DeepSeek** | Same cheap filter as Kimi (independent) | `python scripts/review_deepseek.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
-| **Claude (chat)** | Paid / read-only physics + method review; **cross-reviews the other three**; never runs solver or commits | Holster Claude channel / Messages API (see prior `reviews/2026-10-19_round5/claude_run.py` pattern); findings → ledger |
-| **Grok** | Paid source / claim cross-check against `solver_v0.py` + DESIGN_STATE; **cross-reviews the other three** | `python scripts/review_grok.py` with prompt context, or round runner; Tavily pre-search opt-in only if needed |
-| **Claude Code CLI** (executor, not a fifth “review voice”) | Runs suite, sweep, local commits; **self-check** before every commit/ledger line | Box CLI (`claude`); output gated by caller; **do not push** |
+| **Claude (chat)** | Paid / read-only method review; **cross-reviews the other three**; never runs solver or commits | Holster Claude channel / Messages API (see prior `reviews/2026-10-19_round5/claude_run.py` pattern); findings → ledger |
+| **Grok** | Paid source / claim cross-check against DESIGN_STATE + kickoff; **cross-reviews the other three** | `python scripts/review_grok.py` with prompt context, or round runner; Tavily pre-search opt-in only if needed |
+| **Claude Code CLI** (executor, not a fifth “review voice”) | Runs suite, stages ledger / local commits for round-6 docs; **self-check** before every commit/ledger line; **does not start the round-7 sweep** | Box CLI (`claude`); output gated by caller; **do not push** |
 
-Suggested order: suite green → executor smoke (2a) → cheap Kimi/DeepSeek plan check → executor full sweep artifact → Claude + Grok review numbers → all four cross-review + teamwork + recommendations.
+Suggested order for **round 6:** suite green → fan-out threshold + sequencing asks → proposals → peer scores into ledger → human gate settles threshold → **then** round 7 may start.
 
 ---
 
@@ -112,12 +71,13 @@ Suggested order: suite green → executor smoke (2a) → cheap Kimi/DeepSeek pla
 |---|---|
 | Team brief | `reviews/2026-10-19_round6/prompt.md` |
 | This kickoff | `reviews/2026-10-19_round6/kickoff.md` |
-| Sweep / amplitude JSON | repo root `drive_4W_amplitude_v0.json` or `geometry_drive_4W_sweep_v0.json` (name as team agrees); short human summary also under this folder |
 | Per-model replies | `reviews/2026-10-19_round6/{kimi,deepseek,claude,grok}.md` |
 | Teamwork scores | `reviews/2026-10-19_round6/*_teamwork.md` |
+| Sequencing / threshold debate | e.g. `reviews/2026-10-19_round6/sequencing.md` and/or per-model sections |
 | Process recommendations | `reviews/2026-10-19_round6/recommendations.md` (seed for DESIGN_STATE; caller locks) |
 | Ledger staging | `ledger/pending/*.jsonl` (CI ingest); never hand-edit `ledger/findings.jsonl` on main outside documented tools |
 | Ledger mirror | labelled GitHub issues (`ledger`, `model:<x>`, `sev:<x>`, …) when dial/dispatch allows |
+| Sweep / amplitude JSON (**round 7 only**) | repo root `drive_4W_amplitude_v0.json` or `geometry_drive_4W_sweep_v0.json` — **not** round-6 deliverables |
 
 Every Claude Code ledger line must include suite **pass/fail + count**.
 
@@ -137,7 +97,7 @@ Order is fixed: fan-out → recommendations → **automated gate** → **human g
 **Loop shape for round 6:**
 
 1. A kickoff command fans out the same brief to all four models (**Kimi, DeepSeek, Claude, Grok**).
-2. Their recommendations come back.
+2. Their recommendations come back (threshold, sequencing, peer scores).
 3. **Automated gate — Claude Code:** runs each recommendation against the model **with a prediction**, applies the threshold (**TBD**), and produces the prediction-versus-result package.
 4. **Human gate — Edger_Equals:** eyeballs that package **before** any feedback round goes back down to the team.
 5. Only after **both** gates pass does feedback fan out (or the result is surfaced upward / stopped per Danny).
@@ -171,27 +131,26 @@ Placeholder options to debate:
 | Confidence score | e.g. model-stated confidence below a floor forces surface-to-user even if the gap is small |
 | Combo | both: large gap **or** low confidence → must escalate; small gap + high confidence → still must clear the human gate this round until a threshold is chosen |
 
-**Status:** threshold definition = **TBD** (team proposes → human gate approves).
-
+**Status:** threshold definition = **TBD** (team proposes → human gate approves). Round **7** sweep waits on that approval.
 
 ---
 
-## 5b. Sequencing (threshold first — sweep is not first)
+## 5b. Sequencing (threshold first — round 7 sweep is not first)
 
-**Order of operations for round 6** (fixed unless the human gate reorders it):
+**Order of operations** (fixed unless the human gate reorders it):
 
-1. **Threshold debate first.** The team (**Kimi, DeepSeek, Claude, Grok**) debates and proposes the automated-gate threshold (**measure + value**) as their **first open question** (see §5).
+1. **Round 6 — threshold debate.** The team (**Kimi, DeepSeek, Claude, Grok**) debates and proposes the automated-gate threshold (**measure + value**) as their **first open question** (see §5), with peer scoring (§5b below).
 2. **Human gate settles the threshold.** **Edger_Equals** makes the **final call** on that definition.
-3. **Only then** run the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core.
+3. **Round 7 — only then** run the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core (separate kickoff).
 4. Prediction checks, both gates, and any feedback fan-out follow the two-gate rules in §5.
 
-The **4 W amplitude sweep is NOT the first step.** Do not start §2 sweep work until the threshold is settled (or Edger_Equals explicitly waives that hold).
+The **4 W amplitude sweep is NOT part of round 6** and is **NOT the first step**. Do not start round-7 sweep work until the threshold is settled (or Edger_Equals explicitly waives that hold).
 
 ### Team ask — recommendations on this sequencing
 
 Each of the four models should **recommend** whether this order is the next best step:
 
-- Agree with **threshold-debate → human approval → then sweep**, with brief reasoning; or
+- Agree with **threshold-debate → human approval → then round-7 sweep**, with brief reasoning; or
 - Propose a **different order**, with brief reasoning (what moves, what waits, and why).
 
 Capture replies under this folder (e.g. in each model’s `.md` or a shared `sequencing.md`). The human gate decides whether to keep or change the order.
@@ -205,28 +164,27 @@ After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **mea
 3. Peer scores are filed into the **existing GitHub review ledger** the same way other findings are scored (append-only JSONL / staging under `ledger/pending/`, labelled issues when mirroring allows; domain `information`).
 4. The **human gate (Edger_Equals)** makes the **final call** on the threshold using both the **proposals** and the **peer scores**.
 
-
 ---
 
-## 6. Go / no-go checklist (declare “run started” only if all GO)
+## 6. Go / no-go checklist (declare “round 6 started” only if all GO)
 
 | # | Check | GO if… |
 |---|---|---|
 | 1 | Branch | On `holster-loop-2026-10-19` with round-6 files present (`prompt.md`, this kickoff) |
-| 2 | Core geometry | `base5` / CORE_* match rarefied winner (0.57295 / 1.43463 / 9.12441 µm @ 0.1044× HHO 2:1) |
-| 3 | Window | `FMIN_HZ=1`, `FMAX_HZ=50e6` in solver |
+| 2 | Core geometry | Locked rarefied winner known for later rounds (0.57295 / 1.43463 / 9.12441 µm @ 0.1044× HHO 2:1) — not re-opened in round 6 |
+| 3 | Window | `FMIN_HZ=1`, `FMAX_HZ=50e6` recorded for round 7; not a round-6 sweep prerequisite |
 | 4 | Full suite | Green; record exact `N passed` |
-| 5 | Drive API | `run_case(..., drive_W=1)` available; `tests/test_drive_1W.py` part of the green suite |
-| 6 | Prompt §5 | Self-check rule understood; executor will not commit on red suite |
-| 7 | Models | Kimi, DeepSeek, Claude (chat), Grok each have the **same** `prompt.md` text ready |
-| 8 | Outputs | Target paths in §4 agreed; no push planned without caller |
-| 9 | Retired | No electrodes / retired items in the planned sweep |
-| 10 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
-| 11 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
-| 12 | Threshold | Defined by the team (first open question), **approved by the human gate** (Edger_Equals) |
-| 13 | Sequencing | Team recommendations on threshold-first vs alternate order **received** |
-| 14 | Peer scores | Peer scores on threshold proposals **recorded in the ledger** |
+| 5 | Prompt §5 / self-check | Understood; executor will not commit on red suite |
+| 6 | Models | Kimi, DeepSeek, Claude (chat), Grok each have the **same** brief ready (round-6 scope: no sweep) |
+| 7 | Outputs | Round-6 paths in §4 agreed; sweep JSON deferred to round 7; no push without caller |
+| 8 | Retired | No electrodes / retired items reintroduced in proposals |
+| 9 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
+| 10 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
+| 11 | Threshold | Defined by the team (first open question), **approved by the human gate** (Edger_Equals) |
+| 12 | Sequencing | Team recommendations on threshold-first vs alternate order **received** |
+| 13 | Peer scores | Peer scores on threshold proposals **recorded in the ledger** |
+| 14 | Round 7 hold | No 4 W sweep started until threshold is settled |
 
-**NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
+**NO-GO:** suite red, prompt not shared identically, intent to push without caller, or starting the 4 W sweep before threshold approval.
 
-When all rows are GO, the coordinator may declare: **Round 6 started** — executor begins §2, models stand by for cross-review of verified artifacts.
+When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 held through the round), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 sweep waits**.
