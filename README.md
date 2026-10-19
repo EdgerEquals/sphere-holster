@@ -9,3 +9,5 @@ Status: v0 work in progress. Physics values are estimates unless a source is cit
 - `solver_v0.py`: radial coupled solver that precomputes fields and spectra
 - `model_data_v0.json`: solver output loaded by the viewer
 - `viewer_template.html`: Three.js viewer (in progress; `index.html` to follow)
+
+Terminology: see [`docs/vocabulary.md`](docs/vocabulary.md).
