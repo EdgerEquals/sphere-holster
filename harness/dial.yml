@@ -18,9 +18,13 @@ levels:
     claude_effort: medium       # output_config.effort; adaptive thinking counts toward max_tokens
     claude_max_tokens: 16000    # hard cap on thinking + reply
     grok_model: grok-4.7
-    grok_max_tokens: 6000
+    grok_reasoning_effort: low  # reasoning.effort; grok-4.7 default is high (slow); cannot be disabled
+    grok_max_tokens: 4000       # visible output cap
     grok_web_search: true
-    grok_max_turns: 4
+    grok_max_turns: 3           # agentic search turns
+    grok_max_diff_chars: 30000  # Grok checks claims, it does not need the whole diff
+    grok_idle_timeout_s: 180    # streaming: fail if no bytes for this long
+    grok_deadline_s: 900        # streaming: hard wall-clock limit per call
     max_diff_chars: 60000
     per_domain_calls: false     # one combined call: coordinator-merge + touched domains
     max_calls: 1
@@ -29,9 +33,13 @@ levels:
     claude_effort: high
     claude_max_tokens: 32000
     grok_model: grok-4.7
-    grok_max_tokens: 12000
+    grok_reasoning_effort: medium
+    grok_max_tokens: 10000
     grok_web_search: true
-    grok_max_turns: 12
+    grok_max_turns: 8
+    grok_max_diff_chars: 120000
+    grok_idle_timeout_s: 240
+    grok_deadline_s: 1500
     max_diff_chars: 200000
     per_domain_calls: true      # one call per touched domain + one coordinator-merge call
     max_calls: 7

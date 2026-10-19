@@ -33,7 +33,11 @@ Exit codes: 0 = verdict recorded (PASS or FAIL), 2 = API key missing (nothing ca
 - **Caps** (edit `dial.yml`):
   - `claude_max_tokens` is a hard cap on Claude's output **including adaptive thinking**; `claude_effort` (low|medium|high) steers how much it thinks. Too small a cap with high effort returns no verdict (first smoke test hit this at 6000).
   - `grok_max_tokens` caps Grok's visible output (`max_output_tokens`); xAI does not count reasoning tokens against it, so
-    `grok_max_turns` (agentic search turns) is the main Grok cost lever.
+    `grok_reasoning_effort` (low|medium|high|xhigh; xAI default is high) and `grok_max_turns` (agentic search turns)
+    are the main Grok cost and latency levers. `grok_max_diff_chars` trims the diff Grok sees.
+  - Grok calls stream (SSE): `grok_idle_timeout_s` fails the call if no bytes arrive for that long, `grok_deadline_s`
+    is a hard wall-clock cap. (The first smoke test, non-streaming at default high effort on a 95k-char diff,
+    hit a 10-minute read timeout.)
   - `max_diff_chars` caps the prompt size; `max_calls` caps calls per review.
   - Push-to-main audits run only every `audit_every_n_rounds` rounds or on `[audit]`, never on every push.
   - Comment triggers only work for the repo owner/members/collaborators, so strangers cannot spend the keys.
@@ -45,4 +49,6 @@ Exit codes: 0 = verdict recorded (PASS or FAIL), 2 = API key missing (nothing ca
 
 - `ANTHROPIC_API_KEY` — claude-audit and claude-code-review.
 - `XAI_API_KEY` — grok-check.
+- `DEEPSEEK_API_KEY` — stored for the free/cheap tier (DeepSeek). **No workflow uses it yet.** Balance was $0 on 2026-10-19, so calls would fail until topped up.
+- `MOONSHOT_API_KEY` — stored for Kimi (Moonshot AI developer API, billed separately from the kimi.com membership). **No workflow uses it yet.** Has credit as of 2026-10-19.
 If a secret is missing the run stops before any API call, posts/prints a clear "secret not set" message and fails the check.

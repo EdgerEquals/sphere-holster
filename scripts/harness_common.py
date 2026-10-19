@@ -175,7 +175,7 @@ def detect_domains(dial: dict, d: dict, requested: str) -> list[str]:
 
 
 # ---------- HTTP ----------
-def post_json(url: str, payload: dict, headers: dict, timeout: int = 600) -> dict:
+def post_json(url: str, payload: dict, headers: dict, timeout: int = 900) -> dict:
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
                                  headers={"content-type": "application/json", **headers})
     try:
@@ -186,6 +186,45 @@ def post_json(url: str, payload: dict, headers: dict, timeout: int = 600) -> dic
         raise RuntimeError(f"HTTP {e.code} from {url}: {body}") from None
     except urllib.error.URLError as e:
         raise RuntimeError(f"Network error calling {url}: {e.reason}") from None
+    except (TimeoutError, OSError) as e:  # socket read timeouts are TimeoutError, not URLError
+        raise RuntimeError(f"Timed out / connection error calling {url} after {timeout}s: {e}") from None
+
+
+def post_sse(url: str, payload: dict, headers: dict, idle_timeout: int = 180, deadline: int = 900):
+    """POST with stream=true and parse Server-Sent Events. Returns the list of decoded event dicts.
+
+    idle_timeout: max seconds with no bytes at all (socket read timeout).
+    deadline: hard wall-clock limit for the whole stream.
+    """
+    import time
+    req = urllib.request.Request(url, data=json.dumps({**payload, "stream": True}).encode(), method="POST",
+                                 headers={"content-type": "application/json", "accept": "text/event-stream", **headers})
+    events, t0, data = [], time.monotonic(), []
+    try:
+        with urllib.request.urlopen(req, timeout=idle_timeout) as r:
+            for raw in r:
+                if time.monotonic() - t0 > deadline:
+                    raise RuntimeError(f"Stream from {url} exceeded the {deadline}s deadline "
+                                       f"({len(events)} events received). Lower the dial's reasoning effort / turns.")
+                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                if line.startswith("data:"):
+                    data.append(line[5:].lstrip())
+                elif line == "" and data:
+                    chunk = "\n".join(data); data = []
+                    if chunk.strip() == "[DONE]":
+                        break
+                    try:
+                        events.append(json.loads(chunk))
+                    except json.JSONDecodeError:
+                        pass
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:2000]
+        raise RuntimeError(f"HTTP {e.code} from {url}: {body}") from None
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Network error calling {url}: {e.reason}") from None
+    except (TimeoutError, OSError) as e:
+        raise RuntimeError(f"No data from {url} for {idle_timeout}s ({len(events)} events so far): {e}") from None
+    return events
 
 
 # ---------- verdicts ----------
@@ -257,7 +296,13 @@ def render_md(title: str, v: dict) -> str:
             L.append(f"- cross-check: {c.get('position','?')} — {c.get('other_finding','')} ({c.get('reason','')})")
         if p.get("claims_needing_source_check"):
             L.append("- needs source check: " + "; ".join(p["claims_needing_source_check"][:20]))
-        L.append(f"<sub>tokens in/out: {r.get('usage',{}).get('input_tokens','?')}/{r.get('usage',{}).get('output_tokens','?')}</sub>")
+        u = r.get("usage", {}) or {}
+        extra = ""
+        if u.get("cost_in_usd_ticks"):
+            extra += f" · cost ${u['cost_in_usd_ticks'] / 1e10:.4f}"
+        if u.get("num_server_side_tools_used"):
+            extra += f" · server tool calls {u['num_server_side_tools_used']}"
+        L.append(f"<sub>tokens in/out: {u.get('input_tokens','?')}/{u.get('output_tokens','?')}{extra}</sub>")
         L.append("")
     L.append(f"<sub>Generated {v['generated_utc']} · JSON in workflow artifact.</sub>")
     return "\n".join(L)
@@ -311,7 +356,9 @@ def run_review(reviewer: str, secret: str, call) -> None:
     dial = load_dial()
     depth, cfg = level_cfg(dial, a.depth)
     base, head = resolve_range(a.base, a.head)
-    d = collect_diff(base, head, int(cfg["max_diff_chars"]))
+    max_chars = int(cfg.get(f"{reviewer.lower()}_max_diff_chars") or cfg["max_diff_chars"])
+    cfg = {**cfg, "max_diff_chars": max_chars}
+    d = collect_diff(base, head, max_chars)
     hits = retired_scan(d["diff"])
     domains = detect_domains(dial, d, a.domains)
     meta = {"reviewer": reviewer, "depth": depth, "mode": a.mode, "base": base, "head": head,
@@ -344,9 +391,9 @@ def run_review(reviewer: str, secret: str, call) -> None:
         try:
             text, usage, model = call(sysmsg, user, cfg, key)
             parsed = parse_verdict(text)
-        except RuntimeError as e:
-            text, usage, model = str(e), {}, "?"
-            parsed = {"verdict": "ERROR", "summary": str(e)[:500], "findings": []}
+        except Exception as e:  # never crash without writing a verdict
+            text, usage, model = f"{type(e).__name__}: {e}", {}, "?"
+            parsed = {"verdict": "ERROR", "summary": text[:500], "findings": []}
         results.append({"scope": scope, "model": model, "parsed": parsed, "raw": text, "usage": usage})
 
     verdict = {**meta, "overall_verdict": combine(results, hits), "results": results}

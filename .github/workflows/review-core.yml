@@ -203,9 +203,23 @@ jobs:
           [ -n "$DEPTH" ] && args+=(--depth "$DEPTH")
           [ -n "$BASE_SHA" ] && args+=(--base "$BASE_SHA")
           [ -f other/verdict.json ] && args+=(--other-verdict other/verdict.json)
-          python "scripts/review_$REVIEWER.py" "${args[@]}"
-          code=$?
+          python "scripts/review_$REVIEWER.py" "${args[@]}" 2>&1 | tee review.log
+          code=${PIPESTATUS[0]}
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ ! -f review-out/verdict.md ]; then
+            # Script died before writing a verdict: still leave something to upload and post.
+            mkdir -p review-out
+            {
+              echo "## ⚠️ ${REVIEWER} review: **ERROR**"
+              echo
+              echo "The reviewer script exited with code $code before writing a verdict. Last lines of its log:"
+              echo
+              echo '```'
+              tail -n 25 review.log | sed -E 's/(sk-|xai-)[A-Za-z0-9_-]{8,}/[redacted]/g'
+              echo '```'
+            } > review-out/verdict.md
+            python -c "import json,sys;json.dump({'reviewer':sys.argv[1],'overall_verdict':'ERROR','exit_code':int(sys.argv[2]),'results':[]},open('review-out/verdict.json','w'))" "$REVIEWER" "$code"
+          fi
           verdict=$(python -c "import json;print(json.load(open('review-out/verdict.json'))['overall_verdict'])" 2>/dev/null || echo ERROR)
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           exit 0
@@ -240,8 +254,13 @@ jobs:
           VERDICT: ${{ steps.run.outputs.verdict }}
         run: |
           case "$CODE" in
+            0) ;;
             2) echo "::error title=Missing secret $SECRET_NAME::Repository secret $SECRET_NAME is not set, so the $REVIEWER review was skipped (no tokens used). Add it under Settings > Secrets and variables > Actions."; exit 1 ;;
-            3) echo "::error title=$REVIEWER review error::The API call failed or returned no parseable verdict. See the step log above."; exit 1 ;;
+            3) echo "::error title=$REVIEWER review error::The API call failed, timed out, or returned no parseable verdict. See the posted issue/comment and the step log."; exit 1 ;;
+            *) echo "::error title=$REVIEWER script crashed::scripts/review_$REVIEWER.py exited with code ${CODE:-unknown}. See the posted issue/comment and the step log."; exit 1 ;;
           esac
-          if [ "$VERDICT" = FAIL ]; then echo "::error title=$REVIEWER verdict FAIL::See the posted comment; this goes back to Cursor."; exit 1; fi
-          echo "$REVIEWER verdict: $VERDICT"
+          case "$VERDICT" in
+            PASS) echo "$REVIEWER verdict: PASS" ;;
+            FAIL) echo "::error title=$REVIEWER verdict FAIL::See the posted comment; this goes back to Cursor."; exit 1 ;;
+            *)    echo "::error title=$REVIEWER verdict ${VERDICT:-missing}::No usable verdict. See the posted issue/comment."; exit 1 ;;
+          esac
