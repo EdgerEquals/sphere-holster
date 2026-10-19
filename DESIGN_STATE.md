@@ -203,3 +203,13 @@ The model must treat these independently, never folded into one time constant:
 | Thermal mass | `drive_model.js`: `Cq` (ρ c_p V per quartz cell), `Cv_g` (gas). `solver_v0.py`: ρ c_p per material for every layer. | Not reported per layer as "heat held before pushing back". |
 | Lumping (flag) | `tauLumped = Ctot/hA0` in `drive_model.js` folds total thermal mass and removal into one time constant. It sets the run length (`tEnd`) and is listed as a "whole-bubble" thermal mode. | Replace with separate transfer / removal / mass quantities; keep `tauLumped` only as a labelled diagnostic, if at all. |
 
+## Future item: next-layer wave behaviour (parked until multi-state)
+Design intent from Danny (2026-10-19), recorded only. Nothing is coded for it. Parked until the model moves from single-state to multi-state. Kelvin stays canonical, electrodes stay removed from the model, and the drive stays "no drive mechanism defined".
+
+1. **Guided channels, not a pure sphere.** The wave will not come out purely spherically. It travels through different guided channels depending on the regime it is in.
+2. **Spin and rotation.** At some points the wave will spin and rotate.
+3. **Rotating oscillation.** When the wave is oscillating, the oscillation is not just radial in-and-out; it is also rotating.
+4. **Sequencing.**
+   - Keep building out the single-state model first.
+   - The time-domain run is the natural bridge: the solver marches in time, keeps history, and records the field at fixed radii, so the wave tail and the oscillation are visible.
+   - Then promote to multi-state, with the guided channels, spin/rotation and rotating oscillation as the first multi-state features.
