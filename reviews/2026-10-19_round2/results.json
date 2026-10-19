@@ -1,0 +1,149 @@
+{
+  "Claude": [
+    {
+      "model": "claude-sonnet-5-5",
+      "text": "**1. Optimisation**\n\n- **Make GitHub state the coordinator, not Cursor.** Cursor is an IDE with no scheduler or trigger surface. Build the coordinator as a small Python script run by a `coordinator.yml` workflow (`workflow_dispatch` plus `repository_dispatch`). It would read `dial.yml`, fan out domain jobs by matrix, merge, and emit one `round-N.json`. Cursor stays the editor and writes only to branches.\n- **Build one thin vertical slice before the 18 harnesses.** Take thermal, with the chemical→thermal handover. Run two rounds end to end: harness → merge → Claude and Grok → verdict → handover log. This tests the loop and the merge, which the spec names as the biggest risk. Don't scaffold the knee harnesses until it works.\n- **Replace the validation harness with a handover ledger.** An append-only `harness/ledger.jsonl` (from, to, sha, artifact, verdict, timestamp) written by `review-core.yml`. It needs no model and is queryable, which fits \"tracks, doesn't check\".\n- **Close the review-round loop.** Round 1 produced four agreed findings that are still unactioned. Add a script that dedups findings across models and files issues labelled `finding:consensus-4/4`. Then run a weekly check on whether DESIGN_STATE changed. Score reviewers by agreement and by findings later accepted.\n- **Cut cost and noise.** Run the deterministic `retired.txt` scan and pytest first, and skip the API when they fail. Cache by diff hash. Add the missing \"radial diamond spokes\" regex. Put a monthly budget in `dial.yml` and have the workflow abort at the cap. Grok web search is the cost driver at ~10× Claude, so gate it on `[calc]`/`[lit]` tags rather than running it on every diff.\n- **Automate the free tier.** Move Kimi and DeepSeek into a `free-check.yml` for rote checks (units, arithmetic). Use them as a cheap pre-filter before the paid reviewers. Today the secrets are stored but unused.\n- **Settle the seventh domain now.** Define the \"information\" domain as the ledger and loss-map domain, since it is meta, and add its prompt. Reconcile 6/7 and 18/19 in DESIGN_STATE and the spec.\n\n**2. Weaknesses**\n\n- **The built layer is only the review stage.** The harnesses, coordinator, loss map and convergence loop do not exist. The \"mirrors the physics cascade\" claim is therefore untested, and the design is ahead of the evidence.\n- **Reviewers are correlated and ungrounded.** All four models read the same prose and agree because the document is incoherent, which says little about physics correctness. The CI tests check only locked values against the doc. No harness runs `solver_v0.py` or the sim-stack tools, so the engineering tools never touch the model.\n- **The both-PASS gate is brittle.** Any non-PASS fails the job, so one flaky or ERROR verdict blocks a merge. There is no retry or quorum policy and no human override path. The reverse risk is that two LLM PASSes become false assurance.\n- **The domain-routing keyword match is crude.** It will miss cross-domain edits, which are exactly the coupled cases that matter.\n- **Trigger sprawl.** `[audit]` and `[round N]` in commit messages, `/commands`, `@claude` and AGENTS.md rules all depend on discipline. Cursor can forget a handoff, and nothing enforces it.\n- **Single point of truth drift.** DESIGN_STATE.md is hand-edited, and `retired.txt`, `locked_values.yml` and the spec each duplicate parts of it.\n- **Security.** Comment-triggered workflows hold paid secrets. The collaborator check helps, but prompt injection through diffs can reach the reviewers, and Grok has web access.\n- **Unsettled tier names.** \"Plex\", the Bot, ChatGPT and Qwen are named but not connected, and the tier ladder differs between the spec and Danny's framing.",
+      "stop": "end_turn",
+      "input": 4468,
+      "cached": 0,
+      "output": 1385,
+      "reasoning": 0,
+      "raw_usage": {
+        "input_tokens": 4468,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1385,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        }
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 13.0,
+      "started_utc": "2026-10-19T05:06:06+00:00",
+      "cost_usd": 0.022786,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.1,
+        "out": 10.0,
+        "src": "https://docs.claude.com/en/docs/about-claude/pricing"
+      }
+    }
+  ],
+  "Grok": [
+    {
+      "model": "grok-4.7",
+      "text": "**Optimise**\n\nStop building the missing 18 harnesses. What exists is a review loop, not a physics cascade. Make that loop the product and collapse the spec to it.\n\n1. **One coordinator, one state file.** `AGENTS.md` plus `.cursor/rules/handoffs.mdc` already tell Cursor when to hand off. Promote that into a machine-readable `harness/round.yml`: round id, dial, touched domains, SHA, required reviewers, merge status. `claude-audit.yml` / `grok-check.yml` should read it instead of parsing commit messages (`[audit]`, `[round N]`, `N % 3 == 0`). Message triggers are the weakest scheduler in the design.\n\n2. **Wire the four-model script into Actions before any domain runner.** `reviews/.../run_round.py` already calls Claude, Grok, Kimi, DeepSeek with timeouts and list-price cost. Secrets `MOONSHOT_API_KEY` and `DEEPSEEK_API_KEY` sit unused. Add `free-review.yml` on the same comment/dispatch triggers as `review-core.yml`, shallow only, no web search. Gate paid deep (`claude-opus`, Grok medium + search) on free-tier disagreement or a new physics claim — the rule already in `handoffs.mdc`.\n\n3. **Treat information as the seventh domain by renaming, not by a new harness.** The coordinator-merge prompt and the validation idea (handover log, no checking) *are* the information domain. Add `harness/prompts/information.md` and a row in `dial.yml`. Do not add a seventh Actions job.\n\n4. **Loss map = the verdict artifact, not a new system.** Every PASS/FAIL already lands as `claude-verdict-<sha>` (and Grok’s). Require the merge comment to list dropped findings. Today’s artifact `created_at` sort is the right primitive; index it in `round.yml`.\n\n5. **Cost dial is the granularity dial.** Shallow Claude ~$0.02 vs Grok ~$0.12–0.24 because of `web_search`. Default Grok search off except source-check; cap rounds/day in `dial.yml`. Smoke costs are fine; an unbudgeted deep merge (up to 7 Claude calls) is not.\n\n6. **Close the loop the round-1 review exposed.** Agreed FAILs (3.236 MHz, power envelope, φ-step, tourmaline) have no issue, no “fixed in DESIGN_STATE?” bit. `claude-code-review.yml` already files issues and opens `claude/iter-K-next` draft PRs. Point it at `run_round.py` output. Do not let Cursor merge on chat consensus.\n\n7. **Build order:** thermal keyword route + one knee that only records “energy moved, domain fed,” logged by the validation harness. `sim-stack.yml` stays a tool-health cron until a harness flags a miss the SymPy/`solver_v0.py` path cannot hold. Do not call FEniCS/MEEP/OpenFOAM from the audit path.\n\n**Weak**\n\n- Spec/build split: six domain + twelve knee harnesses, validation harness, dispatch/merge/convergence, loss map, reporting, and cost budget are **unbuilt**. `DESIGN_STATE` still says 6/18 while Danny’s ladder has seven domains. ChatGPT is in the paid tier and not connected; Qwen the same on the free tier. Plex vs Perplexity is a name collision.\n- Coordinator is a person in Cursor plus prose rules. Convergence is undefined. “Both PASS → main” can green-wash: a crashed job used to pass; cross-check used to bind a stale artifact. Fixes exist; the merge authority does not.\n- Domain routing is keyword match on paths and added lines. Coupled domains (chemical heat → thermal) will be missed or double-counted. No information prompt.\n- `retired.txt` lags `DESIGN_STATE` (radial diamond spokes). Deterministic scan only sees added diff lines.\n- Free tier is a paste-in `KIMI_START.md` (“do step 1, then stop”). Round 1 already burned a 6000-token empty Kimi reasoning reply. No reviewer-quality score, so four FAILs are unweighted.\n- Engineering stack proves tools boot (six PASS, digest-pinned) and is not coupled to the sphere or to any harness. COMSOL/ANSYS and a C module are names only. Julia and one-repo-vs-several are still open, which is fine — do not reopen them until `round.yml` exists.\n- Reporting owner is unset, so Danny’s “only see ready or stuck” has no trigger. The holster currently notifies by PR comment, which is the right default; write that down and delete the rest of the cascade until one thermal round completes under it.",
+      "stop": "completed",
+      "input": 4093,
+      "cached": 1152,
+      "output": 1114,
+      "reasoning": 64,
+      "cost_reported_usd": 0.013142,
+      "raw_usage": {
+        "input_tokens": 4093,
+        "input_tokens_details": {
+          "cached_tokens": 1152
+        },
+        "output_tokens": 1114,
+        "output_tokens_details": {
+          "reasoning_tokens": 64
+        },
+        "total_tokens": 5207,
+        "num_sources_used": 0,
+        "num_server_side_tools_used": 0,
+        "cost_in_usd_ticks": 131420000,
+        "context_details": {
+          "input_tokens": 4093,
+          "output_tokens": 1121
+        }
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 16.6,
+      "started_utc": "2026-10-19T05:06:19+00:00",
+      "cost_usd": 0.013142,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.5,
+        "out": 6.0,
+        "src": "https://docs.x.ai/docs/models"
+      }
+    }
+  ],
+  "Kimi": [
+    {
+      "model": "kimi-k2.6",
+      "text": "**Optimise**\n\n- **Build the validation harness first.** The spec rightly calls the coordinator merge the biggest single risk, yet no validation harness or loss map exists. Implement `harness/validation.yml` now: an Actions job that records every handover to a per-SHA JSON ledger, replacing the fragile artifact `created_at` sort used in cross-check. Block merge if any handover lacks a checksum. Do not build the 6/7 domain harnesses or 12 knee harnesses until this ledger is real.\n\n- **Promote free tiers into CI.** `MOONSHOT_API_KEY` and `DEEPSEEK_API_KEY` are stored but only used by local `reviews/<date>_roundN/run_round.py`. Create `.github/workflows/free-tier-check.yml`, triggered on PRs before paid tiers, calling Kimi (k2.6) and DeepSeek (flash) with the rote checks from `harness/KIMI_START.md` (units, arithmetic, `retired.txt` scan). Feed their PASS/FAIL into `harness/dial.yml` so shallow audits can abort before spending on Claude/Grok.\n\n- **Add a cost gate.** Introduce `harness/budget.yml` and enforce it in `review-core.yml`. Both Anthropic and xAI return usage metadata; sum it per run and hard-fail if the monthly cap is breached. The project currently runs without a real cost budget.\n\n- **Close the 4-model feedback loop.** Round 1 outputs live in `reviews/<date>_roundN/` but no workflow parses them. Extend `claude-code-review.yml` (or add `review-aggregate.yml`) to open GitHub issues for agreed FAIL findings and track resolution against `DESIGN_STATE.md` lines.\n\n**Weakness**\n\n- **The seventh domain is a ghost.** Danny added \"information\" as a domain, but `harness/prompts/` still lists six physical domains, the dial’s domain routing has no keyword map for it, and no knee harness references it. `DESIGN_STATE.md` and the harness architecture are inconsistent.\n\n- **The coordinator is a rule file, not a runner.** Convergence, dispatch, and merge are specified but unbuilt. The actual \"coordinator\" is `.cursor/rules/handoffs.mdc`; the 18-harness architecture is vaporware. Until automated, handovers are manual and lossy.\n\n- **Round 1 findings are orphaned.** `run_round.py` commits raw replies, yet there is no trigger, no issue filing, no fix tracking, and no reviewer-quality scoring. The system spent $0.088 to discover inconsistencies and then left them in a folder.\n\n- **No \"stuck\" detector.** The spec says Danny sees results \"when ready or stuck,\" but nothing detects stuck states (e.g., repeated ERROR verdicts, >N cycles without merge). `claude-code-review.yml` cannot push to main or edit workflows, so if Danny is unavailable, the loop halts with no escalation path.",
+      "stop": "stop",
+      "input": 2780,
+      "cached": 0,
+      "output": 3220,
+      "reasoning": 2600,
+      "reasoning_chars": 11089,
+      "raw_usage": {
+        "prompt_tokens": 2780,
+        "completion_tokens": 3220,
+        "total_tokens": 6000,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2600
+        }
+      },
+      "error": null,
+      "max_tokens": 12000,
+      "seconds": 67.8,
+      "started_utc": "2026-10-19T05:06:36+00:00",
+      "cost_usd": 0.015521,
+      "price": {
+        "inp": 0.95,
+        "cached": 0.16,
+        "out": 4.0,
+        "src": "https://platform.moonshot.ai/docs/pricing/chat"
+      }
+    }
+  ],
+  "DeepSeek": [
+    {
+      "model": "deepseek-flash",
+      "text": "**1) Optimise**\n- **Make DESIGN_STATE.md the single canonical map** and reconcile it with Danny’s framing: 7 domains, 12 knees, coordinator, validation, and explicit “information” scope. Either add `harness/prompts/information.md` + routing or mark it deferred. Remove the 6-domain/18-harness mismatch.\n- **Replace keyword domain routing** in `harness/dial.yml` with an explicit `harness/owners.yml` file-path→domain map; keyword matching on added lines will misroute cross-domain diffs.\n- **Turn the review loop into a closed loop**: extend `reviews/<date>_roundN/run_round.py` into a scheduled/manual `reviews-run.yml` using the existing `MOONSHOT_API_KEY`/`DEEPSEEK_API_KEY`; auto-file GitHub issues for agreed findings, link them to DESIGN_STATE lines, and track open/fixed status. Add reviewer scoring against seeded defects.\n- **Build the smallest real validation harness now**: a `harness/handovers.json` ledger written per round with inputs, outputs, source SHA, reviewer artifacts, PASS/FAIL, and loss-map fields. This makes the coordinator’s merge auditable without waiting for Cursor automation.\n- **Move coordination into Actions**: a `coordinator.yml` state machine that dispatches domain jobs, records handovers, enforces `[round N]`/`[deep]` gates, and blocks merge unless Claude+Grok verdicts match the same SHA. Keep Cursor as builder/editor, not also scheduler+merger.\n- **Add cost budgets to `dial.yml`**: abort deep mode if projected Claude+Grok spend exceeds a cap; Grok shallow at $0.12–0.24 is 6–12× Claude shallow, so cap search turns/diff by default.\n- **Harden triggers**: keep paid audits off ordinary pushes; require explicit labels for `[audit]`/`[deep]`; validate verdict JSON schema before upload/post.\n\n**2) Weaknesses**\n- **Huge spec-to-built gap**: no domain/knee harnesses, validation harness, coordinator dispatch/merge/convergence, or loss map exists. The “holster” is currently API review workflows plus `engineering-tests.yml`/`sim-stack.yml`, not the cascade described.\n- **Canonical inconsistency**: spec says 6 domains/18 harnesses; Danny says 7; information has no prompt/harness; ChatGPT appears in tiers but is not connected; Qwen absent.\n- **Role conflation**: Cursor is build layer, coordinator, merger, and convergence judge — the merge is already flagged as the biggest risk, yet no independent merge checker or loss map exists.\n- **Free tiers are manual and idle**: Kimi via `KIMI_START.md`, DeepSeek/Kimi only in local scripts; stored CI secrets are unused, so tier depth is aspirational.\n- **Review doesn’t close**: round-1 FAIL findings are committed but not filed, assigned, or tracked; no calibration/scoring of Claude/Grok/Kimi/DeepSeek.\n- **Independence/freshness**: Claude and Grok share `review-core.yml`; cross-check prefers but does not require same-SHA verdicts. Keyword routing and prose-to-JSON fallback add silent-failure surface.\n- **Cost/trigger risk**: no budget, Grok web search dominates, deep mode can fan out to 7+ calls, and commit-message triggers remain easy to misuse.",
+      "stop": "stop",
+      "input": 2897,
+      "cached": 0,
+      "output": 1818,
+      "reasoning": 1070,
+      "reasoning_chars": 4699,
+      "raw_usage": {
+        "prompt_tokens": 2897,
+        "completion_tokens": 1818,
+        "total_tokens": 4715,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1070
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 2897
+      },
+      "error": null,
+      "max_tokens": 6000,
+      "seconds": 11.8,
+      "started_utc": "2026-10-19T05:07:44+00:00",
+      "cost_usd": 0.00152535,
+      "price": {
+        "inp": 0.15,
+        "cached": 0.003,
+        "out": 0.6,
+        "src": "https://api-docs.deepseek.com/quick_start/pricing",
+        "period": "off-peak"
+      }
+    }
+  ]
+}
