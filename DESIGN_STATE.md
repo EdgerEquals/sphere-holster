@@ -198,7 +198,7 @@ The model must treat these independently, never folded into one time constant:
 
 | Quantity | Where it is now | What is missing |
 |---|---|---|
-| (a) Switching frequency | Only the external `p.f` in `drive_model.js` (cycle `T = 1/f`, `ncyc` steps). `solver_v0.py` has no switching (steady/transient P_circ scenarios). | Emergent self-oscillating knee switching. Today it is a dial, which is contrary to intent. |
+| (a) Switching frequency | Only the external `p.f` in `drive_model.js` (cycle `T = 1/f`, `ncyc` steps). `solver_v0.py` has no switching (the steady/transient P_circ scenarios were removed 2026-10-19; it now runs one no-source march). | Emergent self-oscillating knee switching. Today it is a dial, which is contrary to intent. |
 | (b) Heat-transfer speed | `drive_model.js`: `tau_g = a²/(π²α_g)` (gas conduction), `tau_w = (b−a)²/(π²α_q)` (quartz wall diffusion), gas-wall conductance `Ggw = Cv_g/tau_g`, 24-cell quartz conduction with k(T). `solver_v0.py`: 1-D finite-volume conduction through every layer, with k(T) for quartz and interface resistances. | No per-layer "time to soak/saturate" output. `drive_model.js` models quartz only (no other layers). `Ggw` ties gas transfer to gas heat capacity. |
 | (c) Heat-removal rate | `drive_model.js`: `Gout` = natural convection + radiation (`natconvH`, Churchill sphere + radiation) in series with outer-cell conduction, to ambient `Ta`. `solver_v0.py`: outer surface held at 293 K (the locked Kelvin reference, an ideal sink, not a removal rate). | No breakdown of removal by path (conduction / convection / radiation reported separately). No finite removal rate in the solver. |
 | Thermal mass | `drive_model.js`: `Cq` (ρ c_p V per quartz cell), `Cv_g` (gas). `solver_v0.py`: ρ c_p per material for every layer. | Not reported per layer as "heat held before pushing back". |
@@ -254,3 +254,15 @@ Danny's intent (2026-10-19), recorded only; nothing is coded. While the tourmali
 2. **EMF field:** sets the grain orientation to the frequency wanted, so the piezoelectric and electrocaloric terms are net-positive rather than cancelling out from randomly oriented grains. This is a formation-process field applied to the gel during fabrication, with electrodes still removed from the model and the design. Its frequency is a fabrication tuning frequency, not a knee-frequency dial; the knee frequency stays emergent.
 
 This tuning is what makes the piezoelectric coupling (which reads the acoustic solver's vibration mode) and the electrocaloric term real rather than upper limits. Until it is modelled, the solver keeps reporting the layer-two net polarization as a fully aligned upper bound (random grains ≈ 0).
+
+## Decision: drive removed, electric field marched, zero-run acceptance rule (2026-10-19)
+Danny's decision (2026-10-19). The circulating-power figures are gone from the solver completely: the P_circ scenarios, the wall-heat and light splits (F_WALL, F_OPT) and the list of power levels. They are not kept as a test source. Each preset now has one no-source run, and the viewer shows that single state with no power selector.
+
+- **Electric field:** a real field, marched in time like the others. In each cell, ε dE/dt + σE = −dP/dt − J_src, with J_src = 0 from the no-drive stub and E = 0 at the 293 K seal state. Spherical symmetry gives B = 0 from these radial fields.
+- **Couplings, all in the code:**
+  - Pyroelectric polarization (layer two, and BTO at p 2.0e-4 C/m²K [lit], 0 above the Curie point [est]) feeds the electric march.
+  - Piezo (acoustic stress) enters as the phasor of the same equation at the mode frequency.
+  - Electrocaloric, (∂S/∂E)_T = p: the heat −T·p·dE goes to thermal, and the entropy p·dE goes to the chemical holster.
+  - Polar grains are reported as the aligned upper bound (random grains ≈ 0) [est].
+- **Thermal march:** solved in θ = T − 293 K, so a zero-heat state stays exactly at 293 K.
+- **Acceptance rule (zero run):** with no drive and no input, every field is exactly zero everywhere: electric, magnetic, optical, acoustic, chemical and every coupling output. The whole stack sits at 293 K. The check uses exact equality; rounding noise is fixed at the source, not hidden by a tolerance. Each coupling is also checked on its own with synthetic inputs (stress for piezo, a temperature change for pyro, a field change for electrocaloric): zero in gives exactly zero out, and non-zero input scales as the physics says. The test is `tests/test_acceptance_zero_run.py`.

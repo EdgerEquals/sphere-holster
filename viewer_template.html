@@ -45,7 +45,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
  <div id="side">
   <h3>Configuration</h3>
   <div class="row"><span class="lab">Geometry preset</span><select id="preset"></select></div>
-  <div class="row"><span class="lab">Power</span><select id="power"></select><span class="small" id="pnote"></span></div>
+  <div class="row"><span class="lab">Source</span><span class="small" id="pnote">none: no drive mechanism defined, nothing injected (power levels removed 2026-10-19)</span></div>
   <div class="row"><span class="lab">View</span>
    <select id="viewmode"><option value="cut">Quarter-cut 3D (perspective, octant removed)</option><option value="ortho">Orthographic full sphere, true scale (wavefronts)</option></select></div>
   <div class="row" id="cutopts"><span class="lab">Radial scale</span><select id="rscale"><option value="disp">thin films exaggerated (not to scale)</option><option value="true">true scale</option></select>
@@ -87,7 +87,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
   <canvas id="spec" width="540" height="330"></canvas>
   <div class="small">x: radius (display-mapped so &micro;m films are visible; ticks in mm). y: log<sub>10</sub> frequency. Solid = computed in v0; dashed = reference values read from other box calcs. Vertical dotted lines = &phi;-ladder stations (anchored at the BTO outer boundary, or the quartz OD for the bare test).</div>
   <h3>Crossings (mode overlaps within &plusmn;5 %)</h3><div id="cross"></div>
-  <h3>Key numbers (this preset &amp; power)</h3><div id="nums"></div>
+  <h3>Key numbers (this preset, no source)</h3><div id="nums"></div>
   <h3>Limit flags</h3><div id="flags"></div>
   <h3>Domain vectors</h3><div id="vecs"></div>
   <h3>Layers</h3><div id="layers"></div>
@@ -255,7 +255,7 @@ function waveSpec(dom){
   const Ncore=decay?1.0:3.0, S=a/(Ncore*lg*1e3);   // displayed λ = S × physical λ (one S per domain)
   const mode=$('phimode').value, bnd=PHI_BOUNDARIES[0];
   const lamQ = S*lq*1e3*(bnd.apply&&mode==='lambda'?PHI:1), jump=(bnd.apply&&mode==='phase')?2*Math.PI/(PHI*PHI):0;
-  return {a,b:(dom==='chemical'?a:b),f,S,lgD:S*lg*1e3,lqD:lamQ,lg,lq,jump,decay,what,ratioPhys:lq/lg,zero:(dom==='magnetic'&&C.propagation.bare)};
+  return {a,b:(dom==='chemical'?a:b),f,S,lgD:S*lg*1e3,lqD:lamQ,lg,lq,jump,decay,what,ratioPhys:lq/lg,zero:(dom==='magnetic'&&C.propagation.bare)||!(f>0&&isFinite(f))};   // no frequency (no source / no drive): flat zero line
 }
 function makeWaveLine(dom){
   const N=1600, geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array((N+1)*3),3));
@@ -315,7 +315,7 @@ function arrivalTime(segs,r){ // r in mm
   return segs[0].alpha!=null? s*s : t;}
 function frontRadius(segs,t){ let lo=0, hi=segs[segs.length-1].b; if(arrivalTime(segs,hi)<=t) return hi;
   for(let k=0;k<50;k++){const m=0.5*(lo+hi); if(arrivalTime(segs,m)<=t) lo=m; else hi=m;} return lo;}
-function domainFreq(dom){ if((dom==='electric'||dom==='magnetic') && window.DRIVE_F) return window.DRIVE_F; if(dom==='optical') return 2.998e8/486.1e-9; if(dom==='acoustic') return PD.acoustic.f_drive; if(dom==='thermal'||dom==='chemical'){ if(window.DRIVE_F) return 2*window.DRIVE_F; const v=PD.vectors.find(x=>x.domain===dom); return (v&&v.f_start)||0; } return PD.electric.f_e||0; /* 0: no drive mechanism defined */ }
+function domainFreq(dom){ if((dom==='electric'||dom==='magnetic') && window.DRIVE_F) return window.DRIVE_F; if(dom==='optical') return 2.998e8/486.1e-9; if(dom==='acoustic') return PD.acoustic.f_mode; if(dom==='thermal'||dom==='chemical'){ if(window.DRIVE_F) return 2*window.DRIVE_F; const v=PD.vectors.find(x=>x.domain===dom); return (v&&v.f_start)||0; } return PD.electric.f_e||0; /* 0: no drive mechanism defined */ }
 function termRadius(dom){ const v=PD.vectors.find(x=>x.domain===dom); if(!v) return 0; const r= dom==='optical'&&C.propagation.bare? C.R_outer_mm*1.5 : v.r_end_mm; return ($('wf')&&$('wf').checked)? Math.min(r,C.OD_quartz_mm/2) : r; }
 
 // ---------------- orthographic scene ----------------
@@ -404,7 +404,7 @@ function drawOrthoOverlay(tShared,mode){
     if(dom==='magnetic'&&C.propagation.bare) g.fillText('B ≈ 0 (no magnetic element; symmetric current)',x-40,y+34);
   });
   if($('wf').checked && C.R_outer_mm>C.OD_quartz_mm/2*1.001){ const [qx,qy]=w2s(0,-(C.OD_quartz_mm/2+C.R_outer_mm)/2,1); g.fillStyle='#b8bcc6'; g.font='bold 12px system-ui'; g.fillText('outside quartz OD: not modelled yet',qx-100,qy); }
-  g.fillStyle='#ffffff'; g.font='bold 13px system-ui'; g.fillText(C.label+' · '+PD.P_circ+' W', 10, 18);
+  g.fillStyle='#ffffff'; g.font='bold 13px system-ui'; g.fillText(C.label+' · no source', 10, 18);
   g.fillStyle='#ffd27a'; g.font='bold 12px system-ui';
   g.fillText(mode==='dilate'? 'PER-DOMAIN TIME DILATION: each domain on its own clock (front reaches its end in 6 display-s); factor per sector. Phases NOT simultaneous.' : 'SHARED REAL-TIME CLOCK: all six fronts at the same physical time t = '+(tShared===null?'steady state (press GO)':fmtT(tShared)), 10, 36);
   if(window.DRIVE_F){ g.fillStyle='#ffd27a'; g.font='11px system-ui'; g.fillText('E/B sectors at the user drive f = '+fmtF(window.DRIVE_F)+' (one cycle = '+fmtT(1/window.DRIVE_F)+'); λ ≫ sphere so the field is quasi-static (flat tint).',10,66); }
@@ -449,21 +449,21 @@ function fillSide(){
   const a=PD.acoustic,e=PD.electric,m=PD.magnetic,o=PD.optical,t=PD.thermal;
   $('nums').innerHTML = `<table>
    <tr><td>Geometry</td><td>gas core d ${C.core_d_mm} mm (${C.fill}, ${(C.p_atm*760).toPrecision(3)} Torr = ${C.p_atm.toPrecision(3)} atm); quartz wall ${C.wall_mm} mm; quartz OD ${C.OD_quartz_mm} mm; outer R ${C.R_outer_mm} mm</td></tr>
-   <tr><td>Acoustic</td><td>l=0 shell modes ${a.l0_isolated.slice(0,4).map(fmtF).join(', ')}; HHO gas-cavity modes ${(a.gas_cavity_modes||[]).slice(0,3).map(fmtF).join(', ')}; drive ${fmtF(a.f_drive)}; W ${fmt(a.W_mJ)} mJ; peak stress ${fmt(a.peak_stress_MPa)} MPa; Q_eff ${fmt(a.Q_eff)}; loss ${fmt(a.loss_W)} W; fill-pressure hoop ${fmt(a.fill_stress_MPa)} MPa${a.bonded?`; bonded stack: ${fmtF(a.bonded.f)}, Q ${fmt(a.bonded.Q_eff)}, loss ${fmt(a.bonded.loss_W)} W`:''}</td></tr>
-   <tr><td>Electric</td><td>${e.none?e.note:'n/a'}</td></tr>
+   <tr><td>Acoustic</td><td>l=0 shell modes ${a.l0_isolated.slice(0,4).map(fmtF).join(', ')}; HHO gas-cavity modes ${(a.gas_cavity_modes||[]).slice(0,3).map(fmtF).join(', ')}; mode nearest 2 MHz ${fmtF(a.f_mode)}; W ${fmt(a.W_mJ)} mJ; peak stress ${fmt(a.peak_stress_MPa)} MPa; Q_eff ${fmt(a.Q_eff)}; loss ${fmt(a.loss_W)} W; fill-pressure hoop ${fmt(a.fill_stress_MPa)} MPa${a.bonded?`; bonded stack: ${fmtF(a.bonded.f)}, Q ${fmt(a.bonded.Q_eff)}, loss ${fmt(a.bonded.loss_W)} W`:''}</td></tr>
+   <tr><td>Electric</td><td>${e.none?e.note:'n/a'}${e.march?`; marched field E(r,t) from 0: max |E| ${fmt(e.march.E_max_V_m)} V/m, piezo AC ${fmt(e.march.E_piezo_ac_max_V_m)} V/m`:''}</td></tr>
    <tr><td>Magnetic</td><td>${m.none?m.note:`L ${fmt(m.L_nH)} nH (1 turn); Q_f ${fmt(m.Q_f)}; ferrite loss ${fmt(m.P_ferr)} W; B equator ${fmt(m.B_eq_mT)} mT, near feed holes ${fmt(m.B_max_mT)} mT`}</td></tr>
    <tr><td>Optical</td><td>Balmer out of core ${fmt(o.P_opt)} W; escaping ${fmt(o.escaped_W)} W (inner phosphor removed pending further work, 2026-10-19: no downshift)</td></tr>
    ${PD.gas?`<tr><td>HHO gas state (computed, coupled)</td><td>T_gas ${fmt(PD.gas.T_gas_K)} K [est = inner wall, lower bound]; sealed ${fmt(PD.gas.p_seal_Pa)} Pa at ${PD.gas.T_seal_K} K → p ${fmt(PD.gas.p_hot_Pa)} Pa (fixed N, V); c ${fmt(PD.gas.c_seal)} → ${fmt(PD.gas.c_hot)} m/s; hot gas-loaded modes ${(PD.gas.gas_modes_hot||[]).slice(0,3).map(fmtF).join(', ')}</td></tr>`:''}
    ${PD.chemical?`<tr><td style="color:${DCOL.chemical}">Chemical</td><td>stored 2H2+O2→2H2O ${fmt(PD.chemical.E_store_J)} J; dissociation ${fmt(PD.chemical.P_diss_W)} W ⇒ ${fmt(PD.chemical.R_diss_per_s)} H2/s; fill converted in ${fmtT(PD.chemical.t_conv_s)} releasing ${fmt(PD.chemical.P_release_W)} W meanwhile (fed to thermal); wall recombination ${fmt(PD.chemical.P_wall_recomb_W)} W; H diffusion τ ${fmtT(PD.chemical.tau_D_s)}; <b>knee: not defined</b>. <span class="small">${PD.chemical.sources}</span></td></tr>`:''}
    <tr><td>Thermal (steady)</td><td>quartz inner ${fmt(t.T_quartz_in)} K / outer ${fmt(t.T_quartz_out)} K; wall ΔT ${fmt(t.dT_wall)} K${C.propagation.bare?'':`; BTO ${fmt(t.T_bto)} K; Gd-Dy ${fmt(t.T_gddy)} K; CALORIVAC max ${fmt(t.T_calorivac_max)} K`}; total heat ${fmt(t.total_heat_W)} W</td></tr></table>`;
-  $('flags').innerHTML = PD.flags.length? PD.flags.map(f=>`<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No limit crossed at this power (estimated physics).</div>';
+  $('flags').innerHTML = PD.flags.length? PD.flags.map(f=>`<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No limit crossed (no-source run, estimated physics).</div>';
   $('vecs').innerHTML = '<table>'+PD.vectors.map(v=>`<tr><td style="color:${DCOL[v.domain]}">${v.domain}</td><td>${fmtF(v.f_start)}${v.f_end!==v.f_start?' → '+fmtF(v.f_end):''}</td><td>${fmt(v.r_start_mm,4)} → ${fmt(v.r_end_mm,4)} mm</td><td class="small">${v.what}</td></tr>`).join('')+'</table>';
   $('layers').innerHTML = '<table>'+C.layers.map(l=>`<tr><td><span class="sw" style="background:${LCOL[l.key]}"></span>${l.name}</td><td>${fmt(l.a_mm,5)}–${fmt(l.b_mm,5)} mm</td><td class="small">${l.tags}</td></tr>`).join('')+'</table>'+(C.note?`<div class="small">${C.note}</div>`:'');
   $('legend').innerHTML = legendHTML();
 }
 function hud(t){
   const mode=$('viewmode').value; $('hud').style.display = mode==='cut'?'block':'none'; $('legend').style.display = mode==='cut'?'block':'none';
-  $('hud').innerHTML = `<b>${C.label}</b><br>${PD.P_circ} W ${C.propagation.bare?'plasma heat / circulating':'circulating per domain'} · ${t===null?'<b>steady state</b> (press GO)':'<b>t = '+fmtT(t)+'</b> after ionisation ON'}<br>`+
+  $('hud').innerHTML = `<b>${C.label}</b><br>no source (nothing injected) · ${t===null?'<b>steady state</b> (press GO)':'<b>t = '+fmtT(t)+'</b> after ionisation ON'}<br>`+
    (mode==='cut'? `Quarter-cut: faces = ${$('f0').value} / ${$('f1').value} / ${$('f2').value}. ${$('rscale').value==='true'?'True radial scale.':'Thin films exaggerated (not to scale).'} ${$('wf').checked?`Waveforms (HHO core → quartz OD only): each domain's own λ, shown ×S (labelled); φ step ONLY at HHO→quartz (${$('phimode').value==='lambda'?'quartz λ_shown ×φ on top of the physical speed ratio':$('phimode').value==='phase'?'phase +2π/φ² at the inner wall':'off'}); white dot = φ boundary; outside quartz not modelled yet.`:'Arrows: domain vectors (start freq labelled), beads = φ stations, white bead = computed front.'}<br><span class="small">Core: ${[...new Set([$('f0').value,$('f1').value,$('f2').value])].map(d=>`<b style="color:${DCOL[d]}">${d}</b> ${(PD.core_note||{})[d]||''}`).join('<br>')}</span>` : `Orthographic true-scale view; ${$('clock').value==='dilate'?'per-domain time dilation':'shared real-time clock'}.`);
   $('tval').textContent = t===null?'steady':fmtT(t);
 }
@@ -568,16 +568,14 @@ function applyOldWf(){ const show=$('oldwf').checked;
   cutGroup.children.forEach(g=>{ if(g.userData.v03wf) g.visible=show; });
   orthoWaves.forEach(o=>{ o.wv.line.visible=show; o.wv.mark.visible=show; }); }
 // ---------------- control wiring ----------------
-function loadCase(){ C=D.cases[+$('preset').value]; window.CUR_CASE=C; if(window.drivePresetChanged) window.drivePresetChanged(C); const keys=Object.keys(C.powers).sort((x,y)=>(+x)-(+y)); const cur=$('power').value;
-  $('power').innerHTML=keys.map(k=>`<option value="${k}">${(+k)>=1000?(+k/1000)+' kW':k+' W'}</option>`).join(''); $('power').value= keys.includes(cur)?cur:keys[Math.min(1,keys.length-1)];
-  $('pnote').textContent = C.propagation.bare? '(bare test: P = plasma heat on inner wall)' : '(each domain circulates P at once)';
-  loadPower(); }
-function loadPower(){ octx.clearRect(0,0,overlay.width,overlay.height); PD=C.powers[$('power').value]; buildCut(); buildOrtho(); fillSide(); drawSpec(); stop(); }
+function loadCase(){ C=D.cases[+$('preset').value]; window.CUR_CASE=C; if(window.drivePresetChanged) window.drivePresetChanged(C); 
+  loadState(); }
+function loadState(){ octx.clearRect(0,0,overlay.width,overlay.height); PD=C.state; buildCut(); buildOrtho(); fillSide(); drawSpec(); stop(); }   // one no-source state per preset (no power levels)
 function stop(){ running=false; tNow=null; $('go').classList.remove('on'); $('go').textContent='GO — switch ionisation ON'; $('tslider').value=1000; }
 ['f0','f1','f2'].forEach(id=>$(id).addEventListener('change',()=>decorateFaces()));
 $('wf').onchange=()=>{buildCut(); buildOrtho();}; $('phimode').onchange=()=>{buildCut(); buildOrtho();};
 $('qop').oninput=()=>{ $('qopv').textContent=(+$('qop').value).toFixed(2); if(window._qmat){ window._qmat.opacity=+$('qop').value; window._qmat.needsUpdate=true; } };
-$('preset').onchange=loadCase; $('power').onchange=loadPower; $('rscale').onchange=()=>{buildCut();};
+$('preset').onchange=loadCase; $('rscale').onchange=()=>{buildCut();};
 $('viewmode').onchange=()=>{ octx.clearRect(0,0,overlay.width,overlay.height); controls.enabled=$('viewmode').value==='cut'; ocontrols.enabled=$('viewmode').value==='ortho'; $('cutopts').style.display=$('viewmode').value==='cut'?'flex':'none'; $('orthoopts').style.display=$('viewmode').value==='ortho'?'flex':'none'; };
 $('axis').onchange=applyAxis;
 $('go').onclick=()=>{ if(running){stop();return;} running=true; t0wall=performance.now(); dispT=0; tNow=T_MIN; $('go').classList.add('on'); $('go').textContent='■ stop (ionisation ON)'; };
@@ -585,7 +583,7 @@ $('reset').onclick=stop;
 $('tslider').oninput=()=>{ running=false; $('go').classList.remove('on'); $('go').textContent='GO — switch ionisation ON'; const v=+$('tslider').value; if(v>=1000){tNow=null;return;} tNow=Math.exp(Math.log(T_MIN)+(Math.log(T_MAX)-Math.log(T_MIN))*v/1000); dispT=7.2*v/1000; };
 window.setTime=(t,disp)=>{ running=false; tNow=t; dispT=disp??0; };   // test hook
 window.setView=(mode)=>{ $('viewmode').value=mode; $('viewmode').onchange(); };
-window.setPreset=(id,p)=>{ const i=D.cases.findIndex(c=>c.id===id); $('preset').value=i; loadCase(); if(p!==undefined){ $('power').value=p; loadPower(); } };
+window.setPreset=(id)=>{ const i=D.cases.findIndex(c=>c.id===id); $('preset').value=i; loadCase(); };   // power argument removed with the power levels
 $('viewmode').onchange();
 
 function frame(){

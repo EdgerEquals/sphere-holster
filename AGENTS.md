@@ -147,6 +147,7 @@ Reviewers FAIL any reintroduction. A deterministic scan (`harness/retired.txt`) 
 - **Knee frequency is emergent** (self-oscillating, from the layers), never an external dial. Flag any change that treats it as an input. `drive_model.js`'s `f` is legacy scaffolding (deferred).
 - **Inner phosphor removed pending further work (2026-10-19):** `phos_in` (Cr3+ garnet, 770 nm) is out of the solver stack; light runs quartz -> layer two -> BTO -> Gd-Dy. Paused, not retired: do not re-add it without Danny.
 - **Three thermal rates + thermal mass, never lumped:** switching frequency, heat-transfer speed, heat-removal rate, plus thermal mass. Flag any single lumped time constant (e.g. `tauLumped`).
+- **Zero-run acceptance (2026-10-19):** with no drive and no input, every field (electric, magnetic, optical, acoustic, chemical, every coupling output) must be exactly zero and the whole stack at 293 K (`tests/test_acceptance_zero_run.py`, `DESIGN_STATE.md` "Decision: drive removed, electric field marched, zero-run acceptance rule"). Flag any change that makes a field non-zero without a source, re-adds a circulating-power level or scenario split, or loosens the exact check into a tolerance instead of fixing the noise at its source. Every coupling must keep its own synthetic-input test (zero in gives zero out; non-zero scales).
 
 ## Limits for every agent
 

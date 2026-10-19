@@ -2,7 +2,8 @@
 
 Quartz: piezoelectric (d11), NOT pyroelectric (alpha-quartz point group 32; beta-quartz 622). Layer two (elbaite
 tourmaline sol-gel, point group 3m): both. Couplings report polarization / energy density inside the layer only; there
-are no collecting conductors and no circuit. Under zero circulating power (and the no-drive stub) they are exactly zero."""
+are no collecting conductors and no circuit. With no source (the circulating-power scenarios are removed and the drive is
+the no-drive stub) they are exactly zero."""
 import json
 import sys
 from pathlib import Path
@@ -87,17 +88,17 @@ def test_zero_input_gives_zero_coupling():
     assert flat["dP_grain_C_m2"] == 0.0 and flat["dPdt_grain_peak_A_m2"] == 0.0 and flat["u_e_ss_J_m3"] == 0.0
 
 
-def test_zero_circulating_power_under_no_drive_is_zero_in_solver_output():
+def test_no_source_run_gives_exactly_zero_couplings_in_solver_output():
     pre = next(p for p in S.PRESETS if p["id"] == "base5")
-    run = S.run_case(pre, 0.0, {})
+    run = S.run_case(pre, {})
     assert run["em"]["note"] == S.NO_DRIVE
     out = S.package(pre, [run], {})
-    pd = next(iter(out["powers"].values()))
+    pd = out["state"]
     for key in ("quartz", "layer2"):
         pz, py = pd["electric"]["piezo"][key], pd["thermal"]["pyro"][key]
         assert pz["P_grain_peak_C_m2"] == 0.0 and pz["U_e_layer_J"] == 0.0
-        # solver_v0's thermal march (absolute T, not theta = T - T_seal) wanders ~1e-9 K at zero heat (dT/dt noise over 1e-7 s frames); pyro sees only that
-        assert py["dP_grain_C_m2"] == pytest.approx(0.0, abs=1e-12) and py["dPdt_grain_peak_A_m2"] == pytest.approx(0.0, abs=1e-10)
+        # thermal march now solves in theta = T - 293 K: the zero-heat state is exactly zero (the old ~1e-9 K drift is gone)
+        assert py["dP_grain_C_m2"] == 0.0 and py["dPdt_grain_peak_A_m2"] == 0.0
         assert pz["f_mode_Hz"] == pytest.approx(run["ac"]["f"], rel=1e-3)   # solver's own eigenmode, not an input dial
 
 
@@ -106,7 +107,7 @@ def test_model_data_routes_couplings_to_electric_and_thermal_domains():
     seen = 0
     for c in d["cases"]:
         layers = {x["key"] for x in c["layers"]}
-        for pd in c["powers"].values():
+        for pd in [c["state"]]:
             for key in ("quartz", "layer2"):
                 if key not in layers:
                     continue
@@ -131,10 +132,14 @@ def test_lookup_excludes_neighbour_boundary_samples():
 
 
 def test_solver_layer2_peak_comes_from_its_own_samples():
+    # synthetic mode energy (the no-source run has W = 0): scale the solver's own eigenmode shape to 1 uJ
     pre = next(p for p in S.PRESETS if p["id"] == "base5")
-    run = S.run_case(pre, 10.0, {})
-    out = S.package(pre, [run], {})
-    pd = next(iter(out["powers"].values()))
+    st = S.build_stack(pre["core_d"], pre["wall"])
+    iso = [x for x in st["layers"] if x[0] in ("quartz", "layer2", "bto", "gddy")]
+    f = min(S.l0_modes(iso), key=lambda x: abs(np.log(x / 2.0e6)))
+    ac = S.mode_energy_stats(f, iso, 1.0e-6)
+    lay = {m: (a, b) for m, a, b in iso}
     for key in ("quartz", "layer2"):
-        own = max(s for r, m, s in run["ac"]["profile_m"] if m == key)
-        assert pd["electric"]["piezo"][key]["sigma_peak_Pa"] == pytest.approx(own, rel=1e-3)
+        own = max(s for r, m, s in ac["profile_m"] if m == key)
+        assert S.piezo_coupling(key, ac["profile_m"], *lay[key], 293.0, f)["sigma_peak_Pa"] == pytest.approx(own, rel=1e-12)
+        assert own > 0

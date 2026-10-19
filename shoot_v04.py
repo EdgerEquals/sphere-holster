@@ -4,7 +4,7 @@ from playwright.async_api import async_playwright
 H = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(H, "screenshots"); COPY = os.path.join(H, "shots")
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-SET = 'setPreset("scope","1");setView("cut");setDrive({dFill:"10",dFillU:"torr",dV:"1000",dTs:"293.15",dQz:"danny",dF:"2.5M"});setTime(null,0);'
+SET = 'setPreset("scope");setView("cut");setDrive({dFill:"10",dFillU:"torr",dV:"1000",dTs:"293.15",dQz:"danny",dF:"2.5M"});setTime(null,0);'
 async def snap(pg, name, js=None, wait=1500, el=None):
     if js: await pg.evaluate(js)
     await pg.wait_for_timeout(wait)

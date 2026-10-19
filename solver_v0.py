@@ -6,20 +6,26 @@ ESTIMATED PHYSICS. Paper model, nothing measured. Every material number carries 
   [lit]  literature value already cited in a box report      [rec] reused from a box report
   [calc] computed here                                         [est] my estimate (not sourced)
 
-What it does (per geometry preset x circulating power level):
+What it does (per geometry preset; one no-source run each: the circulating-power scenarios P_circ / F_WALL / F_OPT
+and the power-level list were removed 2026-10-19, nothing is injected into any domain):
   OPTICAL   radial 1-D radiative march per band (H-gamma 434, H-beta 486, H-alpha 656 nm): absorption per layer,
             smoky-quartz colour centres with thermal bleaching.  (No full-wave Maxwell.) The inner downshifting
             phosphor (and its 770 nm band) is removed pending further work (2026-10-19): layer two passes the light on
             to the BTO film and then the Gd-Dy film.
   ACOUSTIC  exact l=0 (breathing / radial) multilayer elastic spherical-shell model (spherical Bessel
-            transfer matrices), eigenmodes, mode shapes, energy partition -> Q_eff, peak stress at P_circ.
+            transfer matrices), eigenmodes, mode shapes, energy partition -> Q_eff; mode energy is marched from 0 with no source (= 0).
             Two configurations: 'isolated' (quartz + thin films, free at the Gd-Dy surface) and 'bonded'
             (whole stack to the ferrite). l>=1 spheroidal/torsional frequencies are NOT computed in v0;
             they are read (read-only) from shell_phi_sweep_calc_output.txt where available.
   ELECTRIC  NO DRIVE MECHANISM DEFINED [retired 2026-10-19: the BTO capacitor between metal films, the LC tank and
-            the bare-shell discharge field were electrode-based and are removed]. Electric fields, dielectric loss = 0.
-  MAGNETIC  no drive defined: ferrite field and loss = 0 (the ferrite shell stays as a material layer).
-  THERMAL   1-D radial spherical finite-volume, implicit, k(T) for quartz, interface resistances,
+            the bare-shell discharge field were electrode-based and are removed]. Since 2026-10-19 the radial electric
+            field is a marched field (ElectricMarch): eps dE/dt + sigma E = -dP/dt - J_src, J_src = 0 (no-drive stub),
+            E(0) = 0. P = pyroelectric polarization of the polar layers (layer two, BTO); piezo (acoustic stress) enters
+            as the phasor of the same equation at the mode frequency; the electrocaloric term returns heat to thermal and
+            entropy to the chemical holster.
+  MAGNETIC  no drive defined: ferrite field and loss = 0 (the ferrite shell stays as a material layer). Radial E and
+            radial currents have no curl in spherical symmetry, so they make B = 0 identically [calc].
+  THERMAL   1-D radial spherical finite-volume, implicit, solved in theta = T - 293 K, k(T) for quartz, interface resistances,
             outer surface held at 293 K (reference only - no heat sink is chosen here).
   COUPLING  staggered, timescale-separated: fast domains (optical ps, acoustic/electric/magnetic us-ms)
             are solved quasi-statically and handed to the thermal transient as heat sources; temperature
@@ -56,7 +62,7 @@ PRESETS.insert(2, dict(id="minB", label="Minimal test B: 1 mm ID, 0.5 mm wall, 2
 for od in [1.6, 2.59, 4.19, 6.78, 10.97, 17.75]:   # golden-ratio OD sweep, case A scaling (core 0.6 OD, wall 0.2 OD) [rec shell_phi_sweep]
     PRESETS.append(dict(id=f"phi{od}", label=f"Phi sweep OD {od} mm (core 0.6*OD, wall 0.2*OD, 1 atm)", core_d=0.6 * od, wall=0.2 * od, p_atm=1.0, group="phi"))
 
-POWERS = [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]   # W, decade steps (ascending)
+# Circulating-power levels (POWERS) removed 2026-10-19: no drive mechanism defined, so there is no power to scan.
 
 # ----------------------------------------------------------------------------------------------
 # Materials. rho kg/m3, cp J/kgK, k W/mK, cL/cT m/s, Q mechanical, optics dict mu_abs/mu_sca [1/m]
@@ -117,6 +123,8 @@ def pyro_p(key, T):
     """Pyroelectric coefficient [C/m2K] of the polar grains at T [K]; 0 for non-polar materials (quartz)."""
     c = PIEZO.get(key)
     if not c or not c["pyro"]:
+        return 0.0
+    if c.get("pyro_off") is not None and T >= c["pyro_off"]:
         return 0.0
     (T0, p0), (T1, p1) = c["p_T"]
     return float(p0 + (p1 - p0) * (min(max(T, T0), T1) - T0) / (T1 - T0))
@@ -196,12 +204,121 @@ FERR_MU = 125.0
 FERR_QF = [(1e4, 260), (3e5, 260), (1e6, 190), (2.5e6, 155), (5e6, 130), (1e7, 62), (2e7, 4.6)]
 B_SAT = 0.25     # T [est, NiZn-typical 0.2-0.35]
 N_TURNS = 1; THETA0 = math.radians(10)   # meridional winding, polar feed holes +-10 deg [est]
-F_WALL = 0.10    # fraction of P_circ landing on quartz inner wall as plasma heat [rec bracket 0.1-1.0]
-F_OPT = 0.90     # fraction of P_circ leaving core as Balmer light [est scenario, as power-scaling 2.4]
 
 def ferrite_Q(f):
     fs, qs = zip(*FERR_QF)
     return float(np.exp(np.interp(np.log(f), np.log(fs), np.log(qs))))
+
+
+# ---- ELECTRIC holster: marched radial field + electrocaloric (2026-10-19) ----
+# BaTiO3 pyroelectric coefficient 2.0e-4 C/m2K [lit, single crystal, room T: Lang, Physics Today 58(8), 31 (2005)],
+# held flat to the Curie point and 0 above it (paraelectric; field-induced EC near Tc not modelled) [est]. The 2 um
+# sol-gel film is polycrystalline: 2.0e-4 is used as the aligned (poled-equivalent) UPPER BOUND [est].
+PIEZO["bto"] = dict(d=None, coeff=None, eps_r=EPSR0, phi=1.0, T_off=None, pyro=True, pyro_off=T_CURIE,
+                    p_T=((293.0, 2.0e-4), (393.0, 2.0e-4)), T_data=(293.0, 393.0),
+                    tags="p 2.0e-4 C/m2K single crystal [lit Lang 2005]; 0 above Curie ~393 K [est]; film grains: aligned upper bound, "
+                         "random grains ~0 [est]; BTO piezo not modelled")
+MAT["bto"]["piezo_tags"] = PIEZO["bto"]["tags"]; MAT["bto"]["p_pyro_C_per_m2K"] = 2.0e-4
+ETA_ALIGN = 1.0   # net c-axis alignment of polar grains: 1 = fully aligned UPPER BOUND [est]; random grains -> 0 [est]
+# Electric material constants for the march. eps_r: quartz 4.5 [lit]; layer two composite 3.5 (20 vol% eps 7 grains in
+# eps ~3 silica binder) [est]; BTO eps(T) as bto_eps [est]; phos_out silicone 3 [est]; ferrite NiZn 12 [est];
+# metallic films (Gd-Dy, CALORIVAC) 1 with sigma 1e6 S/m [est]. sigma [S/m]: quartz Arrhenius 1e-12 @293 K ->
+# 1.7e-6 @573 K [est, order of magnitude along c]; layer two 1e-12, BTO 1e-10, phos_out 1e-13, ferrite 1e-5 [est].
+EL_EPS_R = {"quartz": 4.5, "layer2": 3.5, "phos_out": 3.0, "ferrite": 12.0, "gddy": 1.0, "calorivac": 1.0}
+EL_SIGMA = {"layer2": 1e-12, "bto": 1e-10, "phos_out": 1e-13, "ferrite": 1e-5, "gddy": 1e6, "calorivac": 1e6}
+_QZ_B = math.log(1.7e-6 / 1e-12) / (1 / 293.0 - 1 / 573.0)
+
+
+def bto_eps(T):
+    epsT = EPSR0 * (1 + 2.0 * max(0.0, min(1.0, (T - 293) / (T_CURIE - 293))))   # Curie-Weiss-like rise to Tc [est]
+    if T > T_CURIE: epsT = EPSR0 * 3.0 * (1.0 / (1 + (T - T_CURIE) / 60.0))   # paraelectric fall-off [est]
+    return epsT
+
+
+def el_eps(key, T):
+    return EPS0 * (bto_eps(T) if key == "bto" else EL_EPS_R[key])
+
+
+def el_sigma(key, T):
+    if key == "quartz":
+        return 1e-12 * math.exp(-_QZ_B * (1 / T - 1 / 293.0))
+    return EL_SIGMA[key]
+
+
+def p_net(key, T):
+    """Signed layer-net pyroelectric coefficient [C/m2K] along the radial polar axis: -eta*phi*p(T) (polarization
+    magnitude falls on heating [est sign convention]); 0 for non-polar materials."""
+    c = PIEZO.get(key)
+    if not c or not c["pyro"]:
+        return 0.0
+    return -ETA_ALIGN * c["phi"] * pyro_p(key, T)
+
+
+def pyro_P(key, T):
+    """Pyroelectric polarization change from the 293 K seal state: integral of p_net dT [C/m2], exact for the
+    piecewise-linear p(T) (nodes at the data points; p = 0 above pyro_off). Exactly 0 at T = 293 K."""
+    c = PIEZO.get(key)
+    if T == T_REF or not c or not c["pyro"]:
+        return 0.0
+    lo, hi = min(T, T_REF), max(T, T_REF)
+    if c.get("pyro_off") is not None:
+        hi = min(hi, c["pyro_off"] - 1e-9); lo = min(lo, hi)
+    nodes = sorted({lo, hi} | {x for x, _ in c["p_T"] if lo < x < hi})
+    val = sum(0.5 * (p_net(key, a) + p_net(key, b)) * (b - a) for a, b in zip(nodes[:-1], nodes[1:]))
+    return float(val if T > T_REF else -val)
+
+
+def piezo_P_ac(key, sigma_ac, T):
+    """Acoustic -> electric: layer-net piezo polarization amplitude eta*phi*d*sigma [C/m2] (quartz single crystal: phi 1)."""
+    c = PIEZO.get(key)
+    if not c or c.get("d") is None or (c["T_off"] is not None and T >= c["T_off"]):
+        return 0.0
+    eta = 1.0 if key == "quartz" else ETA_ALIGN
+    return eta * c["phi"] * c["d"] * sigma_ac
+
+
+def piezo_E_ac(key, sigma_ac, T, f):
+    """Phasor solution of eps dE/dt + sigma E = -dP/dt at the mode frequency: |E| = |P| w / |sigma + j w eps|."""
+    P = piezo_P_ac(key, sigma_ac, T)
+    if P == 0.0 or not f:
+        return 0.0
+    w = 2 * math.pi * f
+    return abs(P) * w / abs(complex(el_sigma(key, T), w * el_eps(key, T)))
+
+
+def electrocaloric(key, T, E_old, E_new):
+    """Electric -> thermal (reverse pyroelectric). Maxwell relation (dS/dE)_T = (dP/dT)_E = p, per unit volume:
+    ds = p_net dE [J/m3K] (entropy change -> chemical holster), heat released to the lattice dq = -T ds [J/m3]
+    (-> thermal holster), adiabatic dT = dq/(rho cp). Zero field change gives exactly zero."""
+    p = p_net(key, T); dE = E_new - E_old
+    ds = p * dE
+    dq = -T * ds
+    return dict(ds_J_m3K=ds, dq_J_m3=dq, dT_adiabatic_K=dq / (MAT[key]["rho"] * MAT[key]["cp"]), p_net=p)
+
+
+class ElectricMarch:
+    """Radial electric field, one value per cell, marched in time like the thermal field. Spherical symmetry: curl E = 0,
+    B = 0; no free charge source, so the total radial current is zero: eps dE/dt + sigma E + dP/dt = -J_src, with
+    J_src = 0 from the no-drive stub. Implicit Euler: E_n = (eps E_o - (P_n - P_o) - J_src dt) / (eps + sigma dt).
+    Starts from E = 0, P = 0 at the 293 K seal state. P = pyroelectric polarization (layer two, BTO; quartz non-polar)."""
+    def __init__(self, mats):
+        self.mats = list(mats); self.n = len(mats)
+        self.E = np.zeros(self.n); self.P = np.zeros(self.n)
+        self.polar = [i for i, m in enumerate(self.mats) if PIEZO.get(m, {}).get("pyro")]
+
+    def P_of(self, T):
+        P = np.zeros(self.n)
+        for i in self.polar:
+            P[i] = pyro_P(self.mats[i], float(T[i]))
+        return P
+
+    def step(self, T, dt, J_src=0.0):
+        Pn = self.P_of(T); Eo = self.E.copy()
+        eps = np.array([el_eps(m, float(T[i])) for i, m in enumerate(self.mats)])
+        sig = np.array([el_sigma(m, float(T[i])) for i, m in enumerate(self.mats)])
+        En = (eps * Eo - (Pn - self.P) - J_src * dt) / (eps + sig * dt)
+        self.E, self.P = En, Pn
+        return Eo, En
 
 # ----------------------------------------------------------------------------------------------
 def build_stack(core_d_mm, wall_mm, bare=False):
@@ -282,6 +399,8 @@ def gas_T_profile(Tw, P_cond, a, rs):
     """steady gas temperature in the core: heat P_cond released uniformly in the gas, conducted to the wall at Tw.
     Kirchhoff transform with k = k0 (T/293)^0.75: theta(T) = k0*293/1.75*(T/293)^1.75; theta(r) = theta(Tw) + q (a^2 - r^2)/6, q = P_cond/V.
     Continuum conduction (Kn ~ 0.01 at 10 Torr for a 0.5 mm core); uniform deposition [est]; capped at 3000 K."""
+    if P_cond == 0:
+        return [float(Tw)] * len(rs)   # no heat: isothermal at the wall temperature (exact, no round-trip noise)
     q = P_cond / (4 / 3 * math.pi * a ** 3); T0 = 293.0; c = K_HHO0 * T0 / 1.75
     th_w = c * (Tw / T0) ** 1.75
     return [min(T0 * ((th_w + q * (a * a - r * r) / 6) / c) ** (1 / 1.75), 3000.0) for r in rs]
@@ -363,7 +482,8 @@ def mode_fields(f, layers, rgrid_layers, lossy=False, p_in=0.0):
         state = Smat(b, w, m, lossy) @ AB
     return res
 
-def mode_energy_stats(f, layers, P_circ):
+def mode_energy_stats(f, layers, W_mode):
+    """Mode shape at eigenfrequency f scaled to stored mode energy W_mode [J]; loss per layer = w W share / Q."""
     rg = [np.linspace(a, b, 60 if (b - a) > 50 * UM else 6) for _, a, b in layers]
     rows = mode_fields(f, layers, rg)
     W1, Wi = 0.0, {}
@@ -373,14 +493,14 @@ def mode_energy_stats(f, layers, P_circ):
         wi = np.trapezoid(e * 4 * np.pi * r ** 2, r)
         Wi[m] = Wi.get(m, 0) + wi; W1 += wi
     w = 2 * math.pi * f
-    scale = math.sqrt((P_circ / w) / W1)
+    scale = math.sqrt(W_mode / W1)
     smax = scale * max(max(abs(x[3]), abs(x[4])) for x in rows)
     invQ = sum(Wi[m] / W1 / MAT[m]["Q"] for m in Wi)
     share = {m: Wi[m] / W1 for m in Wi}
-    loss = {m: P_circ * share[m] / MAT[m]["Q"] for m in Wi}
+    loss = {m: w * W_mode * share[m] / MAT[m]["Q"] for m in Wi}
     prof = [(x[0], scale * max(abs(x[3]), abs(x[4])), scale * x[2]) for x in rows]
     prof_m = [(x[0], x[1], scale * max(abs(x[3]), abs(x[4]))) for x in rows]   # (r, material, |sigma|): per-layer lookups
-    return dict(f=f, W=P_circ / w, peak_stress=smax, Q_eff=1 / invQ, share=share, loss=loss, profile=prof, profile_m=prof_m)
+    return dict(f=f, W=W_mode, peak_stress=smax, Q_eff=1 / invQ, share=share, loss=loss, profile=prof, profile_m=prof_m)
 
 def forced_spectrum(layers, r_probe, fs):
     out = []
@@ -419,8 +539,7 @@ def read_sweep_ref():
 def bto_cap(stack, T):
     a = [x for x in stack["layers"] if x[0] == "bto"][0]
     r1, r2 = a[1], a[2]
-    epsT = EPSR0 * (1 + 2.0 * max(0.0, min(1.0, (T - 293) / (T_CURIE - 293))))   # Curie-Weiss-like rise to Tc [est]
-    if T > T_CURIE: epsT = EPSR0 * 3.0 * (1.0 / (1 + (T - T_CURIE) / 60.0))   # paraelectric fall-off [est]
+    epsT = bto_eps(T)
     C0 = 4 * math.pi * EPS0 * epsT * r1 * r2 / (r2 - r1)
     Ek = PS / (EPS0 * epsT)
     C_bias = C0 / math.cosh(E_WORK / Ek) ** 2
@@ -503,30 +622,36 @@ class Thermal:
         Nu = 2 + 0.589 * Ra ** 0.25 / (1 + (0.469 / 0.71) ** (9 / 16)) ** (4 / 9)   # Churchill sphere correlation [lit]
         hr = 0.9 * 5.670374e-8 * (Ts ** 2 + T_REF ** 2) * (Ts + T_REF)             # eps_IR 0.9 [est]
         return (Nu * kA / D + hr) * 4 * np.pi * self.rb[-1] ** 2
-    def step(self, T, q, dt):
-        Tn = T.copy()
+    def step(self, th, q, dt):
+        """One implicit step in theta = T - T_REF (rise above the 293 K reference; 2026-10-19). Solving in theta keeps a
+        zero-heat state exactly zero (the absolute-T solve drifted ~1e-9 K from rounding of C/dt*T + G*T_REF)."""
+        thn = th.copy()
         for _ in range(3):  # Picard for k(T)
-            G, Gout = self.conductances(0.5 * (T + Tn))
-            A = np.zeros((3, self.n)); rhs = self.C / dt * T + q
+            G, Gout = self.conductances(T_REF + 0.5 * (th + thn))
+            A = np.zeros((3, self.n)); rhs = self.C / dt * th + q
             diag = self.C / dt
             diag = diag + np.concatenate([[0], G]) + np.concatenate([G, [0]])
             if self.outer == "natconv":
-                hA = self.h_outer(Tn[-1]); Gout = 1 / (1 / Gout + 1 / hA)
-            diag[-1] += Gout; rhs[-1] += Gout * T_REF
+                hA = self.h_outer(T_REF + thn[-1]); Gout = 1 / (1 / Gout + 1 / hA)
+            diag[-1] += Gout   # outer reference at theta = 0 (T = 293 K)
             A[1] = diag; A[0, 1:] = -G; A[2, :-1] = -G
             from scipy.linalg import solve_banded
-            Tn = np.minimum(solve_banded((1, 1), A, rhs), 3000.0)
-        return Tn
+            thn = np.minimum(solve_banded((1, 1), A, rhs), 3000.0 - T_REF)
+        return thn
 
 # ------------------------------------------------- SCENARIO RUN -------------------------------
-def run_case(pre, P, ref):
+def run_case(pre, ref):
+    """One no-source run (2026-10-19): nothing is injected into any domain (no drive mechanism defined, J_src = 0, no
+    circulating power). Every field is marched from its 293 K seal state; whatever appears comes from the couplings."""
     bare = pre.get("bare", False)
     st = build_stack(pre["core_d"], pre["wall"], bare)
     GAS["p"] = pre["p_atm"] * 101325.0; GAS["T"] = T_REF   # sealing (initial/ambient) state: p_seal at T_seal = 293 K
     cells, mats = make_grid(st)
     th = Thermal(cells, mats)
     if bare: th.outer = "natconv"   # still air + radiation; heat sink left to Danny
-    T = np.full(th.n, T_REF)
+    theta = np.zeros(th.n)   # rise above T_REF [K]; T = T_REF + theta
+    T = T_REF + theta
+    el = ElectricMarch(mats)
     lay = st["layers"]
     iso = [x for x in lay if x[0] in ("quartz", "layer2", "bto", "gddy")]
     # acoustic: l=0 modes, isolated and bonded. Gas-loaded roots are split into shell modes (within 1 % of the
@@ -549,8 +674,10 @@ def run_case(pre, P, ref):
     m_iso, gas_iso = split(m_iso_all, vac_modes(iso)); m_bond, _ = split(m_bond_all, vac_modes(lay))
     f_target = 2.0e6
     f_ac = min(m_iso, key=lambda f: abs(math.log(f / f_target))) if m_iso else f_target
-    ac = mode_energy_stats(f_ac, iso, P)
-    ac_bond = mode_energy_stats(min(m_bond, key=lambda f: abs(math.log(f / f_target))), lay, P) if m_bond else None
+    # acoustic mode energy marched from 0: dW/dt = -(w/Q_eff) W + P_src, P_src = 0 (no drive) -> W = 0 at all times
+    W_ac = 0.0
+    ac = mode_energy_stats(f_ac, iso, W_ac)
+    ac_bond = mode_energy_stats(min(m_bond, key=lambda f: abs(math.log(f / f_target))), lay, W_ac) if m_bond else None
     # static fill-pressure stress in the quartz (Lame thick sphere, inner wall hoop) [calc]
     p = pre["p_atm"] * 101325.0; a, b = st["r_in"], st["r_q"]
     s_fill = p * (b ** 3 + 2 * a ** 3) / (2 * (b ** 3 - a ** 3))
@@ -561,10 +688,21 @@ def run_case(pre, P, ref):
         if m in ac["loss"]:
             Vm = sum(th.V[j] for j, mm in enumerate(mats) if mm == m)
             q_ac[i] = ac["loss"][m] * th.V[i] / Vm
-    chem = chem_state(pre["p_atm"] * 101325.0, st["r_in"], (1.0 if bare else F_WALL) * P)   # chemical domain (core only)
+    P_gas = 0.0   # power deposited in the gas: none (no drive mechanism defined)
+    chem = chem_state(pre["p_atm"] * 101325.0, st["r_in"], P_gas)   # chemical domain (core only)
     # time stepping with staggered coupling
     times = np.concatenate([[0], np.logspace(-7, 2, 46)])
     frames = [T.copy()]; history = []
+    E_frames = [el.E.copy()]
+    pol = sorted(set(mats[i] for i in el.polar))
+    s_ec = {m: 0.0 for m in pol}; q_ec_J = {m: 0.0 for m in pol}   # electrocaloric entropy [J/K] and heat [J] per layer
+    def ec_heat(Eo, En, T_, dt):
+        qe = np.zeros(th.n)
+        for i in el.polar:
+            r_ = electrocaloric(mats[i], float(T_[i]), float(Eo[i]), float(En[i]))
+            qe[i] = r_["dq_J_m3"] * th.V[i] / dt
+            s_ec[mats[i]] += r_["ds_J_m3K"] * th.V[i]; q_ec_J[mats[i]] += r_["dq_J_m3"] * th.V[i]
+        return qe
     t_prev = 0.0
     idx = lambda key: [i for i, m in enumerate(mats) if m == key]
     i_bto = idx("bto")
@@ -572,30 +710,34 @@ def run_case(pre, P, ref):
     for tk in times[1:]:
         # fast domains quasi-static at current temperatures
         em = EM(T)
-        qo, oprof, oinfo = optical(st, F_OPT * P, T, cells, mats)
+        qo, oprof, oinfo = optical(st, 0.0, T, cells, mats)   # no light source in the core
         q = qo + q_ac
-        q[0] += (1.0 if bare else F_WALL) * P
+        q[0] += P_gas
         if tk <= chem["t_conv"]: q[0] += chem["P_release"]   # transient 2H2+O2->2H2O heat release until the fill is converted
-        # sub-steps
+        # sub-steps: electric march (pyro P from the current T) -> electrocaloric heat -> thermal step
         nsub = 6; dts = np.diff(np.linspace(t_prev, tk, nsub + 1))
         for dt in dts:
-            T = th.step(T, q, dt)
+            Eo, En = el.step(T, dt, J_src=0.0)
+            theta = th.step(theta, q + ec_heat(Eo, En, T, dt), dt); T = T_REF + theta
         t_prev = tk
-        frames.append(T.copy())
+        frames.append(T.copy()); E_frames.append(el.E.copy())
         history.append(dict(t=tk, P_heat=float(q.sum())))
     # steady state (long implicit steps)
-    Tss = T.copy()
+    th_ss = theta.copy(); Tss = T_REF + th_ss
     for _ in range(40 if not bare else 400):
         em = EM(Tss)
-        qo, oprof, oinfo = optical(st, F_OPT * P, Tss, cells, mats)
-        q = qo + q_ac; q[0] += (1.0 if bare else F_WALL) * P
-        Tss = th.step(Tss, q, 1e4 if not bare else 5.0)
+        qo, oprof, oinfo = optical(st, 0.0, Tss, cells, mats)
+        q = qo + q_ac; q[0] += P_gas
+        dt = 1e4 if not bare else 5.0
+        Eo, En = el.step(Tss, dt, J_src=0.0)
+        q = q + ec_heat(Eo, En, Tss, dt)
+        th_ss = th.step(th_ss, q, dt); Tss = T_REF + th_ss
     heat_by_layer = {}
     for i, m in enumerate(mats): heat_by_layer[m] = heat_by_layer.get(m, 0) + float(q[i])
     em_hot = em
     # coupled gas state [calc; gas T est = inner-wall T, a LOWER bound under discharge heating]: fixed N and V => n constant,
     # p = p_seal*T/T_seal, c = c_hho(T); gas-loaded modes recomputed hot. 
-    a_ = st["r_in"]; P_cond = (1.0 if bare else F_WALL) * P   # heat that leaves the gas by conduction to the wall
+    a_ = st["r_in"]; P_cond = P_gas   # heat that leaves the gas by conduction to the wall (none)
     rs_ = np.linspace(0, a_, 81); Tp_ = np.array(gas_T_profile(float(Tss[0]), P_cond, a_, rs_))
     Tg = float(min(np.trapezoid(Tp_ * rs_ ** 2, rs_) * 3 / a_ ** 3, 3000.0)); Tg_centre = float(Tp_[0]); p_seal = GAS["p"]
     GAS["T"] = Tg; GAS["p"] = p_seal * Tg / T_REF
@@ -606,7 +748,8 @@ def run_case(pre, P, ref):
     em = EM(np.full(th.n, T_REF))   # design point (293 K) used for fields, vectors, crossings
     return dict(stack=st, cells=cells, mats=mats, th=th, frames=frames, times=times, Tss=Tss, q=q,
                 ac=ac, ac_bond=ac_bond, m_iso=m_iso, m_bond=m_bond, gas_modes=gas_iso, em=em, em_hot=em_hot, oprof=oprof, oinfo=oinfo,
-                s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer, gas_hot=gas_hot, chem=chem)
+                s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer, gas_hot=gas_hot, chem=chem,
+                E_frames=E_frames, E_ss=el.E.copy(), P_ss=el.P.copy(), s_ec=s_ec, q_ec_J=q_ec_J, P_gas=P_gas, W_ac=W_ac)
 
 # ------------------------------------------------- display + tracks ---------------------------
 def display_map(st):
@@ -659,7 +802,7 @@ def package(pre, runs, ref):
                stations_mm=r4([s / MM for s in st["stations"]]), stations_disp=r4([to_disp(table, s) if s <= R else 1.0 + (s - R) / R * 0.3 for s in st["stations"]]),
                layers=[dict(key=m, name=(MAT[m]["name"] if m in MAT else "HHO core (plasma when ionised)"), a_mm=r4(a / MM, 6), b_mm=r4(b / MM, 6),
                             da=r4(da), db=r4(db), tags=(MAT[m]["tags"] if m in MAT else "")) for a, b, da, db, m in table],
-               r_mm=r4([r / MM for r in rv]), r_disp=r4(rdisp), ncore=len(r_core), powers={})
+               r_mm=r4([r / MM for r in rv]), r_disp=r4(rdisp), ncore=len(r_core))
     ac_ref = ref.get(round(2 * st["r_q"] / MM, 2), {}) if pre["group"] == "phi" else (ref.get(5.0, {}) if pre["id"] == "base5" else {})
     if pre.get("bare"):   # exact general-n bare-shell modes from minimal_test_calc_output.txt [calc]
         ac_ref = {"minA": {"0S2": 1.005e6, "0S1": 1.356e6, "0T2": 1.112e6, },
@@ -671,19 +814,20 @@ def package(pre, runs, ref):
                               c_gas_formula="c = sqrt(gamma R T / M), gamma 1.40, M 12.01 g/mol, R 8.314462618; 533 m/s at 293 K", alpha_quartz=6.2 / (2650 * 740),
                               alpha_gas=r4(0.12 / (rho_g * 2403)), r_in_mm=st["r_in"] / MM, r_q_mm=st["r_q"] / MM, bare=bool(pre.get("bare")),
                               note="gas k 0.12 W/mK, cp 2403 J/kgK for 2:1 H2:O2 [est]; quartz alpha from k 6.2, rho 2650, cp 740 [rec]")
-    for P, run in zip(POWERS, runs):
+    for run in runs[:1]:   # one no-source run per preset (power levels removed 2026-10-19)
         ac, em, oinfo = run["ac"], run["em"], run["oinfo"]
         th = run["th"]
         # ---- piezo (-> electric holster) and pyro (-> thermal holster) couplings, quartz + layer2 ----
         lay_ab = {m: (a, b) for m, a, b in run["stack"]["layers"]}
         prow = ac["profile_m"]   # (r, material, |sigma|): each layer reads only its own samples
         piezo_out, pyro_out = {}, {}
-        for key in ("quartz", "layer2"):
+        for key in ("quartz", "layer2", "bto"):
             if key not in lay_ab:
                 continue
             ii = [i for i, m in enumerate(mats) if m == key]
             Tm_ss = float(np.mean(run["Tss"][ii]))
-            piezo_out[key] = {k_: r4(v_) for k_, v_ in piezo_coupling(key, prow, *lay_ab[key], Tm_ss, ac["f"]).items()}
+            if PIEZO[key].get("d") is not None:
+                piezo_out[key] = {k_: r4(v_) for k_, v_ in piezo_coupling(key, prow, *lay_ab[key], Tm_ss, ac["f"]).items()}
             Tfr = [float(np.mean(fr[ii])) for fr in run["frames"]]
             pyro_out[key] = {k_: r4(v_) for k_, v_ in pyro_coupling(key, run["times"], Tfr, Tm_ss).items()}
         # fields on viewer grid (core gets zeros except optical source / temperature of wall)
@@ -699,7 +843,17 @@ def package(pre, runs, ref):
         bare = run["stack"]["bare"]
         if bare:
             pass
-        Efield = [0.0 for r in rc]; Bf = [0.0 for r in rc]   # no drive mechanism defined: no electric or magnetic field
+        Efield = [float(x) for x in run["E_ss"]]   # marched radial field (steady end of the march), V/m
+        Bf = [0.0 for r in rc]   # radial E / radial currents have no curl in spherical symmetry: B = 0 [calc]
+        # piezo AC field amplitude at the mode frequency (phasor of the same march equation), per cell, own layer only
+        E_ac = [piezo_E_ac(m, float(np.interp(r, ac_r, ac_s)) if ac_r[0] <= r <= ac_r[-1] else 0.0, float(run["Tss"][i]), ac["f"])
+                if m in ("quartz", "layer2") else 0.0 for i, (r, m) in enumerate(zip(rc, mats))]
+        el_layers = {}
+        for key in dict.fromkeys(mats):
+            ii = [i for i, m in enumerate(mats) if m == key]
+            el_layers[key] = dict(E_ss_max_V_m=r4(float(np.max(np.abs(run["E_ss"][ii])))), P_pyro_ss_C_m2=r4(float(np.max(np.abs(run["P_ss"][ii])))),
+                                  E_piezo_ac_max_V_m=r4(max(abs(E_ac[i]) for i in ii)),
+                                  E_march_max_V_m=r4(max(float(np.max(np.abs(Ef[ii]))) for Ef in run["E_frames"])))
         Tss = run["Tss"]; frames = run["frames"]
         # ---- REAL core fields (previously the core got zeros -> black disc) ----
         gh = run["gas_hot"]; a_in = run["stack"]["r_in"]; ch = run["chem"]
@@ -711,16 +865,16 @@ def package(pre, runs, ref):
         jw = j1_(k_g * a_in)
         core_p = [abs(u_a * rho_g * w_ac ** 2 * j0_(k_g * r) / (k_g * jw)) if jw else 0.0 for r in r_core]   # gas pressure amplitude, p = A j0(kr)
         core_I = [float(Itot[0]) * r / a_in for r in r_core]   # net radial flux of a uniform optically-thin emitter: F = P r/(4 pi a^3) [est]
-        core_E = [0.0 for r in r_core]   # no drive mechanism defined
+        core_E = [0.0 for r in r_core]   # gas core: no free charge and no polar material -> D = 0 -> E = 0 [calc]
         core_B = [0.0 for r in r_core]
         wall_peak = max(stress) if stress else 0.0
         core_note = dict(
             acoustic=f"HHO gas pressure in the core p = A j0(kr) (gas-loaded mode at {ac['f']/1e6:.3f} MHz, c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
             thermal=f"steady gas T profile (uniform heating {gh['P_cond']:.3g} W conducted to the wall, k~T^0.75): centre {core_T[0]:.0f} K, wall {float(Tss[0]):.0f} K, volume mean {gh['T_gas']:.0f} K",
             optical="net radial flux of a uniformly emitting, optically thin plasma: F(r) = P r/(4 pi a^3), zero at the centre by symmetry [est emission profile]. Log colour scale.",
-            electric=f"E = 0: {NO_DRIVE}",
+            electric=f"marched radial field E(r,t) from 0 (eps dE/dt + sigma E = -dP/dt, J_src = 0: {NO_DRIVE}); core E = 0 (no free charge, D = 0); max |E| in the stack {max(abs(x) for x in Efield):.3g} V/m",
             chemical=f"dissociation power {ch['P_diss']:.3g} W spread uniformly in the gas [est]; fill converts to H2O in {ch['t_conv']:.3g} s releasing {ch['E_store']:.3g} J (then a dissociation-recombination cycle with ~zero net heat); outside the core only surface recombination on the inner wall. Knee: not defined.",
-            magnetic=f"B = 0: {NO_DRIVE}")
+            magnetic=f"B = 0: radial fields have no curl in spherical symmetry; {NO_DRIVE}")
         Twall = float(frames[-1][0])
         # arrival times for animation envelopes
         t_opt, t_ac = [], []; acc_o = 0.0; acc_a = 0.0
@@ -756,9 +910,10 @@ def package(pre, runs, ref):
             dict(domain="thermal", f_start=thermal_track(run["stack"], run["stack"]["r_in"] + 1e-6), f_end=thermal_track(run["stack"], R),
                  r_start=run["stack"]["r_in"], r_end=R, what="heat diffuses to the 293 K reference surface (no sink chosen)"),
         ]
-        f_chem = 1 / (2 * math.pi * max(ch["t_conv"], 1e-30))   # conversion-rate corner [calc] (was 2 x the removed electrode drive f)
-        vectors.append(dict(domain="chemical", f_start=f_chem, f_end=f_chem, r_start=0.0, r_end=run["stack"]["r_in"],
-                            what="H2/O2 dissociation -> H, O, OH radicals -> 2H2+O2->2H2O heat release in the HHO core (P_circ scenario); ends at the inner wall (surface recombination). Knee: not defined"))
+        f_chem = (1 / (2 * math.pi * ch["t_conv"])) if math.isfinite(ch["t_conv"]) and ch["t_conv"] > 0 else None   # conversion-rate corner [calc]
+        if f_chem:   # no conversion (no power into the gas): no chemical vector
+            vectors.append(dict(domain="chemical", f_start=f_chem, f_end=f_chem, r_start=0.0, r_end=run["stack"]["r_in"],
+                                what="H2/O2 dissociation -> H, O, OH radicals -> 2H2+O2->2H2O heat release in the HHO core; ends at the inner wall (surface recombination). Knee: not defined"))
         for v in vectors:
             for kk in ("r_start", "r_end", "r_shift", "r_end_bonded"):
                 if v.get(kk) is not None:
@@ -791,8 +946,8 @@ def package(pre, runs, ref):
             flags.append(f"Chemical: gas centre {gh['T_centre']-273.15:.0f} C - any unconverted HHO ({run['chem']['E_store']:.2g} J stored) would autoignite (H+O2->OH+O branching); v0 assumes conversion within {run['chem']['t_conv']:.2g} s")
         fl(max(Tss) >= 2999, "Temperatures hit the 3000 K solver cap: stack has failed thermally (values not physical)")
         sel_frames = list(range(0, len(frames)))
-        out["powers"][f"{P:g}"] = dict(
-            P_circ=P,
+        out["state"] = dict(
+            source="none: no drive mechanism defined; nothing is injected into any domain (circulating-power scenarios removed 2026-10-19)",
             fields=dict(optical=r4(core_I + list(Itot), 3), acoustic=r4(core_p + list(stress), 3),
                         electric=r4(core_E + list(Efield), 3), magnetic=r4(core_B + list(Bf), 3), thermal=r4(core_T + list(Tss), 4),
                         chemical=r4([ch["P_diss"] / (4 / 3 * math.pi * a_in ** 3)] * len(r_core) + [(ch["P_wall_recomb"] / (4 * math.pi * a_in ** 2) / (cells[0][1] - cells[0][0])) if i == 0 else 0.0 for i in range(len(cells))], 3)),
@@ -800,25 +955,32 @@ def package(pre, runs, ref):
             chemical=dict(E_store_J=r4(ch["E_store"]), R_diss_per_s=r4(ch["R_diss"]), R_water_per_s=r4(ch["R_water"]), t_conv_s=r4(ch["t_conv"]),
                           P_release_W=r4(ch["P_release"]), P_diss_W=r4(ch["P_diss"]), P_wall_recomb_W=r4(ch["P_wall_recomb"]), D_H=r4(ch["D_H"]), tau_D_s=r4(ch["tau_D"]),
                           f=r4(f_chem), tau_s=r4(min(ch["t_conv"], 1e3)), knee="not defined",
+                          entropy_ec_J_K={k: r4(v) for k, v in run["s_ec"].items()},
+                          entropy_note="electrocaloric entropy change ds = p_net dE (Maxwell relation), integrated over the march and each polar layer's volume; owned by the chemical holster (DESIGN_STATE electrocaloric item)",
                           sources="D0(H2) 4.478 eV, D0(O2) 5.116 eV [lit NIST CCCBDB]; dHf H2O(g) -241.826 kJ/mol [lit NIST WebBook]; eta_diss 0.2, chain 1, wall share 0.5, D_H [PLACEHOLDERS]; branching H+O2->OH+O drives autoignition [lit, standard H2-O2 mechanism, e.g. Glassman, Combustion]"),
-            units=dict(optical="W/m2", acoustic="Pa (peak, l=0 mode)", electric="V/m (peak)", magnetic="T (peak)", thermal="K (steady)", chemical="W/m3 (dissociation power density in gas; surface recombination in the first quartz cell)"),
+            units=dict(optical="W/m2", acoustic="Pa (peak, l=0 mode)", electric="V/m (marched radial field, steady end of the march)", magnetic="T", thermal="K (steady)", chemical="W/m3 (dissociation power density in gas; surface recombination in the first quartz cell)"),
             thermal_frames=dict(t=r4(list(run["times"]), 3), T=[r4(gas_T_profile(float(frames[k][0]), gh["P_cond"] if k > 0 else 0.0, a_in, r_core) + list(frames[k]), 4) for k in sel_frames]),
             t_opt=r4([0.0] * len(r_core) + t_opt, 3), t_ac=r4([0.0] * len(r_core) + t_ac, 3), tau_ac=r4(tau_ac), tau_e=None,
             vectors=vectors, thermal_track=thermal_tr,
-            acoustic=dict(f_drive=r4(ac["f"]), l0_isolated=r4(run["m_iso"]), l0_bonded=r4(run["m_bond"][:25]), gas_cavity_modes=r4(run["gas_modes"][:8]), W_mJ=r4(ac["W"] * 1e3),
+            acoustic=dict(f_mode=r4(ac["f"]), l0_isolated=r4(run["m_iso"]), l0_bonded=r4(run["m_bond"][:25]), gas_cavity_modes=r4(run["gas_modes"][:8]), W_mJ=r4(ac["W"] * 1e3),
                           peak_stress_MPa=r4(ac["peak_stress"] / 1e6), Q_eff=r4(ac["Q_eff"]), loss_W=r4(sum(ac["loss"].values())),
                           share={k: r4(v) for k, v in ac["share"].items()},
                           bonded=dict(f=r4(run["ac_bond"]["f"]), Q_eff=r4(run["ac_bond"]["Q_eff"]), peak_stress_MPa=r4(run["ac_bond"]["peak_stress"] / 1e6),
                                       loss_W=r4(sum(run["ac_bond"]["loss"].values()))) if run["ac_bond"] else None,
                           fill_stress_MPa=r4(run["s_fill"] / 1e6)),
             electric=dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, piezo_on=em["piezo_on"], piezo=piezo_out,
-                          piezo_note="acoustic -> electric coupling at the solver's own l=0 eigenmode, in the P_circ scenario; polarization and energy density inside the layer only (no collecting conductors, no circuit)"),
+                          piezo_note="acoustic -> electric coupling at the solver's own l=0 eigenmode with the marched mode energy (0: no source); polarization and energy density inside the layer only (no collecting conductors, no circuit)",
+                          march=dict(equation="eps dE/dt + sigma E = -dP/dt - J_src; J_src = 0 (no-drive stub); E(0) = 0; implicit Euler on the thermal time grid",
+                                     sources="P = pyroelectric polarization (layer two, BTO; aligned upper bound eta = %g); piezo enters as the phasor at the mode frequency; electrocaloric heat -> thermal, entropy -> chemical" % ETA_ALIGN,
+                                     layers=el_layers, E_max_V_m=r4(max(abs(x) for x in Efield)), E_piezo_ac_max_V_m=r4(max(abs(x) for x in E_ac)),
+                                     ec_heat_J={k: r4(v) for k, v in run["q_ec_J"].items()})),
             magnetic=dict(none=True, note=NO_DRIVE),
-            optical=dict(P_opt=F_OPT * P, escaped_W=r4(oinfo["escaped_W"]), heat_W={k: r4(float(sum(h for h, mm in zip(oinfo["heat"], mats) if mm == k))) for k in dict.fromkeys(mats)},
+            optical=dict(P_opt=0.0, escaped_W=r4(oinfo["escaped_W"]), heat_W={k: r4(float(sum(h for h, mm in zip(oinfo["heat"], mats) if mm == k))) for k in dict.fromkeys(mats)},
                          note="inner downshifting phosphor removed pending further work (2026-10-19); no wavelength conversion in the stack"),
             thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
                          heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum())), pyro=pyro_out,
-                         pyro_note="thermal -> pyroelectric coupling from dT/dt of the thermal march (frame-interval mean, K/s); quartz is not pyroelectric"),
+                         pyro_note="thermal -> pyroelectric coupling from dT/dt of the thermal march (frame-interval mean, K/s); quartz is not pyroelectric; the pyro polarization feeds the electric march",
+                         electrocaloric_heat_J={k: r4(v) for k, v in run["q_ec_J"].items()}),
             gas=dict(T_gas_K=r4(gh["T_gas"]), T_centre_K=r4(gh["T_centre"]), T_wall_K=r4(gh["T_wall"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),
                      c_seal=r4(gh["c_seal"]), c_hot=r4(gh["c_hot"]), shell_l0_hot=r4(gh["shell"][:6]), gas_modes_hot=r4(gh["gas_modes"][:8]),
                      note="computed state, not an input: gas T = volume mean of the steady conduction profile (uniform heating conducted to the inner wall); fixed N,V => p ~ T, c ~ sqrt(T)"),
@@ -828,7 +990,7 @@ def package(pre, runs, ref):
 def find_crossings(case):
     """pairs of domain frequency tracks within +-5 % at overlapping radii; thermal track vs horizontal tracks."""
     res = []
-    for Pk, pdat in case["powers"].items():
+    for pdat in [case["state"]]:
         tr = []
         v = {x["domain"]: x for x in pdat["vectors"]}
         for f in pdat["acoustic"]["l0_isolated"]:
@@ -874,21 +1036,19 @@ def main():
     cases = []
     log = []
     for pre in presets:
-        plist = POWERS   # all presets: 0.1 W ... 100 kW decades
-        runs = [run_case(pre, P, ref) for P in plist]
-        c = package(pre, runs, ref); find_crossings(c); cases.append(c)
-        ks = list(c["powers"]); p0, p1, p10 = c["powers"][ks[0]], c["powers"][ks[1]], c["powers"][ks[-1]]
-        log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in p10['acoustic']['l0_isolated'][:4]]} MHz | drive {p10['acoustic']['f_drive']/1e6:.3f} MHz "
-                   f"stress@{ks[-1]}W {p10['acoustic']['peak_stress_MPa']} MPa Qeff {p10['acoustic']['Q_eff']} | electric: no drive "
-                   f"| T_gas mean {p1["gas"]["T_gas_K"]} K centre {p1["gas"]["T_centre_K"]} K p {p1['gas']['p_hot_Pa']} Pa c {p1['gas']['c_hot']} m/s @{ks[1]}W "
-                   f"| T_qz_in {ks[0]}W {p0['thermal']['T_quartz_in']} K {ks[1]}W {p1['thermal']['T_quartz_in']} K, {ks[-1]}W {p10['thermal']['T_quartz_in']} K | crossings {len(p10['crossings'])}")
+        run = run_case(pre, ref)   # one no-source run (no power levels)
+        c = package(pre, [run], ref); find_crossings(c); cases.append(c)
+        S_ = c["state"]
+        log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in S_['acoustic']['l0_isolated'][:4]]} MHz | mode nearest 2 MHz {S_["acoustic"]["f_mode"]/1e6:.3f} MHz "
+                   f"W {S_['acoustic']['W_mJ']} mJ stress {S_['acoustic']['peak_stress_MPa']} MPa Qeff {S_['acoustic']['Q_eff']} | E max {S_['electric']['march']['E_max_V_m']} V/m "
+                   f"| T_gas {S_['gas']['T_gas_K']} K p {S_['gas']['p_hot_Pa']} Pa | T_qz_in {S_['thermal']['T_quartz_in']} K total heat {S_['thermal']['total_heat_W']} W | crossings {len(S_['crossings'])}")
         print(log[-1], flush=True)
     data = dict(meta=dict(title="Stratified bubble sphere - multi-domain radial model v0", date="2026-10-19",
                           status="v0 PROTOTYPE - ESTIMATED PHYSICS - not validated - paper model, nothing measured",
-                          scenario=f"All five domains circulate P_circ at once. Wall heat = {F_WALL} P_circ [rec bracket 0.1-1]; Balmer light = {F_OPT} P_circ [est]; "
-                                   "acoustic drive at the l=0 isolated-shell mode nearest 2 MHz; electric/magnetic: " + NO_DRIVE + "; "
-                                   "outer surface held at 293 K (reference only, no sink chosen).",
-                          phi=PHI, powers=POWERS, materials=MAT, ref_file="shell_phi_sweep_calc_output.txt (read-only)" if ref else None),
+                          scenario="No source (2026-10-19): the circulating-power scenarios and power levels are removed; nothing is injected. "
+                                   "Electric field marched from 0 (J_src = 0: " + NO_DRIVE + "); acoustic mode energy marched from 0 at the l=0 isolated-shell mode nearest 2 MHz; "
+                                   "couplings (piezo, pyro, electrocaloric) run on whatever the fields carry; outer surface held at 293 K (reference only, no sink chosen).",
+                          phi=PHI, materials=MAT, ref_file="shell_phi_sweep_calc_output.txt (read-only)" if ref else None),
                 cases=cases)
     with open(os.path.join(HERE, "model_data_v0.json"), "w") as f:
         json.dump(data, f, separators=(",", ":"))

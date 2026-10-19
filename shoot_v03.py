@@ -2,7 +2,7 @@ import asyncio
 from playwright.async_api import async_playwright
 OUT = "/workspace/grok_thread/sphere_model_v0/screenshots"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-SET = 'setPreset("scope","1");setView("cut");setDrive({dFill:"10",dFillU:"torr",dV:"1000",dTs:"293.15"});'
+SET = 'setPreset("scope");setView("cut");setDrive({dFill:"10",dFillU:"torr",dV:"1000",dTs:"293.15"});'
 async def shot(pg, name, js, anchor):
     await pg.evaluate(js); await pg.wait_for_timeout(1200)
     await pg.evaluate(f'document.getElementById("{anchor}").scrollIntoView({{block:"start"}})'); await pg.wait_for_timeout(600)
