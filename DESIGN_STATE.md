@@ -382,3 +382,15 @@ Danny's decision (2026-10-19), following the piezo knee note above. Not built.
 - **Per layer:** each layer gets its own knee, its own pump and its own boundary reflection.
 - **The boundary reflection is a candidate idler, not a confirmed one.** An idler is a real mode of the system, with its own frequency and resonance, that carries energy. A boundary reflection may simply bounce the same wave back.
 - **Open question for the geometry:** whether the reflected energy lands on a real mode (making the round trip parametric) or is just a reflection (so the up-conversion must come from elsewhere). The geometry can answer this once the final layer is built.
+
+## Design decision: geometry from frequency, golden-ratio tracking, storage and shifting ladders (2026-10-19)
+Danny's decisions (2026-10-19), recorded as one piece, following the bidirectional knee note above. Not built.
+
+1. **Geometry derivation is reversed.** Derive the geometry from the frequency we already have, using the three cavities we have: the two layers and the hydrogen bubble. Each cavity's resonant frequency is set by its geometry, so the dimensions that place each cavity in the cascade can be solved for.
+2. **Geometry becomes a sweep variable.** Sweep the dimensions and score each geometry on how many round trips come back in phase: boundary reflections landing on real modes, knees crossed at the right thresholds, and the cascade holding together. The geometry that maximises in-phase returns is the one that survives the checks already recorded.
+3. **The geometry sweep is correlated to the golden ratio.** Sweep the tone down from the high frequency we are at, and the geometry of everything follows that tone. It does not have to follow the whole 1.618; it can sit anywhere on that spectrum, but it must move in time with the tone, tracking along the wave where it needs to be. The golden ratio is the scale of the tracking, not a rigid rule.
+4. **Layers split into two jobs.**
+   - **Storage layers** store energy, freewheeling and flywheeling, holding energy in circulation.
+   - **Shifting layers** do frequency conversion at the knees.
+   - There will be many ladders. The geometry sweep must keep every ladder's round trips in phase together, not just one at a time.
+   - The golden-ratio tracking keeps storage and shifting layers moving as one system: storage layers hold the energy while shifting layers move it up the ladder, and the sweep finds the shape where both jobs stay in phase across all ladders at once.
