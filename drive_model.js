@@ -1,8 +1,11 @@
 /* drive_model.js - v0 coupled single-cycle drive model for the bare HHO / crystal-quartz bubble.
    ESTIMATED PHYSICS, NOT VALIDATED. Runs in the browser (window.DriveModel) and in node (module.exports).
-   User sets: fill (HHO amount + sealing temperature = initial/ambient condition), geometry (ID, OD), drive (amplitude, frequency, ONE cycle).
+   User sets: fill (HHO amount + sealing temperature), ambient temperature, geometry (ID, OD), drive frequency (ONE cycle).
+   ELECTRODES REMOVED 2026-10-19 (Danny: electrodes were the wrong architecture). There is NO drive mechanism defined: the drive
+   source is a fail-closed stub that deposits no energy. Breakdown, energy per cycle, discharge heating, chemistry from the
+   discharge and acoustic ring-down are therefore all zero. The drive method is open for Danny; do not add one here.
    Computed (coupled) states: gas temperature T_g(t), pressure p = N k T_g / V, number density (fixed), HHO sound speed c(T_g),
-   gas-cavity mode frequencies and Q, ionisation knee, wall temperatures, deposited energy, ring-down per domain.
+   gas-cavity mode frequencies and Q, wall temperatures (rise above seal; ambient exchange), natural modes per domain.
    Tags: [lit] published, [rec] from another box report, [calc] computed here, [est] estimate / assumption / placeholder. */
 (function (root) {
   "use strict";
@@ -22,14 +25,12 @@
     v0: { cL: 6153, cT: 4210, label: "v0/v0.2 value", src: "[rec shell_phi_sweep] superseded by the cited VRH entry" } };
   let QZ_SEL = "vrh";
   function setQuartzSound(k) { if (QZ_SOUND[k]) QZ_SEL = k; return QZ_SOUND[QZ_SEL]; }
-  // breakdown formation time [est, order of magnitude]: electron avalanche generations ln(1+1/γ) x gap / v_drift,e ; Townsend ion feedback gap / v_drift,i
-  const FORM = { vde: 1e5, vdi: 2e3 };   // m/s drift velocities near the Paschen-minimum E/N [PLACEHOLDERS est]
   const BALMER = [["Hα", 656.28e-9], ["Hβ", 486.13e-9], ["Hγ", 434.05e-9], ["Hδ", 410.17e-9]];  // air wavelengths [lit NIST ASD]
   const VIS = [380e-9, 750e-9];  // visible band [lit-typical CIE range]
-  const PASCHEN = { Vmin: 332, pdmin: 1.0, gse: 0.01 };  // HHO mix: Vmin/pd_min [est mole-fraction rule from lit H2 273 V@1.15, O2 450 V@0.70 Torr cm]; gamma_se [est]
-  const ETA = { gas: 0.6, wall: 0.3, opt: 0.1 };          // discharge energy partition [est placeholders]
+  const ETA = { gas: 0.6, wall: 0.3, opt: 0.1 };          // energy partition of a deposited drive energy [est placeholders]; unused while no drive is defined
   const SHELL_Q = 2100;                                   // [rec] used as placeholder for every shell mode
   const AUTOIGN_C = [500, 585];
+  const NO_DRIVE = "no drive mechanism defined (electrodes removed 2026-10-19; drive method open): no breakdown, no deposited energy, no discharge heating or chemistry, no acoustic ring-down";
   const CH = { ED: 4.478 * 1.602176634e-19,   // H2 D0 [lit NIST CCCBDB]
     DH: 241.826e3 / 6.02214076e23,          // J per H2O formed (LHV, dHf H2O(g)) [lit NIST WebBook]
     eta: 0.2, nu: 1.0, D1atm: 1.5e-4 };      // dissociation share, chain length, H diffusivity at 1 atm [PLACEHOLDERS est]                           // HHO autoignition range [given by Danny; lit H2 ~500-585 C]
@@ -59,25 +60,6 @@
     }
     return out;
   }
-  function paschenV(n_m3, d_m) {           // breakdown voltage from density*gap (density referenced to 293 K)
-    const pd = n_m3 * kB * 293 / TORR * d_m * 100;   // Torr cm equivalent at 293 K
-    const A = Math.E * Math.log(1 + 1 / PASCHEN.gse) / PASCHEN.pdmin, B = PASCHEN.Vmin / PASCHEN.pdmin;
-    const den = Math.log(A * pd / Math.log(1 + 1 / PASCHEN.gse));
-    return den > 0.05 ? B * pd / den : Infinity;
-  }
-  function kneeFill_Torr(d_m) { return PASCHEN.pdmin / (d_m * 100); }   // fill (at 293 K) that puts the gap at the Paschen minimum
-  /* ionisationWindow(p): the fill range (Torr at T_seal) that ionises in this model, using ONE voltage definition: peak gas
-     voltage Vg = share x V_amp against the static Paschen V_b(n d). Same criterion as run() (gas voltage clamps at V_b) and its
-     "no ionisation" flag. Static knee only: the regime flags (formation time) can still close it at high f. [calc] */
-  function ionisationWindow(p) {
-    const g = geometry(p), Ts = p.T_seal || 293.15, Vg = g.share * p.V_amp;
-    const h = fill => Vg - paschenV(fill * TORR / (kB * Ts), g.gap);   // > 0 inside the window; -Infinity left of the Paschen curve
-    const kf = kneeFill_Torr(g.gap) * Ts / 293;                        // Paschen-minimum fill expressed at T_seal (same n)
-    if (!(h(kf) > 0)) return { Vgas: Vg, lo_Torr: null, hi_Torr: null, empty: true };
-    const bis = (a, b) => { for (let i = 0; i < 200; i++) { const m = Math.sqrt(a * b); if ((h(m) > 0) === (h(a) > 0)) a = m; else b = m; } return Math.sqrt(a * b); };
-    let hi = kf * 2; while (h(hi) > 0 && hi < 1e12) hi *= 2;
-    return { Vgas: Vg, lo_Torr: bis(kf * 1e-6, kf), hi_Torr: bis(kf, hi), empty: false };
-  }
 
   function natconvH(Ts, Ta, D) {           // Churchill sphere + radiation [lit correlation; air props est]
     const Tf = 0.5 * (Ts + Ta), k = 0.0263 * Math.pow(Tf / 300, 0.8), nu = 1.57e-5 * Math.pow(Tf / 300, 1.7), Pr = 0.71;
@@ -88,22 +70,17 @@
   }
 
   function geometry(p) {
-    const a = p.ID_mm / 2e3, b = p.OD_mm / 2e3, r0 = (p.r0_mm || 0.05) / 1e3;
+    const a = p.ID_mm / 2e3, b = p.OD_mm / 2e3;
     const V = 4 / 3 * Math.PI * a ** 3;
-    const Cg = 4 * Math.PI * EPS0 / (1 / r0 - 1 / a), Cd = 4 * Math.PI * EPS0 * QZ.eps / (1 / a - 1 / b);
-    return { a, b, r0, V, Cg, Cd, Ctot: Cg * Cd / (Cg + Cd), share: Cd / (Cg + Cd), gap: a - r0 };
+    return { a, b, V };   // gas core radius a, quartz OD radius b, gas volume V (electrodes removed: no gap, no capacitance split)
   }
 
-  // modal overlap of the discharge heat deposition (est profile ~ E^2 ~ r^-4 between r0 and a) with radial gas mode j0(x r/a)
+  // radial gas mode j0(x r/a): wall value and volume-average of j0^2 (used for the boundary-layer Q) [calc]
   function overlapRadial(g, x) {
-    const N = 2000; let num = 0, den = 0, nrm = 0;
-    for (let i = 0; i < N; i++) {
-      const r = g.r0 + (g.a - g.r0) * (i + 0.5) / N, w = Math.pow(r, -4), dr = (g.a - g.r0) / N;
-      num += w * j0(x * r / g.a) * r * r * dr; den += w * r * r * dr;
-    }
+    const N = 2000; let nrm = 0;
     for (let i = 0; i < N; i++) { const r = g.a * (i + 0.5) / N; nrm += j0(x * r / g.a) ** 2 * r * r * g.a / N; }
     const Vn = 3 * nrm / g.a ** 3;  // volume-average of j0^2
-    return { kappa: num / den / Vn, jw: j0(x), Vn };
+    return { jw: j0(x), Vn };
   }
 
   function gasModeQ(g, x, T, rho) {        // [est] thermal boundary layer + classical bulk losses (radial modes; rigid wall)
@@ -113,7 +90,7 @@
     const Qth_inv = (HHO.gamma - 1) * dT * (3 / g.a) / 2 * zeta;
     const acl = w * w / (2 * rho * c ** 3) * (4 / 3 * muGas(T) + (HHO.gamma - 1) * kGas(T) / HHO.cp);
     const Qcl_inv = 2 * acl * c / w;
-    return { f, Q: 1 / (Qth_inv + Qcl_inv), kappa: o.kappa };
+    return { f, Q: 1 / (Qth_inv + Qcl_inv) };
   }
 
   function naturalModes(p, state) {       // the system's own response frequencies at gas temperature T (computed state)
@@ -133,28 +110,27 @@
     { const pse = state.N * kB * (state.Tseal || 293) / g.V, D = CH.D1atm * 101325 / Math.max(pse, 1), tD = g.a ** 2 / (Math.PI ** 2 * D);
       out.push({ domain: "chemical", name: "radical diffusion to wall 1/(2 pi tau_D) [calc; D placeholder]; knee: not defined", f: 1 / (2 * Math.PI * tD), tau: tD }); }
     out.push({ domain: "electric", name: "dielectric-sphere EM resonance ~ c x/(2 pi b sqrt(eps)) [est]", f: C0 * 2.0 / (2 * Math.PI * g.b * Math.sqrt(QZ.eps)) });
-    out.push({ domain: "magnetic", name: "same EM resonance (B=0 for the symmetric radial drive) [est]", f: C0 * 2.0 / (2 * Math.PI * g.b * Math.sqrt(QZ.eps)) });
+    out.push({ domain: "magnetic", name: "same EM resonance (B = 0: no drive mechanism defined) [est]", f: C0 * 2.0 / (2 * Math.PI * g.b * Math.sqrt(QZ.eps)) });
     out.push({ domain: "optical", name: "H-alpha 656.3 nm [lit]", f: C0 / 656.3e-9 }, { domain: "optical", name: "H-beta 486.1 nm [lit]", f: C0 / 486.1e-9 }, { domain: "optical", name: "H-gamma 434.0 nm [lit]", f: C0 / 434.0e-9 });
     return out;
   }
 
   /* run(p): p = {ID_mm, OD_mm, fill_Torr (at T_seal) | fill_molecules, T_seal (sealing = initial K), T_amb (ambient air K, optional;
-     default T_seal), V_amp (V peak), f (Hz), shellModes:[{name,f,tag}]}. The wall exchanges heat with still air at T_amb.
+     default T_seal), f (Hz, drive frequency: sets the one-cycle time grid and the regime flags), shellModes:[{name,f,tag}]}.
+     The wall exchanges heat with still air at T_amb. No drive mechanism is defined (electrodes removed 2026-10-19): the drive
+     source below is a stub that deposits zero energy, so every discharge-derived output is exactly zero.
      returns traces + summary. Missing required inputs -> {error}. */
   function run(p, opts) {
     opts = opts || {};
-    for (const k of ["ID_mm", "OD_mm", "T_seal", "V_amp", "f"]) if (!(p[k] > 0)) return { error: "enter " + k };
+    for (const k of ["ID_mm", "OD_mm", "T_seal", "f"]) if (!(p[k] > 0)) return { error: "enter " + k };
     if (!(p.fill_Torr > 0) && !(p.fill_molecules > 0)) return { error: "enter fill" };
     if (p.OD_mm <= p.ID_mm) return { error: "OD must exceed ID" };
     const hasAmb = p.T_amb !== undefined && p.T_amb !== null;
     if (hasAmb && !(p.T_amb > 0)) return { error: "ambient T must be > 0 K (leave unset for ambient = sealing T)" };
-    if (p.ID_mm / 2e3 <= (p.r0_mm || 0.05) / 1e3) return { error: "ID must exceed the 0.1 mm centre-electrode diameter [est]" };
     const g = geometry(p), Ta = hasAmb ? p.T_amb : p.T_seal;   // ambient defaults to the sealing temperature
     const N = p.fill_molecules > 0 ? p.fill_molecules : p.fill_Torr * TORR * g.V / (kB * p.T_seal);
     const n = N / g.V, mgas = N * HHO.M / NA, rho = mgas / g.V, Cv_g = mgas * HHO.cp / HHO.gamma;
-    const Vb0 = paschenV(n, g.gap);
     const reg = regime(p.f, g);
-    const Vb = reg.noForm ? Infinity : Vb0;   // half-cycle shorter than electron-avalanche formation: no breakdown can form
     // wall grid
     const NW = 24, rr = [], Vc = [], Cq = [];
     for (let i = 0; i <= NW; i++) rr.push(g.a + (g.b - g.a) * i / NW);
@@ -174,29 +150,17 @@
     const tEnd = Math.min(Math.max(5 * tauLumped, 20 * T), 200);
     const nlog = opts.nlog || 160;
     for (let i = 1; i <= nlog; i++) ts.push(T * Math.pow(tEnd / T, i / nlog));
-    // discharge state (Manley-type, single cycle from rest, gas-voltage memory) [est]
-    let Vg = 0, Vprev = 0, Edis = 0, Qtr = 0; const jumps = []; let Pprev = 0, conducting = false;
-    const tr = { t: [], V: [], Vg: [], P: [], Tg: [], Twin: [], Twout: [], p: [], c: [], fgas0: [], Vb: [] };
+    // DRIVE SOURCE STUB: no drive mechanism defined (electrodes removed 2026-10-19; drive method open). Fails closed:
+    // deposits exactly zero energy on every step. Do not replace with an invented mechanism; Danny decides the drive.
+    const driveEnergy = (t, dt) => 0;
+    let Edis = 0;
+    const tr = { t: [], P: [], Tg: [], Twin: [], Twout: [], p: [], c: [], fgas0: [] };
     const fx0 = 4.4934 / (2 * Math.PI * g.a);
     let maxThG = 0, maxThW = 0, Egas = 0, Ewall = 0, Eopt = 0, nDiss = 0, nWater = 0, Echem = 0, H2left = 2 * N / 3;
     for (let k = 1; k < ts.length; k++) {
       const t = ts[k], dt = t - ts[k - 1];
-      const V = t <= T ? p.V_amp * Math.sin(w * t) : 0;
-      const dV = V - Vprev;
-      // gas voltage: follows share*dV until clamped at +-Vb; clamp => conduction
-      let VgNew = Vg + g.share * dV, Ed = 0;
-      if (Math.abs(VgNew) > Vb && t <= T + 1e-15) {
-        const over = Math.abs(VgNew) - Vb;              // excess gas-voltage swing dumped as charge through the barrier
-        const dq = over / g.share * g.Cd;               // charge transferred [est]
-        Ed = Vb * dq; Qtr += dq; VgNew = Math.sign(VgNew) * Vb; conducting = true;
-      } else conducting = false;
-      Vg = VgNew; Vprev = V;
-      const Pd = Ed / dt;
-      if (k <= ncyc + 1 && Math.abs(Pd - Pprev) > 0) {
-        // record jumps in discharge power (onset/end) - drive impulsive ring-down of fast modes [est]
-        if ((Pprev === 0 && Pd > 0) || (Pprev > 0 && Pd === 0)) jumps.push({ t, dP: Pd - Pprev });
-      }
-      Pprev = Pd; Edis += Ed;
+      const Ed = driveEnergy(t, dt), Pd = Ed / dt;
+      Edis += Ed;
       Egas += ETA.gas * Ed; Ewall += ETA.wall * Ed; Eopt += ETA.opt * Ed;
       const dnd = CH.eta * ETA.gas * Ed / CH.ED, dnw = Math.min(CH.nu * dnd, H2left); H2left -= dnw; nDiss += dnd; nWater += dnw;
       const Ech = dnw * CH.DH; Echem += Ech;   // chemical heat release fed to the gas
@@ -222,31 +186,21 @@
       for (let i = M - 2; i >= 0; i--) X[i] = (D[i] - Cc[i] * X[i + 1]) / B[i];
       thG = X[0]; thW = X.slice(1); Tg = Ts + thG; Tw = thW.map(x => Ts + x);
       maxThG = Math.max(maxThG, thG); maxThW = Math.max(maxThW, thW[0]);
-      tr.t.push(t); tr.V.push(V); tr.Vg.push(Vg); tr.P.push(Pd); tr.Tg.push(Tg); tr.Twin.push(Tw[0]); tr.Twout.push(Tw[NW - 1]);
-      tr.p.push(N * kB * Tg / g.V); tr.c.push(cHHO(Tg)); tr.fgas0.push(fx0 * cHHO(Tg)); tr.Vb.push(Vb);
+      tr.t.push(t); tr.P.push(Pd); tr.Tg.push(Tg); tr.Twin.push(Tw[0]); tr.Twout.push(Tw[NW - 1]);
+      tr.p.push(N * kB * Tg / g.V); tr.c.push(cHHO(Tg)); tr.fgas0.push(fx0 * cHHO(Tg));
     }
-    // fast-mode ring-down from discharge-power jumps (impulse approximation, valid while f_mode >> f_drive) [est]
+    // acoustic ring-down: no drive source, so no mode is driven (the former discharge-jump impulse source is removed with the electrodes)
     const maxTg = Ts + maxThG, maxTw = Ts + maxThW;   // peak absolute temperatures; dTg/dTw below are the peak rises themselves
     const sigOverP = (g.b ** 3 + 2 * g.a ** 3) / (2 * (g.b ** 3 - g.a ** 3));  // Lame inner hoop stress / inner pressure [calc]
     const uOverP = g.a / QZ.E * ((1 - 2 * QZ.nu) * g.a ** 3 + (1 + QZ.nu) * g.b ** 3 / 2) / (g.b ** 3 - g.a ** 3);
     const stateHot = { T: maxTg, N, tauLumped, Tseal: p.T_seal };
     const modes = naturalModes(p, stateHot);
     const ring = [];
-    const maxJump = jumps.reduce((m, j) => Math.max(m, Math.abs(j.dP)), 0);
     for (const m of modes) {
       if (m.domain !== "acoustic") continue;
       const wn = 2 * Math.PI * m.f;
-      let amp = 0, unit = "", tau = m.Q ? 2 * m.Q / wn : null, what = "";
-      if (m.name.indexOf("gas l=0") === 0) {
-        const x = m.name.indexOf("n=1") > 0 ? 4.4934 : 7.7253;
-        const kap = overlapRadial(g, x).kappa;
-        amp = (HHO.gamma - 1) * Math.abs(kap) * ETA.gas * maxJump / g.V / wn; unit = "Pa"; what = "pressure ring (centre-weighted heating) [est]";
-      } else if (m.name.indexOf("gas") === 0) { amp = 0; unit = "Pa"; what = "not driven: radially symmetric source (l>0 needs asymmetry)"; }
-      else if (m.name.indexOf("0S0") >= 0 || m.name.indexOf("l=0") >= 0 || m.name.indexOf("breathing") >= 0) {
-        const dpdot = (HHO.gamma - 1) * ETA.gas * maxJump / g.V;  // jump in dp/dt of bulk gas pressure
-        amp = sigOverP * dpdot / wn; unit = "Pa hoop"; what = "shell breathing ring from bulk-pressure kink [est]";
-      } else { amp = 0; unit = "Pa"; what = "not driven by a symmetric source (l>0)"; }
-      ring.push({ name: m.name, f: m.f, Q: m.Q, tau, amp, unit, what });
+      ring.push({ name: m.name, f: m.f, Q: m.Q, tau: m.Q ? 2 * m.Q / wn : null, amp: 0, unit: m.name.indexOf("gas") === 0 ? "Pa" : "Pa hoop",
+        what: "not driven: no drive mechanism defined (electrodes removed 2026-10-19; drive method open)" });
     }
     const p_seal = N * kB * p.T_seal / g.V;
     const flags = [];
@@ -256,11 +210,10 @@
       else if (C >= AUTOIGN_C[0] - 50) flags.push(`${nm} ${C.toFixed(0)} C is APPROACHING HHO autoignition (~${AUTOIGN_C[0]}-${AUTOIGN_C[1]} C)`);
     }
     reg.flags.forEach(f => flags.push(f));
-    if (reg.noForm) { /* already flagged */ } else if (!isFinite(Vb)) flags.push("fill is left of the Paschen curve for this gap: no breakdown at any voltage in this model");
-    else if (g.share * p.V_amp < Vb) { const iw = ionisationWindow(p); flags.push(`no ionisation: peak gas voltage ${(g.share * p.V_amp).toFixed(0)} V < knee ${Vb.toFixed(0)} V` + (iw.empty ? ' (no fill ionises at this amplitude)' : ` (ionising fills at this amplitude: ${iw.lo_Torr.toPrecision(4)}–${iw.hi_Torr.toPrecision(4)} Torr)`)); }
+    flags.push(NO_DRIVE);
     return {
-      inputs: p, T_amb: Ta, geom: g, N, n, rho, p_seal, Vb, Vb_static: Vb0, regime: reg, qz_sound: Object.assign({ key: QZ_SEL }, QZ_SOUND[QZ_SEL]), kneeFill_Torr: kneeFill_Torr(g.gap), cycle_s: T,
-      E_dis: Edis, E_gas: Egas, E_wall: Ewall, E_opt: Eopt, Q_tr: Qtr, jumps, photons_Ha_equiv: Eopt / (6.62607015e-34 * C0 / 656.3e-9),
+      inputs: p, T_amb: Ta, geom: g, N, n, rho, p_seal, drive: NO_DRIVE, regime: reg, qz_sound: Object.assign({ key: QZ_SEL }, QZ_SOUND[QZ_SEL]), cycle_s: T,
+      E_dis: Edis, E_gas: Egas, E_wall: Ewall, E_opt: Eopt, photons_Ha_equiv: Eopt / (6.62607015e-34 * C0 / 656.3e-9),
       maxTg, maxTw, dTg: maxThG, dTw: maxThW, p_max: N * kB * maxTg / g.V, c_seal: cHHO(p.T_seal), c_max: cHHO(maxTg),
       sigma_fill: sigOverP * p_seal, sigma_peak_static: sigOverP * N * kB * maxTg / g.V, uOverP, tauLumped, modes, ring, flags, tr,
       chem: { n_diss: nDiss, n_water: nWater, E_release: Echem, frac_converted: nWater / (2 * N / 3), knee: "not defined" },
@@ -268,33 +221,30 @@
     };
   }
 
-  // drive-frequency regime flags (v0.3) [calc thresholds; drift velocities est]
+  // drive-frequency regime flags (v0.3) [calc thresholds]; the gap-based breakdown-formation flags were removed with the electrodes
   function regime(f, g) {
     const fl = [], fEM = C0 * 2.0 / (2 * Math.PI * g.b * Math.sqrt(QZ.eps)), fQS = C0 / (10 * 2 * g.b * Math.sqrt(QZ.eps));
-    const tauE = Math.log(1 + 1 / PASCHEN.gse) * g.gap / FORM.vde, tauI = g.gap / FORM.vdi, half = 0.5 / f, lam = C0 / f;
-    let noForm = false;
+    const lam = C0 / f;
     if (f >= fEM) fl.push(`quasi-static model INVALID: f ${fmtHz(f)} ≥ first dielectric-sphere EM resonance ~${fmtHz(fEM)} [est]; the sphere is ≥ a wavelength (λ0 ${fmtL(lam)}) and fields are no longer lumped`);
     else if (f >= fQS) fl.push(`quasi-static model degrading: OD·√εr > λ/10 above ~${fmtHz(fQS)} (EM resonance ~${fmtHz(fEM)}) [est]`);
-    if (half < tauE) { noForm = true; fl.push(`one cycle (${fmtS(1 / f)}) is shorter than the breakdown formation time: half-cycle ${fmtS(half)} < electron-avalanche time ~${fmtS(tauE)} = ln(1+1/γ)·gap/v_e (v_e 1e5 m/s [est]) → no discharge forms in this model`); }
-    else if (half < tauI) fl.push(`half-cycle ${fmtS(half)} < Townsend ion-feedback time ~${fmtS(tauI)} (gap/v_i, v_i 2e3 m/s [est]): the static Paschen knee is not reached in one cycle; breakdown would need overvoltage/streamer (model still uses the static knee)`);
     const lamv = lam;
-    if (lamv >= VIS[0] && lamv <= VIS[1]) fl.push(`OPTICAL BAND: drive λ ${fmtL(lamv)} is visible light — the drive IS light; the circuit/DBD drive model does not apply`);
-    else if (lamv < VIS[0]) fl.push(`drive λ ${fmtL(lamv)} is ultraviolet light — the circuit/DBD drive model does not apply`);
-    else if (f >= 3e11) fl.push(`drive λ ${fmtL(lamv)} is infrared radiation (>300 GHz) — the circuit/DBD drive model does not apply`);
+    if (lamv >= VIS[0] && lamv <= VIS[1]) fl.push(`OPTICAL BAND: drive λ ${fmtL(lamv)} is visible light — the drive IS light; the lumped quasi-static field picture does not apply`);
+    else if (lamv < VIS[0]) fl.push(`drive λ ${fmtL(lamv)} is ultraviolet light — the lumped quasi-static field picture does not apply`);
+    else if (f >= 3e11) fl.push(`drive λ ${fmtL(lamv)} is infrared radiation (>300 GHz) — the lumped quasi-static field picture does not apply`);
     BALMER.forEach(([n, l]) => { if (Math.abs(lamv - l) / l < 0.01) fl.push(`drive is within 1% of Balmer ${n} ${(l * 1e9).toFixed(2)} nm`); });
-    return { flags: fl, fEM, fQS, tauE, tauI, noForm, lambda0: lam };
+    return { flags: fl, fEM, fQS, lambda0: lam };
   }
   const fmtHz = f => f >= 1e15 ? (f / 1e15).toPrecision(3) + " PHz" : f >= 1e12 ? (f / 1e12).toPrecision(3) + " THz" : f >= 1e9 ? (f / 1e9).toPrecision(3) + " GHz" : f >= 1e6 ? (f / 1e6).toPrecision(3) + " MHz" : f >= 1e3 ? (f / 1e3).toPrecision(3) + " kHz" : f.toPrecision(3) + " Hz";
   const fmtS = t => t >= 1e-3 ? (t * 1e3).toPrecision(3) + " ms" : t >= 1e-6 ? (t * 1e6).toPrecision(3) + " µs" : t >= 1e-9 ? (t * 1e9).toPrecision(3) + " ns" : t >= 1e-12 ? (t * 1e12).toPrecision(3) + " ps" : (t * 1e15).toPrecision(3) + " fs";
   const fmtL = l => l >= 1 ? l.toPrecision(3) + " m" : l >= 1e-3 ? (l * 1e3).toPrecision(3) + " mm" : l >= 1e-6 ? (l * 1e6).toPrecision(3) + " µm" : (l * 1e9).toPrecision(3) + " nm";
   function sweep(p, key, values, opts) {
     return values.map(v => { const q = Object.assign({}, p); q[key] = v; const r = run(q, Object.assign({ ncyc: 400, nlog: 80 }, opts || {}));
-      return r.error ? { x: v, error: r.error } : { x: v, E_dis: r.E_dis, dTg: r.dTg, dTw: r.dTw, Vb: r.Vb, p_max: r.p_max,
+      return r.error ? { x: v, error: r.error } : { x: v, E_dis: r.E_dis, dTg: r.dTg, dTw: r.dTw, p_max: r.p_max,
         ringGas: (r.ring.find(z => z.name.indexOf("gas l=0 n=1") === 0) || {}).amp || 0,
         ringShell: (r.ring.find(z => z.what.indexOf("shell breathing") === 0) || {}).amp || 0, Echem: r.chem.E_release, flags: r.flags, fgas: r.modes[2].f,
-        E_opt: r.E_opt, Vgas: r.geom.share * r.inputs.V_amp, share: r.geom.share, kneeFill: r.kneeFill_Torr, modes: r.modes.map(m => ({ domain: m.domain, name: m.name, f: m.f })) }; });
+        E_opt: r.E_opt, drive: r.drive, modes: r.modes.map(m => ({ domain: m.domain, name: m.name, f: m.f })) }; });
   }
   const logspace = (a, b, n) => Array.from({ length: n }, (_, i) => a * Math.pow(b / a, i / (n - 1)));
-  const api = { QZ_SOUND, setQuartzSound, shellRadialModes, regime, BALMER, VIS, FORM, fmtHz, CH, run, sweep, logspace, naturalModes, paschenV, kneeFill_Torr, ionisationWindow, cHHO, geometry, ETA, HHO, QZ, PASCHEN, AUTOIGN_C, TORR };
+  const api = { QZ_SOUND, setQuartzSound, shellRadialModes, regime, BALMER, VIS, fmtHz, CH, run, sweep, logspace, naturalModes, cHHO, geometry, ETA, HHO, QZ, AUTOIGN_C, TORR, NO_DRIVE };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.DriveModel = api;
 })(typeof window !== "undefined" ? window : this);

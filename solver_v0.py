@@ -15,9 +15,9 @@ What it does (per geometry preset x circulating power level):
             Two configurations: 'isolated' (quartz + thin films, free at the Gd-Dy surface) and 'bonded'
             (whole stack to the ferrite). l>=1 spheroidal/torsional frequencies are NOT computed in v0;
             they are read (read-only) from shell_phi_sweep_calc_output.txt where available.
-  ELECTRIC  quasi-static BTO spherical capacitor on Ti/Pt, tanh polarisation saturation (varactor C(V)),
-            Curie-Weiss eps(T), dielectric + ESR loss; LC tank with the ferrite shell as inductor.
-  MAGNETIC  quasi-static toroidal (meridional-winding) ferrite shell inductor: L, B(r), Q_f(f) loss.
+  ELECTRIC  NO DRIVE MECHANISM DEFINED [retired 2026-10-19: the BTO capacitor between metal films, the LC tank and
+            the bare-shell discharge field were electrode-based and are removed]. Electric fields, dielectric loss = 0.
+  MAGNETIC  no drive defined: ferrite field and loss = 0 (the ferrite shell stays as a material layer).
   THERMAL   1-D radial spherical finite-volume, implicit, k(T) for quartz, interface resistances,
             outer surface held at 293 K (reference only - no heat sink is chosen here).
   COUPLING  staggered, timescale-separated: fast domains (optical ps, acoustic/electric/magnetic us-ms)
@@ -47,7 +47,7 @@ PRESETS = [
     dict(id="lock25", label="Layer-1 lock B: 2.5 mm bubble, 100 atm HHO (wall 1 mm assumed)", core_d=2.5 - 2.0, wall=1.0, p_atm=100.0, group="lock",
          note="Read as quartz OD 2.5 mm with the 1 mm wall kept -> 0.5 mm gas bore (geometry B of earlier reports). If 2.5 mm is the gas diameter, rerun with --core-d 2.5."),
 ]
-# Minimal test (Danny): 1 mm ID HHO 2:1 at the Paschen knee (~10 Torr for a 1 mm gap), bare crystal-quartz shell, +-pulsed DBD
+# Minimal test (Danny): 1 mm ID HHO 2:1 at the Paschen knee (~10 Torr for a 1 mm gap), bare crystal-quartz shell; no drive mechanism defined
 PRESETS.insert(0, dict(id="minA", label="Minimal test A: 1 mm ID, 1 mm wall, 3 mm OD, bare quartz, HHO 10 Torr (Paschen knee)", core_d=1.0, wall=1.0, p_atm=10/760, group="minimal", bare=True))
 PRESETS.insert(0, dict(id="scope", label="Danny scope: 1 mm ID x 2 mm OD quartz, HHO, fill OPEN (3-D views: 10 Torr placeholder)", core_d=1.0, wall=0.5, p_atm=10/760, group="minimal", bare=True,
                        note="fill amount is open: the 3-D/steady views use 10 Torr only as a placeholder; the Drive panel computes the coupled single-cycle response for the fill you enter"))
@@ -70,11 +70,9 @@ MAT = {
                   tags="k 0.91 mid (0.52-1.59) [rec Layer2]; cL mid of 2.6-4.7 km/s [rec binder est]; cT=0.6 cL [est]; rho [est]; Q 50-500 -> 150 [est]"),
  "phos_in":  dict(name="Inner phosphor 20 um, Cr3+ garnet (CSSG-type) in sol-gel/PiG", rho=3500, cp=700, k=1.0, cL=5000, cT=3000, Q=100, n=1.8,
                   tags="k 1.0 [rec est]; rho,cp,cL,cT,Q [est]"),
- "tipt":     dict(name="Ti/Pt electrode 10/100 nm", rho=21450, cp=133, k=50, cL=3260, cT=1730, Q=1000, n=None,
-                  tags="Pt handbook-typical [est]; sheet R 2.65 ohm/sq [rec]"),
  "bto":      dict(name="BaTiO3 film 2 um (hydrothermal crystalline)", rho=6020, cp=437, k=1.35, cL=5000, cT=2700, Q=50, n=2.4,
                   tags="rho,cp,k [rec]; E~110 GPa [rec est] -> cL,cT [est]; Q~1/tan d=50 [rec]"),
- "gddy":     dict(name="Gd-Dy film 3 um (outer electrode, MCE ~260 K)", rho=8080, cp=270, k=7.3, cL=2950, cT=1680, Q=500, n=None,
+ "gddy":     dict(name="Gd-Dy film 3 um (MCE ~260 K)", rho=8080, cp=270, k=7.3, cL=2950, cT=1680, Q=500, n=None,
                   tags="rho,cp,k [rec]; E~55 GPa [est]; Q [est]"),
  "calorivac":dict(name="CALORIVAC ladder, epoxy-bonded granules", rho=5000, cp=500, k=1.0, cL=1800, cT=900, Q=20, n=None,
                   tags="k_eff 1.0 (0.5-2) [rec est]; rho,cp,cL,cT,Q [est] (epoxy-dominated, lossy)"),
@@ -92,7 +90,7 @@ LAM_CR = 770.0                      # CSSG:Cr emission peak [rec ladder]
 QY_CR = 0.778                       # IQE measured [rec ladder]
 I_SAT_CR = 7.6e4 * 1e4              # W/m2; geometric mid of 2.4e4-2.4e5 W/cm2 [rec, cross-section est]
 ALPHA_PHOS = 1.0e5                  # 1/m (1000 /cm) inner phosphor small-signal absorption [est]
-ALPHA_PT = 8.8e7                    # 1/m Pt visible absorption from k~3.5 [est] -> 100 nm passes ~1.5e-4
+ALPHA_METAL = 8.8e7                 # 1/m visible absorption of the metallic layers (Gd-Dy, CALORIVAC, ferrite) [est, metal-typical k~3.5]
 L2_MU_EXT = {434.0: 106e2, 486.1: 68e2, 656.3: 22e2, 770.0: 15e2}  # 1/m direct extinction, P0.07 phi0.2 [rec Layer2; 770 est]
 L2_MU_ABS = 0.9e2 * math.log(10) / 2.3026   # <=0.9 /cm absorption [rec Layer2]
 SMOKY_ALPHA = {434.0: 50.0, 486.1: 50.0, 656.3: 30.0, 770.0: 5.0}   # 1/m (0.5/0.5/0.3 /cm) [est, dose-dependent; bands rec Coloured_Piezo]
@@ -100,7 +98,6 @@ SMOKY_BLEACH_K = 473.0              # colour bleaches ~200-300 C [rec]
 
 # Electric [rec power scaling / BTO report]
 BTO_T = 2 * UM; EPSR0 = 450.0; TAND = 0.02; PS = 0.115; E_WORK = 42e6; T_CURIE = 393.0
-RS_PT, RS_GD, G_RING = 2.65, 0.44, 0.031
 # Magnetic [rec HighQ_MHz: Fair-Rite 61 Q vs f]; B_sat est
 FERR_MU = 125.0
 FERR_QF = [(1e4, 260), (3e5, 260), (1e6, 190), (2.5e6, 155), (5e6, 130), (1e7, 62), (2e7, 4.6)]
@@ -124,7 +121,7 @@ def build_stack(core_d_mm, wall_mm, bare=False):
     def add(key, t):
         r0 = L[-1][2] if L else r_in
         L.append((key, r0, r0 + t))
-    add("quartz", wall_mm * MM); add("layer2", 5 * UM); add("phos_in", 20 * UM); add("tipt", 0.11 * UM); add("bto", BTO_T)
+    add("quartz", wall_mm * MM); add("layer2", 5 * UM); add("phos_in", 20 * UM); add("bto", BTO_T)
     r_B = L[-1][2]                       # first phi step starts at the BTO outer boundary [Danny rule, rec BTO report]
     add("gddy", 3 * UM)
     r1, r2 = r_B * PHI, r_B * PHI ** 2   # phi-stepped thick zones [v0 layout assumption]
@@ -341,41 +338,15 @@ def ferrite_L(stack):
     L = MU0 * FERR_MU * N_TURNS ** 2 * (b - a) / math.pi * math.log(1 / math.tan(THETA0 / 2))
     return L, a, b
 
-def electric_magnetic(stack, P, T_bto, T_ferr):
-    cap = bto_cap(stack, T_bto)
-    L, a, b = ferrite_L(stack)
-    f0 = 1 / (2 * math.pi * math.sqrt(L * cap["C0"]))
-    fb = 1 / (2 * math.pi * math.sqrt(L * cap["C_bias"]))
-    fe = fb
-    w = 2 * math.pi * fe; W = P / w
-    V = math.sqrt(2 * W / cap["C_bias"])
-    V_work = E_WORK * BTO_T
-    I = w * cap["C_bias"] * V / math.sqrt(2)
-    esr = G_RING * (RS_PT + RS_GD)
-    P_diel = P * TAND; P_esr = I ** 2 * esr
-    Qf = ferrite_Q(fe); P_ferr = P / Qf
-    Ipk = math.sqrt(2 * W / L)
-    rm = 0.5 * (a + b)
-    B_eq = MU0 * FERR_MU * N_TURNS * Ipk / (2 * math.pi * rm)
-    B_max = MU0 * FERR_MU * N_TURNS * Ipk / (2 * math.pi * a * math.sin(THETA0))
-    Q_tank = 1 / (TAND + P_esr / P + 1 / Qf)
-    return dict(C0=cap["C0"], C_bias=cap["C_bias"], eps=cap["eps"], L=L, f_zero_bias=f0, f_bias=fb, f_e=fe,
-                W=W, V_pk=V, V_work=V_work, over_voltage=V > V_work, E_pk=V / BTO_T, I_rms=I, ESR=esr,
-                P_diel=P_diel, P_esr=P_esr, Q_f=Qf, P_ferr=P_ferr, B_eq=B_eq, B_max=B_max, B_sat=B_SAT,
-                saturates=B_max > B_SAT, Q_tank=Q_tank, tau_ring=2 * Q_tank / w, piezo_on=cap["piezo_on"],
-                J_feed=I / (2 * math.pi * cap["r1"] * 100e-9 * 2))
+NO_DRIVE = "no drive mechanism defined (electrodes removed 2026-10-19; drive method open)"
 
-def electric_bare(stack, P, f_drive):
-    """DBD: central 50 um electrode in gas, quartz barrier eps 4.5, outer electrode on OD [est geometry]. No magnetic element."""
-    r0, a, b = 50e-6, stack["r_in"], stack["r_q"]
-    S = (1 / r0 - 1 / a) + (1 / a - 1 / b) / 4.5
-    C = 4 * math.pi * EPS0 / S
-    V = 337.0   # applied V at the Paschen-min gas voltage ~332 V (gas takes ~98.5 %) [calc minimal_test_calc]
-    w = 2 * math.pi * f_drive
-    return dict(C0=C, C_bias=C, eps=4.5, L=None, f_zero_bias=f_drive, f_bias=f_drive, f_e=f_drive, W=0.5 * C * V ** 2, V_pk=V, V_work=V,
-                over_voltage=False, E_pk=V / (r0 ** 2 * S), I_rms=w * C * V / math.sqrt(2), ESR=0, P_diel=w * 0.5 * C * V ** 2 * 1e-4, P_esr=0,
-                Q_f=None, P_ferr=0, B_eq=0, B_max=0, B_sat=None, saturates=False, Q_tank=None, tau_ring=1 / f_drive, piezo_on=False, J_feed=0,
-                S=S, r0=r0, bare=True)
+def no_drive_em(stack, T_bto=None):
+    """Fail-closed stub [retired 2026-10-19: electrode-based BTO tank / bare-shell discharge field]. No drive mechanism is
+    defined, so there is no electric or magnetic field, no tank frequency and no electric/magnetic loss. Do not invent one."""
+    piezo = (T_bto < T_CURIE) if (T_bto is not None and not stack.get("bare")) else False
+    return dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, f_bias=None, V_pk=0.0, E_pk=0.0, W=0.0, I_rms=0.0,
+                P_diel=0.0, P_esr=0.0, P_ferr=0.0, B_eq=0.0, B_max=0.0, saturates=False, over_voltage=False, tau_ring=None,
+                piezo_on=piezo, bare=bool(stack.get("bare")))
 
 # ------------------------------------------------- OPTICAL -------------------------------------
 def optical(stack, P_opt, Tcell, cells, mats):
@@ -407,8 +378,8 @@ def optical(stack, P_opt, Tcell, cells, mats):
                 P[LAM_CR] += 0.5 * Pem; converted += Pem       # half outward, half back toward core [est]
                 heat[0] += 0.5 * Pem * 0.0                     # inward half returns to core (not tracked) [v0 limit]
                 if shift_r is None and Pabs > 0.05 * Pin: shift_r = ra
-            elif m in ("tipt", "gddy", "calorivac", "ferrite"):
-                Pout = Pin * math.exp(-ALPHA_PT * t); heat[i] += Pin - Pout
+            elif m in ("gddy", "calorivac", "ferrite"):
+                Pout = Pin * math.exp(-ALPHA_METAL * t); heat[i] += Pin - Pout
             elif m == "phos_out":
                 Pout = Pin * math.exp(-1e4 * t); heat[i] += Pin - Pout
             else:  # bto: weakly absorbing in visible [est 100/cm]
@@ -473,7 +444,7 @@ def run_case(pre, P, ref):
     if bare: th.outer = "natconv"   # still air + radiation; heat sink left to Danny
     T = np.full(th.n, T_REF)
     lay = st["layers"]
-    iso = [x for x in lay if x[0] in ("quartz", "layer2", "phos_in", "tipt", "bto", "gddy")]
+    iso = [x for x in lay if x[0] in ("quartz", "layer2", "phos_in", "bto", "gddy")]
     # acoustic: l=0 modes, isolated and bonded. Gas-loaded roots are split into shell modes (within 1 % of the
     # vacuum shell modes) and HHO gas-cavity modes (coupled through the wall).
     def vac_modes(L_):
@@ -512,8 +483,8 @@ def run_case(pre, P, ref):
     frames = [T.copy()]; history = []
     t_prev = 0.0
     idx = lambda key: [i for i, m in enumerate(mats) if m == key]
-    i_bto, i_ferr, i_pt = idx("bto"), idx("ferrite"), idx("tipt")
-    EM = (lambda T_: electric_bare(st, P, f_ac)) if bare else (lambda T_: electric_magnetic(st, P, float(np.mean(T_[i_bto])), float(np.mean(T_[i_ferr]))))
+    i_bto = idx("bto")
+    EM = (lambda T_: no_drive_em(st)) if bare else (lambda T_: no_drive_em(st, float(np.mean(T_[i_bto]))))   # no drive mechanism defined
     for tk in times[1:]:
         # fast domains quasi-static at current temperatures
         em = EM(T)
@@ -521,9 +492,6 @@ def run_case(pre, P, ref):
         q = qo + q_ac
         q[0] += (1.0 if bare else F_WALL) * P
         if tk <= chem["t_conv"]: q[0] += chem["P_release"]   # transient 2H2+O2->2H2O heat release until the fill is converted
-        for i in i_bto: q[i] += em["P_diel"] / len(i_bto)
-        for i in i_pt: q[i] += em["P_esr"] / len(i_pt)
-        for i in i_ferr: q[i] += em["P_ferr"] * th.V[i] / sum(th.V[j] for j in i_ferr)
         # sub-steps
         nsub = 6; dts = np.diff(np.linspace(t_prev, tk, nsub + 1))
         for dt in dts:
@@ -537,15 +505,12 @@ def run_case(pre, P, ref):
         em = EM(Tss)
         qo, oprof, oinfo = optical(st, F_OPT * P, Tss, cells, mats)
         q = qo + q_ac; q[0] += (1.0 if bare else F_WALL) * P
-        for i in i_bto: q[i] += em["P_diel"] / len(i_bto)
-        for i in i_pt: q[i] += em["P_esr"] / len(i_pt)
-        for i in i_ferr: q[i] += em["P_ferr"] * th.V[i] / sum(th.V[j] for j in i_ferr)
         Tss = th.step(Tss, q, 1e4 if not bare else 5.0)
     heat_by_layer = {}
     for i, m in enumerate(mats): heat_by_layer[m] = heat_by_layer.get(m, 0) + float(q[i])
     em_hot = em
     # coupled gas state [calc; gas T est = inner-wall T, a LOWER bound under discharge heating]: fixed N and V => n constant,
-    # p = p_seal*T/T_seal, c = c_hho(T); gas-loaded modes recomputed hot. Paschen knee depends on n*d (constant) to first order.
+    # p = p_seal*T/T_seal, c = c_hho(T); gas-loaded modes recomputed hot. 
     a_ = st["r_in"]; P_cond = (1.0 if bare else F_WALL) * P   # heat that leaves the gas by conduction to the wall
     rs_ = np.linspace(0, a_, 81); Tp_ = np.array(gas_T_profile(float(Tss[0]), P_cond, a_, rs_))
     Tg = float(min(np.trapezoid(Tp_ * rs_ ** 2, rs_) * 3 / a_ ** 3, 3000.0)); Tg_centre = float(Tp_[0]); p_seal = GAS["p"]
@@ -637,15 +602,8 @@ def package(pre, runs, ref):
         stress = [float(np.interp(r, ac_r, ac_s)) if ac_r[0] <= r <= ac_r[-1] else 0.0 for r in rc]
         bare = run["stack"]["bare"]
         if bare:
-            Efield = [em["V_pk"] / (r ** 2 * em["S"] * 4.5) for r in rc]   # quartz barrier field
-            Bf = [0.0 for r in rc]
-        else:
-            Efield = [em["E_pk"] if m == "bto" else 0.0 for m in mats]
-            Bf = []
-            L_, a_, b_ = ferrite_L(run["stack"])
-            Ipk = math.sqrt(2 * em["W"] / L_)
-            for r, m in zip(rc, mats):
-                Bf.append(MU0 * FERR_MU * N_TURNS * Ipk / (2 * math.pi * r) if m == "ferrite" else 0.0)
+            pass
+        Efield = [0.0 for r in rc]; Bf = [0.0 for r in rc]   # no drive mechanism defined: no electric or magnetic field
         Tss = run["Tss"]; frames = run["frames"]
         # ---- REAL core fields (previously the core got zeros -> black disc) ----
         gh = run["gas_hot"]; a_in = run["stack"]["r_in"]; ch = run["chem"]
@@ -657,19 +615,16 @@ def package(pre, runs, ref):
         jw = j1_(k_g * a_in)
         core_p = [abs(u_a * rho_g * w_ac ** 2 * j0_(k_g * r) / (k_g * jw)) if jw else 0.0 for r in r_core]   # gas pressure amplitude, p = A j0(kr)
         core_I = [float(Itot[0]) * r / a_in for r in r_core]   # net radial flux of a uniform optically-thin emitter: F = P r/(4 pi a^3) [est]
-        if bare:
-            core_E = [em["V_pk"] / (r ** 2 * em["S"]) if r >= em["r0"] else 0.0 for r in r_core]   # DBD gas field, 0 inside the 50 um electrode
-        else:
-            core_E = [0.0 for r in r_core]
+        core_E = [0.0 for r in r_core]   # no drive mechanism defined
         core_B = [0.0 for r in r_core]
         wall_peak = max(stress) if stress else 0.0
         core_note = dict(
             acoustic=f"HHO gas pressure in the core p = A j0(kr) (gas-loaded mode at {ac['f']/1e6:.3f} MHz, c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
             thermal=f"steady gas T profile (uniform heating {gh['P_cond']:.3g} W conducted to the wall, k~T^0.75): centre {core_T[0]:.0f} K, wall {float(Tss[0]):.0f} K, volume mean {gh['T_gas']:.0f} K",
             optical="net radial flux of a uniformly emitting, optically thin plasma: F(r) = P r/(4 pi a^3), zero at the centre by symmetry [est emission profile]. Log colour scale.",
-            electric=("DBD gas field E = V/(r^2 S) from the 50 um central electrode (zero inside it) [est geometry]" if bare else "E = 0 in the core in v0: the drive field is confined between the Ti/Pt and Gd-Dy electrodes (genuinely ~zero, not a rendering gap)"),
+            electric=f"E = 0: {NO_DRIVE}",
             chemical=f"dissociation power {ch['P_diss']:.3g} W spread uniformly in the gas [est]; fill converts to H2O in {ch['t_conv']:.3g} s releasing {ch['E_store']:.3g} J (then a dissociation-recombination cycle with ~zero net heat); outside the core only surface recombination on the inner wall. Knee: not defined.",
-            magnetic="B = 0 in the core (symmetric radial current; ferrite flux confined to the ferrite shell) - genuinely zero")
+            magnetic=f"B = 0: {NO_DRIVE}")
         Twall = float(frames[-1][0])
         # arrival times for animation envelopes
         t_opt, t_ac = [], []; acc_o = 0.0; acc_a = 0.0
@@ -693,27 +648,21 @@ def package(pre, runs, ref):
             vectors = [
                 dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / 656.3e-9, r_start=r_in_, r_end=r_q_, what="Balmer lines pass the bare quartz (~90 % per wall incl. ~4.6 % Fresnel per surface); they leave the sphere"),
                 dict(domain="acoustic", f_start=ac["f"], f_end=ac["f"], r_start=r_in_, r_end=r_q_, what="l=0 breathing mode of the bare shell, gas-loaded; reflects at the free outer surface"),
-                dict(domain="electric", f_start=em["f_e"], f_end=em["f_e"], r_start=em["r0"], r_end=r_q_, what="+-pulsed DBD field from a 50 um central electrode through gas and quartz barrier to the OD electrode [est geometry]"),
-                dict(domain="magnetic", f_start=em["f_e"], f_end=em["f_e"], r_start=em["r0"], r_end=r_q_, what="no magnetic element in the bare test; symmetric radial current gives B = 0 (feed-wire field not modelled)"),
                 dict(domain="thermal", f_start=thermal_track(run["stack"], r_in_ + 1e-6), f_end=thermal_track(run["stack"], R), r_start=r_in_, r_end=R,
                      what="1-D conduction through the wall to still air + radiation (natural convection, eps 0.9 est); no sink chosen"),
             ]
         else:
           vectors = [
             dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / (LAM_CR * 1e-9), r_start=run["stack"]["r_in"], r_shift=oinfo["shift_r"],
-                 r_end=oinfo["term_r"] or lay["tipt"][1], what="Balmer 434/486/656 nm downshifted to 770 nm in the inner Cr3+ phosphor; remainder absorbed by the Ti/Pt electrode"),
+                 r_end=oinfo["term_r"] or R, what="Balmer 434/486/656 nm downshifted to 770 nm in the inner Cr3+ phosphor; remainder absorbed in the metallic Gd-Dy film [est]"),
             dict(domain="acoustic", f_start=ac["f"], f_end=ac["f"], r_start=run["stack"]["r_in"], r_end=lay["gddy"][1],
                  r_end_bonded=ac_term_bond, what="l=0 shell mode nearest 2 MHz; isolated shell reflects at the Gd-Dy free surface; if the ladder is bonded, 90 % of loss is reached at the marked radius"),
-            dict(domain="electric", f_start=em["f_zero_bias"], f_end=em["f_bias"], r_start=lay["tipt"][0], r_end=lay["gddy"][0],
-                 what="field confined between Ti/Pt and Gd-Dy electrodes; varactor tunes tank from zero-bias to working-bias frequency"),
-            dict(domain="magnetic", f_start=em["f_e"], f_end=em["f_e"], r_start=lay["ferrite"][0], r_end=lay["ferrite"][1],
-                 what="toroidal flux confined in the ferrite shell; energy lost at Q_f"),
             dict(domain="thermal", f_start=thermal_track(run["stack"], run["stack"]["r_in"] + 1e-6), f_end=thermal_track(run["stack"], R),
                  r_start=run["stack"]["r_in"], r_end=R, what="heat diffuses to the 293 K reference surface (no sink chosen)"),
         ]
-        f_chem = 2 * em["f_e"]
+        f_chem = 1 / (2 * math.pi * max(ch["t_conv"], 1e-30))   # conversion-rate corner [calc] (was 2 x the removed electrode drive f)
         vectors.append(dict(domain="chemical", f_start=f_chem, f_end=f_chem, r_start=0.0, r_end=run["stack"]["r_in"],
-                            what="H2/O2 dissociation -> H, O, OH radicals -> 2H2+O2->2H2O heat release in the HHO core; ends at the inner wall (surface recombination). Knee: not defined"))
+                            what="H2/O2 dissociation -> H, O, OH radicals -> 2H2+O2->2H2O heat release in the HHO core (P_circ scenario); ends at the inner wall (surface recombination). Knee: not defined"))
         for v in vectors:
             for kk in ("r_start", "r_end", "r_shift", "r_end_bonded"):
                 if v.get(kk) is not None:
@@ -738,11 +687,7 @@ def package(pre, runs, ref):
         fl(not bare and Tcal > 473, f"CALORIVAC max {Tcal:.0f} K > 200 C (H loss)")
         fl(not bare and Tgd > 260, f"Gd-Dy {Tgd:.0f} K above its ~260 K Tc (MCE knee missed)")
         fl(not bare and Tph > 573, f"Inner phosphor {Tph:.0f} K > 300 C (quench)")
-        emh = run["em_hot"]
-        fl(not bare and abs(emh["f_e"] / em["f_e"] - 1) > 0.1, f"Tank detunes {em['f_e']/1e6:.2f} -> {emh['f_e']/1e6:.2f} MHz as BTO heats (eps(T) feedback)")
-        fl(em["over_voltage"], f"Tank needs {em['V_pk']:.0f} V on BTO > {em['V_work']:.0f} V working (half breakdown)")
-        fl(em["saturates"], f"Ferrite B_max {em['B_max']*1e3:.0f} mT near feed holes > B_sat ~{B_SAT*1e3:.0f} mT [est]")
-        fl(em["J_feed"] > 0.8e9, f"Pt feed current density {em['J_feed']/1e4:.2g} A/cm2 > 0.8e5 A/cm2 contact limit")
+        flags.append("Electric/magnetic: " + NO_DRIVE)
         gh = run["gas_hot"]
         for nm, TT in (("Quartz inner wall", Tq_in), ("Gas centre (conduction profile)", gh["T_centre"])):
             if TT >= 773.15: flags.append(f"{nm} {TT-273.15:.0f} C is IN the HHO autoignition range ~500-585 C [given range]")
@@ -759,11 +704,11 @@ def package(pre, runs, ref):
             core_note=core_note,
             chemical=dict(E_store_J=r4(ch["E_store"]), R_diss_per_s=r4(ch["R_diss"]), R_water_per_s=r4(ch["R_water"]), t_conv_s=r4(ch["t_conv"]),
                           P_release_W=r4(ch["P_release"]), P_diss_W=r4(ch["P_diss"]), P_wall_recomb_W=r4(ch["P_wall_recomb"]), D_H=r4(ch["D_H"]), tau_D_s=r4(ch["tau_D"]),
-                          f=r4(2 * em["f_e"]), tau_s=r4(min(ch["t_conv"], 1e3)), knee="not defined",
+                          f=r4(f_chem), tau_s=r4(min(ch["t_conv"], 1e3)), knee="not defined",
                           sources="D0(H2) 4.478 eV, D0(O2) 5.116 eV [lit NIST CCCBDB]; dHf H2O(g) -241.826 kJ/mol [lit NIST WebBook]; eta_diss 0.2, chain 1, wall share 0.5, D_H [PLACEHOLDERS]; branching H+O2->OH+O drives autoignition [lit, standard H2-O2 mechanism, e.g. Glassman, Combustion]"),
             units=dict(optical="W/m2", acoustic="Pa (peak, l=0 mode)", electric="V/m (peak)", magnetic="T (peak)", thermal="K (steady)", chemical="W/m3 (dissociation power density in gas; surface recombination in the first quartz cell)"),
             thermal_frames=dict(t=r4(list(run["times"]), 3), T=[r4(gas_T_profile(float(frames[k][0]), gh["P_cond"] if k > 0 else 0.0, a_in, r_core) + list(frames[k]), 4) for k in sel_frames]),
-            t_opt=r4([0.0] * len(r_core) + t_opt, 3), t_ac=r4([0.0] * len(r_core) + t_ac, 3), tau_ac=r4(tau_ac), tau_e=r4(em["tau_ring"]),
+            t_opt=r4([0.0] * len(r_core) + t_opt, 3), t_ac=r4([0.0] * len(r_core) + t_ac, 3), tau_ac=r4(tau_ac), tau_e=None,
             vectors=vectors, thermal_track=thermal_tr,
             acoustic=dict(f_drive=r4(ac["f"]), l0_isolated=r4(run["m_iso"]), l0_bonded=r4(run["m_bond"][:25]), gas_cavity_modes=r4(run["gas_modes"][:8]), W_mJ=r4(ac["W"] * 1e3),
                           peak_stress_MPa=r4(ac["peak_stress"] / 1e6), Q_eff=r4(ac["Q_eff"]), loss_W=r4(sum(ac["loss"].values())),
@@ -771,18 +716,14 @@ def package(pre, runs, ref):
                           bonded=dict(f=r4(run["ac_bond"]["f"]), Q_eff=r4(run["ac_bond"]["Q_eff"]), peak_stress_MPa=r4(run["ac_bond"]["peak_stress"] / 1e6),
                                       loss_W=r4(sum(run["ac_bond"]["loss"].values()))) if run["ac_bond"] else None,
                           fill_stress_MPa=r4(run["s_fill"] / 1e6)),
-            electric=dict(C0_nF=r4(em["C0"] * 1e9), C_bias_nF=r4(em["C_bias"] * 1e9), eps=r4(em["eps"]), f_zero_bias=r4(em["f_zero_bias"]), f_e=r4(em["f_e"]),
-                          V_pk=r4(em["V_pk"]), V_work=r4(em["V_work"]), I_rms=r4(em["I_rms"]), P_diel=r4(em["P_diel"]), P_esr=r4(em["P_esr"]),
-                          Q_tank=r4(em["Q_tank"]), piezo_on=em["piezo_on"], C_fF=r4(em["C0"] * 1e15),
-                          hot=dict(eps=r4(run["em_hot"]["eps"]), f_e=r4(run["em_hot"]["f_e"]), P_diel=r4(run["em_hot"]["P_diel"]), P_esr=r4(run["em_hot"]["P_esr"]),
-                                   piezo_on=run["em_hot"]["piezo_on"], note="at the steady-state BTO temperature (feedback via eps(T))")),
-            magnetic=dict(none=True, note="no magnetic element in the bare test") if bare else dict(L_nH=r4(em["L"] * 1e9), Q_f=r4(em["Q_f"]), P_ferr=r4(em["P_ferr"]), B_eq_mT=r4(em["B_eq"] * 1e3), B_max_mT=r4(em["B_max"] * 1e3)),
+            electric=dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, piezo_on=em["piezo_on"]),
+            magnetic=dict(none=True, note=NO_DRIVE),
             optical=dict(P_opt=F_OPT * P, converted_W=r4(oinfo["converted_W"]), escaped_W=r4(oinfo["escaped_W"])),
             thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_phos=r4(Tph), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
                          heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum()))),
             gas=dict(T_gas_K=r4(gh["T_gas"]), T_centre_K=r4(gh["T_centre"]), T_wall_K=r4(gh["T_wall"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),
                      c_seal=r4(gh["c_seal"]), c_hot=r4(gh["c_hot"]), shell_l0_hot=r4(gh["shell"][:6]), gas_modes_hot=r4(gh["gas_modes"][:8]),
-                     note="computed state, not an input: gas T = volume mean of the steady conduction profile (uniform heating conducted to the inner wall); fixed N,V => p ~ T, c ~ sqrt(T); Paschen knee ~ n d unchanged to first order"),
+                     note="computed state, not an input: gas T = volume mean of the steady conduction profile (uniform heating conducted to the inner wall); fixed N,V => p ~ T, c ~ sqrt(T)"),
             flags=flags)
     return out
 
@@ -798,12 +739,6 @@ def find_crossings(case):
             tr.append(("HHO gas cavity mode", f, case["propagation"]["r_in_mm"] * 0, case["propagation"]["r_in_mm"]))
         for lab, f in case.get("acoustic_ref_l_ge_1", {}).items():
             if lab in ("0S2", "0T2", "0S1"): tr.append((f"acoustic {lab} [{'calc minimal_test' if case['propagation']['bare'] else 'rec sweep'}]", f, v["acoustic"]["r_start_mm"], v["acoustic"]["r_end_mm"]))
-        if case["propagation"]["bare"]:
-            tr.append(("electric +-pulsed DBD drive (scenario: set to shell 0S0)", pdat["electric"]["f_e"], v["electric"]["r_start_mm"], v["electric"]["r_end_mm"]))
-        else:
-          tr.append(("electric tank (working bias)", pdat["electric"]["f_e"], v["electric"]["r_start_mm"], v["electric"]["r_end_mm"]))
-          tr.append(("electric tank (zero bias)", pdat["electric"]["f_zero_bias"], v["electric"]["r_start_mm"], v["electric"]["r_end_mm"]))
-          tr.append(("magnetic ferrite tank", pdat["electric"]["f_e"], v["magnetic"]["r_start_mm"], v["magnetic"]["r_end_mm"]))
         cr = []
         for i in range(len(tr)):
             for j in range(i + 1, len(tr)):
@@ -811,11 +746,6 @@ def find_crossings(case):
                 if a[0].split()[0] == b[0].split()[0] and not (a[0].startswith("electric") or b[0].startswith("electric")): continue
                 if abs(math.log(a[1] / b[1])) < 0.05:
                     cr.append(dict(a=a[0], b=b[0], f=r4(math.sqrt(a[1] * b[1])), r_overlap_mm=[max(a[2], b[2]), min(a[3], b[3])], radial_overlap=max(a[2], b[2]) <= min(a[3], b[3])))
-        # electric varactor band covering an acoustic mode
-        f0, fb = pdat["electric"]["f_zero_bias"], pdat["electric"]["f_e"]
-        for f in pdat["acoustic"]["l0_isolated"]:
-            if not case["propagation"]["bare"] and min(f0, fb) <= f <= max(f0, fb):
-                cr.append(dict(a="electric varactor tuning band", b="acoustic l=0 (isolated)", f=r4(f), note="reachable by bias tuning (capacitance is the tuning value)", radial_overlap=True))
         # thermal track crossing reference cycle rates and acoustic/electric
         for name, f in [("caloric rung 11 Hz [rec]", 11.0), ("caloric rung 35 Hz [rec est]", 35.0), ("EC/MCE 1 kHz", 1e3)]:
             ttr = pdat["thermal_track"]
@@ -851,14 +781,14 @@ def main():
         c = package(pre, runs, ref); find_crossings(c); cases.append(c)
         ks = list(c["powers"]); p0, p1, p10 = c["powers"][ks[0]], c["powers"][ks[1]], c["powers"][ks[-1]]
         log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in p10['acoustic']['l0_isolated'][:4]]} MHz | drive {p10['acoustic']['f_drive']/1e6:.3f} MHz "
-                   f"stress@{ks[-1]}W {p10['acoustic']['peak_stress_MPa']} MPa Qeff {p10['acoustic']['Q_eff']} | f_e {p10['electric']['f_e']/1e6:.3f} MHz (0-bias {p10['electric']['f_zero_bias']/1e6:.3f}) "
+                   f"stress@{ks[-1]}W {p10['acoustic']['peak_stress_MPa']} MPa Qeff {p10['acoustic']['Q_eff']} | electric: no drive "
                    f"| T_gas mean {p1["gas"]["T_gas_K"]} K centre {p1["gas"]["T_centre_K"]} K p {p1['gas']['p_hot_Pa']} Pa c {p1['gas']['c_hot']} m/s @{ks[1]}W "
                    f"| T_qz_in {ks[0]}W {p0['thermal']['T_quartz_in']} K {ks[1]}W {p1['thermal']['T_quartz_in']} K, {ks[-1]}W {p10['thermal']['T_quartz_in']} K | crossings {len(p10['crossings'])}")
         print(log[-1], flush=True)
     data = dict(meta=dict(title="Stratified bubble sphere - multi-domain radial model v0", date="2026-10-19",
                           status="v0 PROTOTYPE - ESTIMATED PHYSICS - not validated - paper model, nothing measured",
                           scenario=f"All five domains circulate P_circ at once. Wall heat = {F_WALL} P_circ [rec bracket 0.1-1]; Balmer light = {F_OPT} P_circ [est]; "
-                                   "acoustic drive at the l=0 isolated-shell mode nearest 2 MHz; LC tank = BTO capacitor + ferrite-shell inductor (1 meridional turn) at working bias; "
+                                   "acoustic drive at the l=0 isolated-shell mode nearest 2 MHz; electric/magnetic: " + NO_DRIVE + "; "
                                    "outer surface held at 293 K (reference only, no sink chosen).",
                           phi=PHI, powers=POWERS, materials=MAT, ref_file="shell_phi_sweep_calc_output.txt (read-only)" if ref else None),
                 cases=cases)

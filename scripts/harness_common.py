@@ -147,6 +147,10 @@ def added_lines(diff: str) -> list[tuple[str, str]]:
     return out
 
 
+# A line that itself labels the item as retired/removed is a retirement note, not a reintroduction (2026-10-19).
+LABELLED_RETIREMENT = re.compile(r"\b(retired|removed)\b", re.I)
+
+
 def retired_scan(diff: str) -> list[dict]:
     """Deterministic, free pre-check: retired items appearing in ADDED lines."""
     hits = []
@@ -154,7 +158,7 @@ def retired_scan(diff: str) -> list[dict]:
         for f, line in added_lines(diff):
             if f.startswith("harness/") or f in ("AGENTS.md", ".cursor/rules/handoffs.mdc"):
                 continue  # the retired list itself lives here
-            if pat.search(line):
+            if pat.search(line) and not LABELLED_RETIREMENT.search(line):
                 hits.append({"label": label, "file": f, "line": line.strip()[:200], "note": note})
     return hits
 

@@ -27,13 +27,12 @@
     $('dMsg').textContent = C.propagation && C.propagation.bare ? '' : 'drive model covers the bare quartz bubble only (outer layers not included)';
   };
   function params() {
-    const p = { ID_mm: +$('dID').value, OD_mm: +$('dOD').value, T_seal: +$('dTs').value, V_amp: +$('dV').value, f: parseSI($('dF').value),
+    const p = { ID_mm: +$('dID').value, OD_mm: +$('dOD').value, T_seal: +$('dTs').value, f: parseSI($('dF').value),
       shellModes: caseC ? shellModes(caseC, +$('dID').value, +$('dOD').value) : [] };
     const fill = +$('dFill').value; if ($('dFillU').value === 'torr') p.fill_Torr = fill; else p.fill_molecules = fill;
     if ($('dTa').value !== '') p.T_amb = +$('dTa').value;   // ambient air T; blank => ambient = sealing T
     const miss = [];
     if (!($('dFill').value !== '' && fill > 0)) miss.push('HHO fill amount');
-    if (!($('dV').value !== '' && p.V_amp > 0)) miss.push('drive amplitude');
     if (!($('dF').value !== '' && p.f > 0)) miss.push('drive frequency (e.g. 2.5M, 100k, 600T)');
     if (!(p.ID_mm > 0 && p.OD_mm > p.ID_mm)) miss.push('geometry (OD > ID)');
     if (!(p.T_seal > 0)) miss.push('initial (sealing) T');
@@ -51,8 +50,8 @@
   function showRegime() {
     const g = curGeom(), f = window.DRIVE_F; if (!g || !f) { $('dReg').innerHTML = ''; return; }
     const r = DM.regime(f, g);
-    $('dReg').innerHTML = (r.flags.length ? r.flags.map(x => `<div class="flag">⚠ ${x}</div>`).join('') : '<div class="ok">regime: quasi-static circuit model valid; half-cycle longer than the breakdown formation times [est]</div>') +
-      `<div class="small">limits for this geometry [est]: quasi-static to ~${fmtF(r.fQS)} (OD·√εr = λ/10); EM resonance ~${fmtF(r.fEM)}; avalanche formation ~${fmtT(r.tauE)} (no discharge above ~${fmtF(0.5 / r.tauE)}); Townsend ion feedback ~${fmtT(r.tauI)} (static knee needs f < ~${fmtF(0.5 / r.tauI)}); visible band 400–789 THz</div>`;
+    $('dReg').innerHTML = (r.flags.length ? r.flags.map(x => `<div class="flag">⚠ ${x}</div>`).join('') : '<div class="ok">regime: quasi-static field picture valid at this f [est]</div>') +
+      `<div class="small">limits for this geometry [est]: quasi-static to ~${fmtF(r.fQS)} (OD·√εr = λ/10); EM resonance ~${fmtF(r.fEM)}; visible band 400–789 THz</div>`;
   }
   // frequency axis under the slider: decade ticks, natural acoustic modes, Balmer lines + visible band, regime limits
   function drawFaxis() {
@@ -72,7 +71,7 @@
       g.fillStyle = DC.acoustic; const ac = ms.filter(m => m.domain === 'acoustic').map(m => m.f);
       if (ac.length) g.fillText('acoustic modes', X(Math.min(...ac)) + 2, 28);
       const r = DM.regime(1e6, geo);
-      [[r.fQS, 'QS λ/10', '#ff8a7a'], [r.fEM, 'EM res', '#ff4fd8'], [0.5 / r.tauE, 'no-form', '#ffd27a']].forEach(([f, t, c], i) => { if (f > FMIN && f < FMAX) { const x = X(f); g.strokeStyle = c; g.setLineDash([3, 2]); g.beginPath(); g.moveTo(x, 12); g.lineTo(x, H - 12); g.stroke(); g.setLineDash([]); g.fillStyle = c; g.fillText(t, x + 2, 38 - i * 9 + 9); } });
+      [[r.fQS, 'QS λ/10', '#ff8a7a'], [r.fEM, 'EM res', '#ff4fd8']].forEach(([f, t, c], i) => { if (f > FMIN && f < FMAX) { const x = X(f); g.strokeStyle = c; g.setLineDash([3, 2]); g.beginPath(); g.moveTo(x, 12); g.lineTo(x, H - 12); g.stroke(); g.setLineDash([]); g.fillStyle = c; g.fillText(t, x + 2, 38 - i * 9 + 9); } });
     }
     g.strokeStyle = '#9aa6bd'; g.fillStyle = '#9aa6bd';
     for (let e = 5; e <= 15; e++) { const x = X(Math.pow(10, e)); g.beginPath(); g.moveTo(x, H - 12); g.lineTo(x, H - 7); g.stroke(); const lab = ['100k', '1M', '10M', '100M', '1G', '10G', '100G', '1T', '10T', '100T', '1000T'][e - 5]; g.fillText(lab, Math.min(x - 8, W - 28), H - 1); }
@@ -116,14 +115,11 @@
     // A: V and V_gas over the cycle
     const iC = tr.t.findIndex(t => t > 1.1 * T); const nC = iC < 0 ? tr.t.length : iC;
     const tC = tr.t.slice(0, nC), XA = t => L + wP * t / (1.1 * T);
-    const vmax = Math.max(r.inputs.V_amp, isFinite(r.Vb) ? r.Vb : 0) * 1.1, YA = v => 8 + 42 - 42 * v / vmax;
-    axes(g, L, 8, wP, 84, 'drive V(t) (grey), gas-gap V (magenta), ±knee (dashed)  — one cycle = ' + fmtT(T));
-    line(g, tC, tr.V.slice(0, nC), XA, YA, '#8f98aa'); line(g, tC, tr.Vg.slice(0, nC), XA, YA, DC.electric);
-    if (isFinite(r.Vb)) { line(g, [0, 1.1 * T], [r.Vb, r.Vb], XA, YA, '#ffd27a', [4, 3]); line(g, [0, 1.1 * T], [-r.Vb, -r.Vb], XA, YA, '#ffd27a', [4, 3]); }
-    g.fillStyle = '#9aa6bd'; g.fillText(vmax.toFixed(0) + ' V', 4, 14); g.fillText('0', 30, YA(0) + 3); g.fillText('-' + vmax.toFixed(0), 4, 90);
+    axes(g, L, 8, wP, 84, 'drive: ' + DM.NO_DRIVE + ' — one cycle = ' + fmtT(T));
+    g.fillStyle = '#ffd27a'; g.fillText('no drive mechanism defined [retired 2026-10-19: drive voltage, gas-gap voltage and knee traces]', L + 6, 50);
     // B: discharge power
     const Pm = Math.max(...tr.P.slice(0, nC), 1e-30), YB = v => 100 + 84 - 76 * v / Pm;
-    axes(g, L, 100, wP, 84, 'discharge power (Manley-type, from rest) [est] — E/cycle ' + e3(r.E_dis) + ' J; light ' + e3(r.E_opt) + ' J');
+    axes(g, L, 100, wP, 84, 'deposited drive power (none: no drive mechanism defined) — E/cycle ' + e3(r.E_dis) + ' J; light ' + e3(r.E_opt) + ' J');
     line(g, tC, tr.P.slice(0, nC), XA, YB, DC.optical); g.fillStyle = '#9aa6bd'; g.fillText(e3(Pm) + ' W', 2, 112); g.fillText('t →', W - 30, 196);
     // C: temperatures vs log time
     const t0 = tr.t[0], t1 = tr.t[tr.t.length - 1], XC = t => L + wP * Math.log(t / t0) / Math.log(t1 / t0);
@@ -157,17 +153,13 @@
       ['ringGas', 'gas l=0 ring p', 'Pa', DC.acoustic], ['ringShell', 'shell 0S0 ring σ', 'Pa', '#a0e8ff'], ['Echem', 'chemical heat/cycle', 'J', DC.chemical]];
     g.strokeStyle = '#2a3244'; g.strokeRect(L, T, W - L - Rr, H - T - B);
     g.fillStyle = '#9aa6bd'; g.font = '10px system-ui';
-    g.fillText(kind === 'f' ? 'response vs drive frequency ' + fmtF(x0) + '–' + fmtF(x1) + ' (' + pts.length + ' pts ; each curve / its max; log x) at the entered fill & amplitude' : 'response vs HHO fill (Torr at sealing; log x) at the entered f & amplitude', L, 12);
+    g.fillText(kind === 'f' ? 'response vs drive frequency ' + fmtF(x0) + '–' + fmtF(x1) + ' (' + pts.length + ' pts ; each curve / its max; log x) at the entered fill' : 'response vs HHO fill (Torr at sealing; log x) at the entered f', L, 12);
     series.forEach(([k, n, u, c], i) => {
       const mx = Math.max(...ok.map(p => p[k]), 0); const Y = v => T + (H - T - B) * (1 - (mx > 0 ? v / mx : 0));
       line(g, ok.map(p => p.x), ok.map(p => p[k]), X, Y, c); g.fillStyle = c; g.fillText(n + ' max ' + e3(mx) + ' ' + u, L + 4 + (i % 3) * 165, T + 12 + Math.floor(i / 3) * 12);
     });
-    if (kind === 'fill') { // knee curve vs available gas voltage
-      const vg = base.share * base.V_amp, vb = ok.map(p => isFinite(p.Vb) ? p.Vb : NaN), mx = Math.max(vg, ...vb.filter(isFinite)) * 1.05;
-      const Y = v => T + (H - T - B) * (1 - v / mx);
-      line(g, ok.map(p => p.x), vb, X, Y, '#ffd27a', [4, 3]); line(g, [x0, x1], [vg, vg], X, Y, '#ff4fd8', [2, 3]);
-      g.fillStyle = '#ffd27a'; g.fillText('dashed: ionisation knee V_b(fill) [HHO, est]; magenta: peak gas V', L + 4, H - B - 6);
-      const kf = base.kneeFill; if (kf > x0 && kf < x1) { g.strokeStyle = '#ffd27a'; g.beginPath(); g.moveTo(X(kf), T); g.lineTo(X(kf), H - B); g.stroke(); g.fillText('Paschen-min fill ' + kf.toPrecision(3) + ' Torr', X(kf) + 3, H - B - 18); }
+    if (kind === 'fill') {
+      g.fillStyle = '#ffd27a'; g.fillText('no drive mechanism defined [retired 2026-10-19: breakdown knee and gas-voltage curves]', L + 4, H - B - 6);
     } else {
       (base.modes || []).forEach(m => { if (m.f >= x0 && m.f <= x1) { g.strokeStyle = DC[m.domain]; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(X(m.f), T); g.lineTo(X(m.f), H - B); g.stroke(); g.setLineDash([]); g.fillStyle = DC[m.domain]; g.fillText(m.name.split(' [')[0].split(' 1/')[0], X(m.f) + 2, H - B - 8); } });
       const ac = (base.modes || []).filter(m => m.domain === 'acoustic').map(m => m.f);
@@ -178,28 +170,22 @@
     const nflag = ok.filter(p => p.flags.some(f => f.indexOf('autoignition') >= 0)).length;
     if (nflag) { g.fillStyle = '#ff8a7a'; g.fillText('⚠ ' + nflag + ' sweep points approach/enter HHO autoignition (~500–585 C)', L, H - 4); }
   }
-  // ID / OD sweeps: per-domain response (top) and natural modes vs geometry with the drive f and knee marked (bottom)
+  // ID / OD sweeps: per-domain response (top) and natural modes vs geometry with the drive f marked (bottom)
   function drawGeomSweep(kind, pts, ok, base) {
     const cv = $('dSw'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
     const L = 46, Rr = 10, x0 = ok[0].x, x1 = ok[ok.length - 1].x, X = x => L + (W - L - Rr) * Math.log(x / x0) / Math.log(x1 / x0);
     g.font = '10px system-ui'; g.fillStyle = '#9aa6bd';
-    g.fillText(`response vs ${kind} ${x0}–${x1} mm (${pts.length} pts; ${pts.length - ok.length} invalid: OD ≤ ID or ID ≤ electrode) at the entered fill, amplitude & f`, 4, 11);
+    g.fillText(`response vs ${kind} ${x0}–${x1} mm (${pts.length} pts; ${pts.length - ok.length} invalid: OD ≤ ID) at the entered fill & f`, 4, 11);
     // top panel: per-domain response (each / its max)
     const T1 = 18, H1 = 112;
     g.strokeStyle = '#2a3244'; g.strokeRect(L, T1, W - L - Rr, H1);
     const series = [['E_opt', 'optical: light/cycle', 'J', DC.optical], ['ringGas', 'acoustic: gas l=0 ring', 'Pa', DC.acoustic], ['ringShell', 'acoustic: shell 0S0 ring', 'Pa', '#a0e8ff'],
-      ['Vgas', 'electric: peak gas V', 'V', DC.electric], ['dTg', 'thermal: ΔT_gas', 'K', DC.thermal], ['Echem', 'chemical: heat/cycle', 'J', DC.chemical]];
+      ['dTg', 'thermal: ΔT_gas', 'K', DC.thermal], ['Echem', 'chemical: heat/cycle', 'J', DC.chemical]];
     series.forEach(([k, n, u, c], i) => {
       const mx = Math.max(...ok.map(p => p[k]), 0), Y = v => T1 + H1 * (1 - (mx > 0 ? v / mx : 0));
       line(g, ok.map(p => p.x), ok.map(p => p[k]), X, Y, c); g.fillStyle = c; g.fillText(n + ' max ' + e3(mx) + ' ' + u, L + 4 + (i % 3) * 165, T1 + 11 + Math.floor(i / 3) * 11);
     });
     g.fillStyle = DC.magnetic; g.fillText('magnetic: B = 0 for the symmetric radial drive (all points)', L + 4, T1 + H1 - 4);
-    // knee: V_b vs geometry (dashed) against the peak gas voltage
-    const vb = ok.map(p => isFinite(p.Vb) ? p.Vb : NaN), vmx = Math.max(...ok.map(p => p.Vgas), ...vb.filter(isFinite), 1) * 1.05, YV = v => T1 + H1 * (1 - v / vmx);
-    line(g, ok.map(p => p.x), vb, X, YV, '#ffd27a', [4, 3]);
-    let imin = -1; vb.forEach((v, i) => { if (isFinite(v) && (imin < 0 || v < vb[imin])) imin = i; });
-    if (imin >= 0) { const x = X(ok[imin].x); g.fillStyle = '#ffd27a'; g.beginPath(); g.arc(x, YV(vb[imin]), 3.5, 0, 7); g.fill(); g.fillText('knee min ' + vb[imin].toFixed(0) + ' V @ ' + kind + ' ' + ok[imin].x.toPrecision(3), Math.min(x + 4, W - 150), YV(vb[imin]) - 4); }
-    for (let i = 1; i < ok.length; i++) { const a = ok[i - 1].Vgas - (vb[i - 1] || Infinity), b = ok[i].Vgas - (vb[i] || Infinity); if (isFinite(a) && isFinite(b) && a * b < 0 || (isFinite(a) !== isFinite(b))) { const x = X(ok[i].x); g.strokeStyle = '#ffd27a'; g.beginPath(); g.moveTo(x, T1); g.lineTo(x, T1 + H1); g.stroke(); g.fillStyle = '#ffd27a'; g.fillText('ionisation on/off', x + 2, T1 + H1 - 14); } }
     // bottom panel: natural modes vs geometry (log f)
     const T2 = T1 + H1 + 8, H2 = H - T2 - 16;
     g.strokeStyle = '#2a3244'; g.strokeRect(L, T2, W - L - Rr, H2);
@@ -222,19 +208,18 @@
     const f293 = 4.4934 * DM.cHHO(r.inputs.T_seal) / (2 * Math.PI * r.geom.a);
     const rows = [
       ['Fill (input)', `${e3(r.N)} HHO molecules (${e3(r.N * 2 / 3)} H2 + ${e3(r.N / 3)} O2); n ${e3(r.n)} /m³ (fixed); sealed p ${e3(r.p_seal)} Pa = ${e3(r.p_seal / DM.TORR)} Torr at ${r.inputs.T_seal} K (initial); ambient ${r.T_amb} K`],
-      ['Ionisation knee (computed)', isFinite(r.Vb) ? `${r.Vb.toFixed(0)} V across the ${(r.geom.gap * 1e3).toFixed(2)} mm gas gap (HHO Paschen [est, anchored to lit H2/O2 minima]); gas takes ${(r.geom.share * 100).toFixed(1)} % of applied V; Paschen-min fill for this gap ${r.kneeFill_Torr.toPrecision(3)} Torr. Depends on n·d, so heating at fixed N, V leaves it unchanged to first order. O2 is electronegative (attachment raises V_b, makes the discharge filamentary; O⁻+H2 detachment partly offsets) [est, qualitative]` : 'left of the Paschen curve: no breakdown'],
-      ['Discharge (computed)', `E/cycle ${e3(r.E_dis)} J (gas ${e3(r.E_gas)}, wall ${e3(r.E_wall)}, light ${e3(r.E_opt)} ≈ ${e3(r.photons_Ha_equiv)} Hα-equivalent photons) [partition est]; charge moved ${e3(r.Q_tr)} C; chemical energy stored in the fill ${e3(r.chem_energy_J)} J [lit ΔH]`],
+      ['Drive (none defined)', `${r.drive} [retired 2026-10-19: breakdown knee, gas-gap voltage, charge transfer]; E/cycle ${e3(r.E_dis)} J; chemical energy stored in the fill ${e3(r.chem_energy_J)} J [lit ΔH]`],
       ['Gas state (computed)', `T_gas peak ${r.maxTg.toFixed(3)} K (ΔT ${e3(r.dTg)} K); p peak ${e3(r.p_max)} Pa; c ${r.c_seal.toFixed(1)} → ${r.c_max.toFixed(1)} m/s; gas l=0 mode ${fmtF(f293)} → ${fmtF(gm.f)} (Q ${e3(gm.Q)} [est])`],
       ['Chemical (computed; knee: not defined)', `dissociated ${e3(r.chem.n_diss)} H2, formed ${e3(r.chem.n_water)} H2O (${e3(r.chem.frac_converted * 100)} % of the H2 converted this cycle); heat released ${e3(r.chem.E_release)} J fed to the gas; D0(H2) 4.478 eV, ΔH 241.8 kJ/mol H2O [lit]; dissociation share 0.2, chain 1, D_H [placeholders]`],
-      ['Drive regime (computed)', (r.regime.flags.length ? r.regime.flags.join('; ') : 'quasi-static circuit model valid') + ` — λ0 ${(r.regime.lambda0).toPrecision(3)} m; EM resonance ~${fmtF(r.regime.fEM)}; avalanche formation ~${fmtT(r.regime.tauE)}, ion feedback ~${fmtT(r.regime.tauI)} [est]`],
+      ['Drive regime (computed)', (r.regime.flags.length ? r.regime.flags.join('; ') : 'quasi-static field picture valid') + ` — λ0 ${(r.regime.lambda0).toPrecision(3)} m; EM resonance ~${fmtF(r.regime.fEM)} [est]`],
       ['Sound speeds (cited)', `quartz ${r.qz_sound.key}: cL ${r.qz_sound.cL}, cT ${r.qz_sound.cT} m/s (${r.qz_sound.src}); HHO c = √(γRT/M): ${r.c_seal.toFixed(1)} → ${r.c_max.toFixed(1)} m/s`],
       ['Quartz (computed)', `inner wall ΔT peak ${e3(r.dTw)} K; fill hoop stress ${e3(r.sigma_fill)} Pa → ${e3(r.sigma_peak_static)} Pa at peak gas T; still-air lumped τ ${fmtT(r.tauLumped)}`]];
     let h = '<table>' + rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('') + '</table>';
-    h += '<div class="small">Ring-down per mode after the single cycle (impulse approximation for f_mode ≫ f_drive) [est]:</div><table><tr><th>mode</th><th>f</th><th>Q</th><th>ring τ</th><th>amplitude</th><th></th></tr>' +
+    h += '<div class="small">Ring-down per mode after the single cycle (no drive mechanism defined, so no mode is driven):</div><table><tr><th>mode</th><th>f</th><th>Q</th><th>ring τ</th><th>amplitude</th><th></th></tr>' +
       r.ring.map(z => `<tr><td>${z.name.split(' [')[0]}</td><td>${fmtF(z.f)}</td><td>${z.Q ? e3(z.Q) : '–'}</td><td>${z.tau ? fmtT(z.tau) : '–'}</td><td>${e3(z.amp)} ${z.unit}</td><td class="small">${z.what}</td></tr>`).join('') + '</table>';
-    h += '<div class="small">Other domains: electric quasi-static (sphere EM resonance ~' + fmtF(r.modes.find(m => m.domain === 'electric').f) + ' [est]); magnetic B = 0 by symmetry of the radial current; optical follows the discharge power within ~10 ns [est]; thermal corners: ' +
+    h += '<div class="small">Other domains: electric quasi-static (sphere EM resonance ~' + fmtF(r.modes.find(m => m.domain === 'electric').f) + ' [est]); magnetic B = 0 (no drive); optical: no source without a drive; thermal corners: ' +
       r.modes.filter(m => m.domain === 'thermal').map(m => fmtF(m.f)).join(', ') + '.</div>';
-    h += r.flags.length ? r.flags.map(f => `<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No autoignition / knee flags for this single cycle.</div>';
+    h += r.flags.length ? r.flags.map(f => `<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No autoignition flags for this single cycle.</div>';
     $('dOut').innerHTML = h;
   }
   function runOne() {
@@ -253,8 +238,7 @@
     if (!(np >= 2 && np <= 200)) need.push('point count 2–200');
     if (need.length) { $('dMsg').textContent = 'enter: ' + need.join(', '); return; }
     $('dMsg').textContent = '';
-    const g = DM.geometry(Object.assign({}, p, { ID_mm: p.ID_mm > 0 ? p.ID_mm : 1, OD_mm: p.OD_mm > p.ID_mm ? p.OD_mm : 2 * (p.ID_mm || 1) }));
-    let pts, base = { share: g.share, V_amp: p.V_amp, kneeFill: DM.kneeFill_Torr(g.gap) };
+    let pts, base = {};
     if (kind === 'f') {
       pts = DM.sweep(p, 'f', DM.logspace(lo, hi, np));
       const r0 = DM.run(Object.assign({}, p, { f: p.f > 0 ? p.f : lo }), { ncyc: 200, nlog: 60 }); base.modes = r0.error ? [] : r0.modes; base.f = p.f > 0 ? p.f : null;

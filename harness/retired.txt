@@ -1,5 +1,7 @@
 # Retired items. Reviewers must FLAG any reintroduction (in code, docs, comments, presets or UI).
 # Format: label | python regex (case-insensitive unless noted) | note
+# An added line that itself says "retired" or "removed" is treated as a labelled retirement note and is not a hit.
+# Electrodes: any other electrode reference is an ERROR (electrodes are removed from the model, not only the design).
 oil bath | \boil[- ]?bath | retired cooling approach
 slotted Cu/Ag shell | slotted\s+(cu|ag|copper|silver)|(cu|ag)\s*/\s*(cu|ag)\s+(slotted\s+)?shell|slotted\s+shell | retired shell design
 ribs / segments | \bribs?\b|\bribbed\b|\bsegment(ed|s)?\s+(shell|layer|sphere)|shell\s+segments? | retired segmented/ribbed construction

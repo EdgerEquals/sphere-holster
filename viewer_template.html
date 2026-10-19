@@ -69,11 +69,11 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
   <div class="row"><span class="lab">Fill: HHO amount</span><input id="dFill" type="number" placeholder="required" style="width:90px"><select id="dFillU"><option value="torr">Torr at sealing</option><option value="mol">molecules</option></select>
    <span class="lab">initial (sealing) T</span><input id="dTs" type="number" value="293.15" style="width:64px"><span class="lab">K &mdash; initial condition, not a control</span>
    <span class="lab">ambient T</span><input id="dTa" type="number" placeholder="= sealing T" style="width:76px"><span class="lab">K (still air around the bubble; blank = sealing T)</span></div>
-  <div class="row"><span class="lab">Drive: amplitude</span><input id="dV" type="number" placeholder="required" style="width:70px"><span class="lab">V peak (applied, DBD 50 &micro;m centre electrode [est])</span></div>
+  <div class="row"><span class="lab">Drive</span><span class="lab">no drive mechanism defined (deposits zero energy; drive method open)</span></div>
   <div class="row"><span class="lab">EMF frequency</span><input id="dF" type="text" placeholder="unset, e.g. 2.5M" style="width:90px"><span class="lab">Hz (suffix k M G T P)</span><span class="small">one cycle, duration 1/f = <span id="dT">&ndash;</span></span></div>
   <div class="row"><input type="range" id="dFs" min="0" max="1000" value="500" list="dFticks" style="width:540px;margin:0"><datalist id="dFticks"><option value="0"><option value="100"><option value="200"><option value="300"><option value="400"><option value="500"><option value="600"><option value="700"><option value="800"><option value="900"><option value="1000"></datalist></div>
   <canvas id="dFax" width="540" height="58" style="background:#0d111a;border:1px solid #2a3244"></canvas>
-  <div class="small">log slider 100 kHz &ndash; 1000 THz, decade ticks; marked: natural acoustic modes (cyan), Balmer H&alpha;&ndash;H&delta; (white), visible band, quasi-static limit / EM resonance / breakdown-formation limit (dashed). Slider position means nothing until you move it or type a value.</div>
+  <div class="small">log slider 100 kHz &ndash; 1000 THz, decade ticks; marked: natural acoustic modes (cyan), Balmer H&alpha;&ndash;H&delta; (white), visible band, quasi-static limit / EM resonance. Slider position means nothing until you move it or type a value.</div>
   <div id="dReg"></div>
   <div class="row"><span class="lab">Sound speeds</span><select id="dQz"><option value="vrh">quartz &alpha; VRH aggregate 6048/4090 m/s [lit]</option><option value="z">quartz single crystal &parallel;Z 6330/4685 [lit]</option><option value="x">quartz single crystal &parallel;X 5710/5200 [lit]</option><option value="danny">Danny 5900 m/s (cT 4090 VRH)</option><option value="v0">v0/v0.2 6153/4210 [rec]</option></select></div>
   <div id="dQzSrc" class="small"></div>
@@ -103,7 +103,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const D = window.MODEL;
 const DOMS = ['optical','acoustic','electric','magnetic','thermal','chemical']; const SECT=360/DOMS.length;
 const DCOL = {optical:'#ffd34d',acoustic:'#33d1ff',electric:'#ff4fd8',magnetic:'#59ff7a',thermal:'#ff6a3d',chemical:'#b98cff'};
-const LCOL = {core:'#2b3f73',quartz:'#cfe8ff',layer2:'#e8a6c8',phos_in:'#b6ff7a',tipt:'#c0c0c0',bto:'#ffcc66',gddy:'#8888aa',calorivac:'#8a6d4a',phos_out:'#ffe680',ferrite:'#454552'};
+const LCOL = {core:'#2b3f73',quartz:'#cfe8ff',layer2:'#e8a6c8',phos_in:'#b6ff7a',bto:'#ffcc66',gddy:'#8888aa',calorivac:'#8a6d4a',phos_out:'#ffe680',ferrite:'#454552'};
 const $ = id => document.getElementById(id);
 const fmt = (x,n=3) => (x===null||x===undefined)?'–':(Math.abs(x)>=1e4||Math.abs(x)<1e-2&&x!==0)?x.toExponential(n-1):(+x).toPrecision(n);
 const fmtF = f => f>=1e12?(f/1e12).toPrecision(4)+' THz':f>=1e9?(f/1e9).toPrecision(4)+' GHz':f>=1e6?(f/1e6).toPrecision(4)+' MHz':f>=1e3?(f/1e3).toPrecision(4)+' kHz':(+f).toPrecision(3)+' Hz';
@@ -234,7 +234,7 @@ function updateCut(t){
     if(o.wave){ o.bead.visible=false; fillWave(o.wave,o.v.domain,t,(r,y)=>o.d.clone().multiplyScalar(mmToWorld(r)).add(o.perp.clone().multiplyScalar(y*0.05))); }});
 }
 function frontFraction(dom,t){ // fraction of the vector the domain front has covered by time t (true-scale propagation)
-  const v=PD.vectors.find(x=>x.domain===dom); const P=propForDomain(dom); const r=Math.min(frontRadius(P,t),v.r_end_mm);
+  const v=PD.vectors.find(x=>x.domain===dom); if(!v) return 0; /* no vector: no drive mechanism defined */ const P=propForDomain(dom); const r=Math.min(frontRadius(P,t),v.r_end_mm);
   return Math.max(0,Math.min(1,(r-v.r_start_mm)/Math.max(v.r_end_mm-v.r_start_mm,1e-9)));}
 
 // ---------------- waveforms (HHO core -> quartz OD only) ----------------
@@ -297,7 +297,7 @@ function legendHTML(){ const sel=[$('f0').value,$('f1').value,$('f2').value];
 
 // ---------------- propagation model (true scale, mm & s) ----------------
 const MATN={quartz:1.554,layer2:1.42,phos_in:1.8,bto:2.4,phos_out:1.41}; // optical index (rec/est); metals absorb
-const EPSRF={quartz:4.5,layer2:3.5,phos_in:8,bto:450,tipt:1e9,gddy:1e9,calorivac:6,phos_out:3,ferrite:12}; // RF permittivity [est]
+const EPSRF={quartz:4.5,layer2:3.5,phos_in:8,bto:450,gddy:1e9,calorivac:6,phos_out:3,ferrite:12}; // RF permittivity [est]
 function mediaList(){ const L=[{key:'gas',a:0,b:C.propagation.r_in_mm}]; C.layers.forEach(l=>{ if(l.key!=='core') L.push({key:l.key,a:l.a_mm,b:l.b_mm}); }); L.push({key:'air',a:C.R_outer_mm,b:C.R_outer_mm*1.6}); return L;}
 function propForDomain(dom){
   const pr=C.propagation, M=D.meta.materials, segs=[];
@@ -315,8 +315,8 @@ function arrivalTime(segs,r){ // r in mm
   return segs[0].alpha!=null? s*s : t;}
 function frontRadius(segs,t){ let lo=0, hi=segs[segs.length-1].b; if(arrivalTime(segs,hi)<=t) return hi;
   for(let k=0;k<50;k++){const m=0.5*(lo+hi); if(arrivalTime(segs,m)<=t) lo=m; else hi=m;} return lo;}
-function domainFreq(dom){ if((dom==='electric'||dom==='magnetic') && window.DRIVE_F) return window.DRIVE_F; if(dom==='optical') return 2.998e8/486.1e-9; if(dom==='acoustic') return PD.acoustic.f_drive; if(dom==='thermal'||dom==='chemical') return 2*(window.DRIVE_F||PD.electric.f_e); return PD.electric.f_e; }
-function termRadius(dom){ const v=PD.vectors.find(x=>x.domain===dom); const r= dom==='optical'&&C.propagation.bare? C.R_outer_mm*1.5 : v.r_end_mm; return ($('wf')&&$('wf').checked)? Math.min(r,C.OD_quartz_mm/2) : r; }
+function domainFreq(dom){ if((dom==='electric'||dom==='magnetic') && window.DRIVE_F) return window.DRIVE_F; if(dom==='optical') return 2.998e8/486.1e-9; if(dom==='acoustic') return PD.acoustic.f_drive; if(dom==='thermal'||dom==='chemical'){ if(window.DRIVE_F) return 2*window.DRIVE_F; const v=PD.vectors.find(x=>x.domain===dom); return (v&&v.f_start)||0; } return PD.electric.f_e||0; /* 0: no drive mechanism defined */ }
+function termRadius(dom){ const v=PD.vectors.find(x=>x.domain===dom); if(!v) return 0; const r= dom==='optical'&&C.propagation.bare? C.R_outer_mm*1.5 : v.r_end_mm; return ($('wf')&&$('wf').checked)? Math.min(r,C.OD_quartz_mm/2) : r; }
 
 // ---------------- orthographic scene ----------------
 let orthoSectors=[], orthoFronts=[], orthoWaves=[], OSC=1;
@@ -430,10 +430,10 @@ function drawSpec(){
   PD.acoustic.l0_isolated.forEach(f=>hline(f,mmToDisp(V.acoustic.r_start_mm),mmToDisp(V.acoustic.r_end_mm),DCOL.acoustic));
   (PD.acoustic.gas_cavity_modes||[]).slice(0,4).forEach(f=>hline(f,0,mmToDisp(C.propagation.r_in_mm),'#7fb2ff',false,1));
   Object.entries(C.acoustic_ref_l_ge_1||{}).forEach(([k,f])=>{ if(typeof f==='number' && /S|T/.test(k) && !k.includes('stress')) hline(f,mmToDisp(V.acoustic.r_start_mm),mmToDisp(V.acoustic.r_end_mm),DCOL.acoustic,true,1);});
-  // electric band
-  const fe0=PD.electric.f_zero_bias, fe=PD.electric.f_e; const x0=X(mmToDisp(V.electric.r_start_mm)), x1=Math.max(X(mmToDisp(V.electric.r_end_mm)),x0+4);
+  // electric band (absent: no drive mechanism defined)
+  if(V.electric){ const fe0=PD.electric.f_zero_bias, fe=PD.electric.f_e; const x0=X(mmToDisp(V.electric.r_start_mm)), x1=Math.max(X(mmToDisp(V.electric.r_end_mm)),x0+4);
   g.fillStyle=DCOL.electric+'55'; g.fillRect(x0,Math.min(Y(fe0),Y(fe))-2,x1-x0,Math.abs(Y(fe0)-Y(fe))+4); hline(fe,mmToDisp(V.electric.r_start_mm),mmToDisp(V.electric.r_end_mm),DCOL.electric);
-  if(!C.propagation.bare) hline(fe,mmToDisp(V.magnetic.r_start_mm),mmToDisp(V.magnetic.r_end_mm),DCOL.magnetic,false,3);
+  if(!C.propagation.bare && V.magnetic) hline(fe,mmToDisp(V.magnetic.r_start_mm),mmToDisp(V.magnetic.r_end_mm),DCOL.magnetic,false,3); }
   if(V.chemical) hline(V.chemical.f_start,0,mmToDisp(V.chemical.r_end_mm),DCOL.chemical);   // chemical: discharge-pulse rate, core only
   // thermal track
   g.strokeStyle=DCOL.thermal; g.lineWidth=2; g.beginPath(); PD.thermal_track.forEach(([r,f],i)=>{ if(!f) return; const x=X(mmToDisp(r)), y=Y(f); i?g.lineTo(x,y):g.moveTo(x,y);}); g.stroke(); g.lineWidth=1;
@@ -451,10 +451,10 @@ function fillSide(){
   $('nums').innerHTML = `<table>
    <tr><td>Geometry</td><td>gas core d ${C.core_d_mm} mm (${C.fill}, ${(C.p_atm*760).toPrecision(3)} Torr = ${C.p_atm.toPrecision(3)} atm); quartz wall ${C.wall_mm} mm; quartz OD ${C.OD_quartz_mm} mm; outer R ${C.R_outer_mm} mm</td></tr>
    <tr><td>Acoustic</td><td>l=0 shell modes ${a.l0_isolated.slice(0,4).map(fmtF).join(', ')}; HHO gas-cavity modes ${(a.gas_cavity_modes||[]).slice(0,3).map(fmtF).join(', ')}; drive ${fmtF(a.f_drive)}; W ${fmt(a.W_mJ)} mJ; peak stress ${fmt(a.peak_stress_MPa)} MPa; Q_eff ${fmt(a.Q_eff)}; loss ${fmt(a.loss_W)} W; fill-pressure hoop ${fmt(a.fill_stress_MPa)} MPa${a.bonded?`; bonded stack: ${fmtF(a.bonded.f)}, Q ${fmt(a.bonded.Q_eff)}, loss ${fmt(a.bonded.loss_W)} W`:''}</td></tr>
-   <tr><td>Electric</td><td>${C.propagation.bare?`DBD C ${fmt(e.C_fF)} fF, V ${fmt(e.V_pk)} V, drive ${fmtF(e.f_e)}`:`C0 ${fmt(e.C0_nF)} nF → ${fmt(e.C_bias_nF)} nF at bias; tank ${fmtF(e.f_zero_bias)} → ${fmtF(e.f_e)}; V_pk ${fmt(e.V_pk)} V (working ${fmt(e.V_work)} V); I_rms ${fmt(e.I_rms)} A; loss diel ${fmt(e.P_diel)} W + ESR ${fmt(e.P_esr)} W; Q_tank ${fmt(e.Q_tank)}; hot: f ${fmtF(e.hot.f_e)}`}</td></tr>
+   <tr><td>Electric</td><td>${e.none?e.note:'n/a'}</td></tr>
    <tr><td>Magnetic</td><td>${m.none?m.note:`L ${fmt(m.L_nH)} nH (1 turn); Q_f ${fmt(m.Q_f)}; ferrite loss ${fmt(m.P_ferr)} W; B equator ${fmt(m.B_eq_mT)} mT, near feed holes ${fmt(m.B_max_mT)} mT`}</td></tr>
    <tr><td>Optical</td><td>Balmer out of core ${fmt(o.P_opt)} W; downshifted ${fmt(o.converted_W)} W; escaping ${fmt(o.escaped_W)} W</td></tr>
-   ${PD.gas?`<tr><td>HHO gas state (computed, coupled)</td><td>T_gas ${fmt(PD.gas.T_gas_K)} K [est = inner wall, lower bound]; sealed ${fmt(PD.gas.p_seal_Pa)} Pa at ${PD.gas.T_seal_K} K → p ${fmt(PD.gas.p_hot_Pa)} Pa (fixed N, V); c ${fmt(PD.gas.c_seal)} → ${fmt(PD.gas.c_hot)} m/s; hot gas-loaded modes ${(PD.gas.gas_modes_hot||[]).slice(0,3).map(fmtF).join(', ')}; Paschen knee ∝ n·d (unchanged to first order)</td></tr>`:''}
+   ${PD.gas?`<tr><td>HHO gas state (computed, coupled)</td><td>T_gas ${fmt(PD.gas.T_gas_K)} K [est = inner wall, lower bound]; sealed ${fmt(PD.gas.p_seal_Pa)} Pa at ${PD.gas.T_seal_K} K → p ${fmt(PD.gas.p_hot_Pa)} Pa (fixed N, V); c ${fmt(PD.gas.c_seal)} → ${fmt(PD.gas.c_hot)} m/s; hot gas-loaded modes ${(PD.gas.gas_modes_hot||[]).slice(0,3).map(fmtF).join(', ')}</td></tr>`:''}
    ${PD.chemical?`<tr><td style="color:${DCOL.chemical}">Chemical</td><td>stored 2H2+O2→2H2O ${fmt(PD.chemical.E_store_J)} J; dissociation ${fmt(PD.chemical.P_diss_W)} W ⇒ ${fmt(PD.chemical.R_diss_per_s)} H2/s; fill converted in ${fmtT(PD.chemical.t_conv_s)} releasing ${fmt(PD.chemical.P_release_W)} W meanwhile (fed to thermal); wall recombination ${fmt(PD.chemical.P_wall_recomb_W)} W; H diffusion τ ${fmtT(PD.chemical.tau_D_s)}; <b>knee: not defined</b>. <span class="small">${PD.chemical.sources}</span></td></tr>`:''}
    <tr><td>Thermal (steady)</td><td>quartz inner ${fmt(t.T_quartz_in)} K / outer ${fmt(t.T_quartz_out)} K; wall ΔT ${fmt(t.dT_wall)} K${C.propagation.bare?'':`; phosphor ${fmt(t.T_phos)} K; BTO ${fmt(t.T_bto)} K; Gd-Dy ${fmt(t.T_gddy)} K; CALORIVAC max ${fmt(t.T_calorivac_max)} K`}; total heat ${fmt(t.total_heat_W)} W</td></tr></table>`;
   $('flags').innerHTML = PD.flags.length? PD.flags.map(f=>`<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No limit crossed at this power (estimated physics).</div>';
