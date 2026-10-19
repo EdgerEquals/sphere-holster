@@ -1,0 +1,110 @@
+# Tavily web search: the holster's shared web-search slot. Any model, Cursor, or workflow can trigger it.
+# Kimi/DeepSeek (cheap first filter) use it before Claude/Grok spend (see review-core-rote.yml web_search).
+# Without the TAVILY_API_KEY secret it reports "not configured", makes no network call, and the job succeeds.
+# Triggers:
+#   - gh workflow run tavily-search.yml -f query='<query>' [-f max_results=5] [-f search_depth=basic]
+#   - reusable: uses: ./.github/workflows/tavily-search.yml  with: { query: ... }  -> outputs.results_json
+#   - comment "/tavily-search <query>" on an issue/PR (owner/member/collaborator only) -> replies with results
+# Results: job summary, artifact tavily-results-<run id> (results.json + results.md), stdout.
+# API: POST https://api.tavily.com/search (Bearer auth). basic = 1 credit, advanced = 2. Free plan 1,000 credits/month.
+name: tavily-search
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: Search query
+        type: string
+        required: true
+      max_results:
+        description: Number of results (1-20)
+        type: string
+        default: "5"
+      search_depth:
+        description: basic (1 credit) | advanced (2 credits) | fast | ultra-fast
+        type: choice
+        options: [basic, advanced, fast, ultra-fast]
+        default: basic
+  workflow_call:
+    inputs:
+      query:        { type: string, required: true }
+      max_results:  { type: string, required: false, default: "5" }
+      search_depth: { type: string, required: false, default: basic }
+    secrets:
+      TAVILY_API_KEY: { required: false }
+    outputs:
+      status:       { description: "ok | not configured | error", value: "${{ jobs.search.outputs.status }}" }
+      count:        { description: Number of results, value: "${{ jobs.search.outputs.count }}" }
+      results_json: { description: "JSON {status, query, results: [{title, url, snippet, score}], ...}", value: "${{ jobs.search.outputs.results_json }}" }
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tavily-search-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  search:
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (startsWith(github.event.comment.body, '/tavily-search ') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      status:       ${{ steps.s.outputs.status }}
+      count:        ${{ steps.s.outputs.count }}
+      results_json: ${{ steps.s.outputs.results_json }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - id: in
+        name: Resolve inputs
+        env:
+          EVENT: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          IN_QUERY: ${{ inputs.query }}
+          IN_MAX: ${{ inputs.max_results }}
+          IN_DEPTH: ${{ inputs.search_depth }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = issue_comment ]; then
+            q=$(printf '%s\n' "$COMMENT_BODY" | head -n1 | tr -d '\r'); q=${q#/tavily-search }
+            max=5; depth=basic
+          else q=$IN_QUERY; max=${IN_MAX:-5}; depth=${IN_DEPTH:-basic}; fi
+          q=$(printf '%s' "$q" | tr -d '\n' | cut -c1-400)
+          { echo "query<<Q_EOF"; echo "$q"; echo "Q_EOF"; echo "max=$max"; echo "depth=$depth"; } >> "$GITHUB_OUTPUT"
+      - id: s
+        name: Tavily search
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          QUERY: ${{ steps.in.outputs.query }}
+          MAX: ${{ steps.in.outputs.max }}
+          DEPTH: ${{ steps.in.outputs.depth }}
+        run: python scripts/tavily_search.py --query "$QUERY" --max-results "$MAX" --search-depth "$DEPTH" --out tavily-out
+      - name: Upload results
+        if: always() && hashFiles('tavily-out/results.json') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: tavily-results-${{ github.run_id }}
+          path: tavily-out/
+          retention-days: 14
+      - name: Reply to comment
+        if: always() && github.event_name == 'issue_comment' && hashFiles('tavily-out/results.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          { cat tavily-out/results.md; echo; echo "<sub>[Run and JSON artifact]($RUN_URL)</sub>"; } > body.md
+          gh issue comment "$NUM" -R "$REPO" --body-file body.md

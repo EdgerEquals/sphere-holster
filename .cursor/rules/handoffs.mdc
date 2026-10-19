@@ -24,6 +24,8 @@ You are the **coordinator and builder**. Full detail: `AGENTS.md`. Dial and caps
 8. **Optional cheap rote pass** (units, arithmetic, consistency vs `DESIGN_STATE.md`, retired items) any time, e.g. before spending Claude/Grok: `gh pr comment <PR> --body "/deepseek-check"` and/or `"/kimi-check"`. No PR: `gh workflow run deepseek-check.yml -f target_ref=<ref>`. These never replace Claude or Grok and never count toward locked/validated.
 9. **Just ask Kimi or DeepSeek a prompt** (no review, nothing posted): `gh workflow run kimi-check.yml -f ping='<prompt>'` / `gh workflow run deepseek-check.yml -f ping='<prompt>'`; reply + token usage + cost are in the run's job summary and the `<reviewer>-ping-<run-id>` artifact.
 
+10. **Web search = shared slot (Tavily)**: Kimi/DeepSeek search and filter first, Claude/Grok spend only after. Search + cheap filter: `gh workflow run deepseek-check.yml -f target_ref=<ref> -f web_search=true -f search_query='<query>'` (or a `search: <query>` line under `/deepseek-check` / `/kimi-check`). Raw search: `gh workflow run tavily-search.yml -f query='<query>'` or `/tavily-search <query>`. Default off; without `TAVILY_API_KEY` it reports `not configured` and makes no call.
+
 Optional scope: append `domains=thermal,chemical` (or `domains=all`) to `/claude-audit` or `/grok-check`.
 
 ## After a verdict

@@ -100,10 +100,23 @@ def _design_state() -> str:
     return f.read_text() if f.is_file() else "(DESIGN_STATE.md not found)"
 
 
+def _web_context() -> str:
+    """Optional Tavily results (shared web-search slot) written by scripts/tavily_search.py --rote-context.
+    Only present when the run asked for web_search AND TAVILY_API_KEY is set AND results came back."""
+    f = os.environ.get("TAVILY_CONTEXT_FILE", "").strip()
+    if not f or not Path(f).is_file():
+        return ""
+    return Path(f).read_text()[:20000]
+
+
 def review_call(p: Provider):
     def call(system: str, user: str, cfg: dict, key: str):
-        sysmsg = "\n\n---\n\n".join([system, hc.prompt("_rote_check"),
-                                     "CURRENT DESIGN_STATE.md (default branch, single source of truth):\n\n" + _design_state()])
+        parts = [system, hc.prompt("_rote_check"),
+                 "CURRENT DESIGN_STATE.md (default branch, single source of truth):\n\n" + _design_state()]
+        web = _web_context()
+        if web:
+            parts.append(web)
+        sysmsg = "\n\n---\n\n".join(parts)
         text, u, model, _, _ = chat(p, cfg, key, [{"role": "system", "content": sysmsg}, {"role": "user", "content": user}])
         return text, u, model
     return call

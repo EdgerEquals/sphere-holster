@@ -36,6 +36,14 @@ on:
         description: If set, ONLY send this prompt and write the reply + token usage to the job summary (no review, nothing posted)
         type: string
         default: ""
+      web_search:
+        description: "Tavily web search before the check (shared slot): '' = dial default (off), true, false. Skips silently without TAVILY_API_KEY"
+        type: string
+        default: ""
+      search_query:
+        description: Query for the web search (used only when web_search is on)
+        type: string
+        default: ""
   issue_comment:
     types: [created]
 
@@ -64,5 +72,8 @@ jobs:
       pr_number: ${{ inputs.pr_number }}
       domains: ${{ inputs.domains }}
       ping: ${{ inputs.ping }}
+      web_search: ${{ inputs.web_search }}
+      search_query: ${{ inputs.search_query }}
     secrets:
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
       API_KEY: ${{ secrets.MOONSHOT_API_KEY }}

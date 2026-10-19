@@ -82,3 +82,15 @@ domains:
   magnetic:  [magnetic, ferrite, inductance, "b_field", tesla, gauss, permeab]
   thermal:   [thermal, temperature, heat, conduct, curie, autoignition, convection, radiat, kelvin]
   chemical:  [chemical, chem, radical, recombin, hho, hydrogen, oxygen, h2o, enthalpy, combust]
+
+# Shared web-search slot (Tavily, POST https://api.tavily.com/search). Any model or Cursor can use it:
+#   gh workflow run tavily-search.yml -f query='<query>'   (or comment "/tavily-search <query>")
+# Order of spend: Kimi/DeepSeek search + filter FIRST (web_search on their rote check), Claude/Grok spend only after
+# that filter (reviews/2026-10-19_round2: "cheap pre-filter ahead of the paid reviewers").
+# enabled = default for the Kimi/DeepSeek pre-search when a run does not say; per-run web_search=true overrides.
+# Without the TAVILY_API_KEY secret every Tavily step reports "not configured" and makes no call.
+# Cost: basic = 1 credit, advanced = 2; free plan 1,000 credits/month (https://docs.tavily.com/documentation/quickstart).
+tavily:
+  enabled: false
+  max_results: 5
+  search_depth: basic

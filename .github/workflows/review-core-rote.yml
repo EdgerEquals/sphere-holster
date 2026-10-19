@@ -16,8 +16,13 @@ on:
       pr_number:      { type: string, required: false, default: "" }
       domains:        { type: string, required: false, default: "" }
       ping:           { type: string, required: false, default: "" }
+      # Shared web-search slot (Tavily). Default off. "" = harness/dial.yml tavily.enabled (false); "true" to search.
+      # Skips silently when TAVILY_API_KEY is absent or the query is empty. Results go into the model's context.
+      web_search:     { type: string, required: false, default: "" }
+      search_query:   { type: string, required: false, default: "" }
     secrets:
       API_KEY: { required: false }
+      TAVILY_API_KEY: { required: false }
 
 permissions:
   contents: read
@@ -79,6 +84,8 @@ jobs:
       pr:      ${{ steps.g.outputs.pr }}
       domains: ${{ steps.g.outputs.domains }}
       reason:  ${{ steps.g.outputs.reason }}
+      web_search:   ${{ steps.g.outputs.web_search }}
+      search_query: ${{ steps.g.outputs.search_query }}
     steps:
       - id: g
         name: Decide whether to run, and on what
@@ -92,6 +99,8 @@ jobs:
           IN_BASE: ${{ inputs.base_ref }}
           IN_PR: ${{ inputs.pr_number }}
           IN_DOMAINS: ${{ inputs.domains }}
+          IN_WEB_SEARCH: ${{ inputs.web_search }}
+          IN_SEARCH_QUERY: ${{ inputs.search_query }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ID: ${{ github.event.comment.id }}
           AUTHOR_ASSOC: ${{ github.event.comment.author_association }}
@@ -101,7 +110,7 @@ jobs:
         run: |
           set -euo pipefail
           set -f   # no globbing of comment words
-          run=false; depth=""; target=""; base=""; pr=""; domains=auto; reason=""
+          run=false; depth=""; target=""; base=""; pr=""; domains=auto; reason=""; web=""; sq=""
           case "$EVENT" in
             issue_comment)
               first=$(printf '%s\n' "$COMMENT_BODY" | head -n1 | tr -d '\r')
@@ -122,6 +131,9 @@ jobs:
                     domains=*) domains=${w#domains=} ;;
                   esac
                 done
+                # Optional web search (shared Tavily slot): a later comment line "search: <query>"
+                sline=$(printf '%s\n' "$COMMENT_BODY" | tr -d '\r' | grep -m1 -i '^search:' || true)
+                if [ -n "$sline" ]; then web=true; sq=$(printf '%s' "${sline#*:}" | sed 's/^ *//' | cut -c1-400); fi
                 gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null || true
                 if [ -n "$IS_PR" ]; then
                   pr=$ISSUE_NUMBER
@@ -133,14 +145,16 @@ jobs:
               fi ;;
             workflow_dispatch)
               run=true; depth=$IN_DEPTH; target=${IN_TARGET:-$DEFAULT_BRANCH}
-              base=$IN_BASE; pr=$IN_PR; domains=${IN_DOMAINS:-auto} ;;
+              base=$IN_BASE; pr=$IN_PR; domains=${IN_DOMAINS:-auto}
+              web=$IN_WEB_SEARCH; sq=$(printf '%s' "$IN_SEARCH_QUERY" | tr -d '\n' | cut -c1-400) ;;
             *) reason="unsupported event $EVENT" ;;
           esac
           {
             echo "run=$run"; echo "depth=$depth"; echo "target=$target"
             echo "base=$base"; echo "pr=$pr"; echo "domains=$domains"; echo "reason=$reason"
+            echo "web_search=$web"; echo "search_query<<SQ_EOF"; echo "$sq"; echo "SQ_EOF"
           } >> "$GITHUB_OUTPUT"
-          echo "gate: run=$run depth=${depth:-default} target=$target base=${base:-auto} pr=${pr:-none} :: $reason"
+          echo "gate: run=$run depth=${depth:-default} target=$target base=${base:-auto} pr=${pr:-none} web_search=${web:-dial} :: $reason"
 
   review:
     needs: gate
@@ -184,9 +198,18 @@ jobs:
           if [ -n "$PR" ]; then gh pr view "$PR" -R "$REPO" --json title,body --jq '"\(.title)\n\n\(.body)"' > intent.txt || : > intent.txt
           else git log -1 --format=%B "$head_sha" > intent.txt; fi
 
+      - name: Web search first (Tavily shared slot; default off, skips silently without TAVILY_API_KEY)
+        continue-on-error: true
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          WEB_SEARCH: ${{ needs.gate.outputs.web_search }}
+          SEARCH_QUERY: ${{ needs.gate.outputs.search_query }}
+        run: python scripts/tavily_search.py --rote-context --web-search "$WEB_SEARCH" --query "$SEARCH_QUERY" --out tavily-out
+
       - name: Run ${{ inputs.reviewer }} rote check
         id: run
         env:
+          TAVILY_CONTEXT_FILE: tavily-out/context.md
           API_KEY: ${{ secrets.API_KEY }}
           HEAD_SHA: ${{ steps.refs.outputs.head_sha }}
           BASE_SHA: ${{ steps.refs.outputs.base_sha }}
@@ -222,7 +245,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.reviewer }}-verdict-${{ steps.refs.outputs.head_sha }}
-          path: review-out/
+          path: |
+            review-out/
+            tavily-out/
           retention-days: 30
           overwrite: true
 

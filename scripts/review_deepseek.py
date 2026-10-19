@@ -10,6 +10,7 @@ Usage:
   python scripts/review_deepseek.py --list-models
 Needs env DEEPSEEK_API_KEY. Exit codes: 0 ok (PASS or FAIL recorded), 2 missing secret, 3 API/parse error.
 Override without editing files: env DEEPSEEK_MODEL, DEEPSEEK_BASE_URL.
+Optional web context (shared Tavily slot): env TAVILY_CONTEXT_FILE, written by scripts/tavily_search.py --rote-context.
 """
 import os
 import sys

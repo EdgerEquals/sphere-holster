@@ -44,6 +44,28 @@ reintroduced retired items. No physics sourcing (Grok) and no design audit (Clau
 - Shared workflow: `.github/workflows/review-core-rote.yml` (separate from `review-core.yml`, which Claude/Grok use).
 - Any failure (HTTP error, timeout, empty reply, unparseable verdict) gives verdict **ERROR**, still posts, and fails the job.
 
+## Shared web-search slot (Tavily)
+
+One search slot for the whole holster: any model, Cursor or the bot can use it. Script `scripts/tavily_search.py`
+(stdlib, `POST https://api.tavily.com/search`, Bearer auth), workflow `.github/workflows/tavily-search.yml`.
+
+- Search on its own: `gh workflow run tavily-search.yml -f query='<query>' [-f max_results=5] [-f search_depth=basic]`,
+  or comment `/tavily-search <query>` on an issue/PR (owner/member/collaborator only; replies with the results).
+  Results (title, URL, snippet) go to the job summary, stdout and the `tavily-results-<run id>` artifact.
+- Reuse from another workflow: `uses: ./.github/workflows/tavily-search.yml` with `query`; outputs `status`, `count`,
+  `results_json`. Locally: `TAVILY_API_KEY=... python3 scripts/tavily_search.py --query '<query>'`.
+- **Order of spend:** Kimi/DeepSeek search and filter **first**; Claude/Grok only spend after that filter
+  (round-2 recommendation, `reviews/2026-10-19_round2/`). On a rote check, turn it on per run with
+  `gh workflow run deepseek-check.yml -f target_ref=<ref> -f web_search=true -f search_query='<query>'`, or add a line
+  `search: <query>` under `/deepseek-check` (or `/kimi-check`) in the comment. The results are added to the cheap
+  model's context as unverified third-party text.
+- **Default off** (`tavily.enabled: false` in `dial.yml`). Without the `TAVILY_API_KEY` secret every Tavily step reports
+  `not configured`, makes no network call, and never fails the job.
+- Claude/Grok are not wired to it; the Claude/Grok files are unchanged. Follow-up (docs only, not built): a later hook
+  could pass the Kimi/DeepSeek search artifact to `/claude-audit` / `/grok-check`. Grok keeps its own xAI web search.
+- Cost: basic/fast = 1 credit, advanced = 2; free plan 1,000 credits/month, no card
+  (https://docs.tavily.com/documentation/quickstart). Key from https://app.tavily.com.
+
 ## Costs
 
 - **GitHub Actions minutes: free.** The repo is public, and standard GitHub-hosted runners are free for public repos.
@@ -76,4 +98,6 @@ shallow DeepSeek < $0.01; deep Kimi / DeepSeek (up to 7 calls) ≈ $0.10–0.40;
 - `XAI_API_KEY` — grok-check.
 - `DEEPSEEK_API_KEY` — deepseek-check (free/cheap tier).
 - `MOONSHOT_API_KEY` — kimi-check (Moonshot AI developer API, billed separately from the kimi.com membership).
+- `TAVILY_API_KEY` — tavily-search and the optional Kimi/DeepSeek pre-search (not set yet). Unlike the others, a missing
+  Tavily key is not an error: those steps report `not configured` and the job passes.
 If a secret is missing the run stops before any API call, posts/prints a clear "secret not set" message and fails the check.
