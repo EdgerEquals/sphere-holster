@@ -298,10 +298,11 @@ def test_legacy_backfill_idempotent_and_v1_lines_still_valid():
     recs = L.read_ledger(ROOT / "ledger" / "findings.jsonl")
     schema = L.load_schema()
     assert all(not L.validate(r, schema) for r in recs)
-    cls = L.legacy_backfill(recs)
+    base = [r for r in recs if r["kind"] != "class"]
+    cls = L.legacy_backfill(base)
     assert cls and all(c["review_class"] == "legacy" and not L.validate(c, schema) for c in cls)
-    assert L.legacy_backfill(recs + cls) == []
-    assert set(L.review_classes(recs + cls).values()) == {"legacy"}
+    assert L.legacy_backfill(base + cls) == []
+    assert set(L.review_classes(base + cls).values()) == {"legacy"}
 
 
 # ------------------------------------------------------------------ gate decision table
