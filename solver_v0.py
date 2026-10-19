@@ -49,7 +49,9 @@ PRESETS = [
 ]
 # Minimal test (Danny): 1 mm ID HHO 2:1 at the Paschen knee (~10 Torr for a 1 mm gap), bare crystal-quartz shell, +-pulsed DBD
 PRESETS.insert(0, dict(id="minA", label="Minimal test A: 1 mm ID, 1 mm wall, 3 mm OD, bare quartz, HHO 10 Torr (Paschen knee)", core_d=1.0, wall=1.0, p_atm=10/760, group="minimal", bare=True))
-PRESETS.insert(1, dict(id="minB", label="Minimal test B: 1 mm ID, 0.5 mm wall, 2 mm OD, bare quartz, HHO 10 Torr (Paschen knee)", core_d=1.0, wall=0.5, p_atm=10/760, group="minimal", bare=True))
+PRESETS.insert(0, dict(id="scope", label="Danny scope: 1 mm ID x 2 mm OD quartz, HHO, fill OPEN (3-D views: 10 Torr placeholder)", core_d=1.0, wall=0.5, p_atm=10/760, group="minimal", bare=True,
+                       note="fill amount is open: the 3-D/steady views use 10 Torr only as a placeholder; the Drive panel computes the coupled single-cycle response for the fill you enter"))
+PRESETS.insert(2, dict(id="minB", label="Minimal test B: 1 mm ID, 0.5 mm wall, 2 mm OD, bare quartz, HHO 10 Torr (Paschen knee)", core_d=1.0, wall=0.5, p_atm=10/760, group="minimal", bare=True))
 for od in [1.6, 2.59, 4.19, 6.78, 10.97, 17.75]:   # golden-ratio OD sweep, case A scaling (core 0.6 OD, wall 0.2 OD) [rec shell_phi_sweep]
     PRESETS.append(dict(id=f"phi{od}", label=f"Phi sweep OD {od} mm (core 0.6*OD, wall 0.2*OD, 1 atm)", core_d=0.6 * od, wall=0.2 * od, p_atm=1.0, group="phi"))
 
@@ -167,10 +169,16 @@ def propagate(f, layers, lossy=False):
         P = Smat(b, w, m, lossy) @ np.linalg.inv(Smat(a, w, m, lossy)) @ P
     return P
 
-GAS = dict(p=101325.0)
+GAS = dict(p=101325.0, T=None)
+def c_hho(T):
+    """ideal-gas sound speed of HHO 2H2:O2: c = sqrt(gamma R T / M), M = (2*2.016+32.00)/3 = 12.01 g/mol [calc from lit molar masses],
+    gamma 1.40 [est, diatomic mix near room T; falls slowly as vibrational modes open above ~1000 K, not modelled]. 533 m/s at 293 K."""
+    return math.sqrt(1.4 * 8.314 * T / 0.012011)
 def gas_Z(f, r_in):
-    """sigma_rr/u_r presented by the HHO gas column (2:1 H2:O2, M 12.01 g/mol, gamma 1.4 [est]) times j1 (pole-free form)."""
-    c = math.sqrt(1.4 * 8.314 * T_REF / 0.012011); K = 1.4 * GAS["p"]
+    """sigma_rr/u_r presented by the HHO gas column (2:1 H2:O2, M 12.01 g/mol, gamma 1.4 [est]) times j1 (pole-free form).
+    Gas temperature GAS['T'] is a COMPUTED state (coupled): fixed atom count and volume => p = p_seal * T / T_seal, c = c_hho(T)."""
+    Tg = GAS["T"] or T_REF
+    c = c_hho(Tg); K = 1.4 * GAS["p"]
     k = 2 * math.pi * f / c; x = k * r_in
     return -K * k * math.sin(x) / x, (math.sin(x) / x ** 2 - math.cos(x) / x)   # (num ~ K k j0, den ~ j1)
 def l0_char(f, layers):
@@ -410,7 +418,7 @@ class Thermal:
 def run_case(pre, P, ref):
     bare = pre.get("bare", False)
     st = build_stack(pre["core_d"], pre["wall"], bare)
-    GAS["p"] = pre["p_atm"] * 101325.0
+    GAS["p"] = pre["p_atm"] * 101325.0; GAS["T"] = T_REF   # sealing (initial/ambient) state: p_seal at T_seal = 293 K
     cells, mats = make_grid(st)
     th = Thermal(cells, mats)
     if bare: th.outer = "natconv"   # still air + radiation; heat sink left to Danny
@@ -485,10 +493,18 @@ def run_case(pre, P, ref):
     heat_by_layer = {}
     for i, m in enumerate(mats): heat_by_layer[m] = heat_by_layer.get(m, 0) + float(q[i])
     em_hot = em
+    # coupled gas state [calc; gas T est = inner-wall T, a LOWER bound under discharge heating]: fixed N and V => n constant,
+    # p = p_seal*T/T_seal, c = c_hho(T); gas-loaded modes recomputed hot. Paschen knee depends on n*d (constant) to first order.
+    Tg = float(min(Tss[0], 3000.0)); p_seal = GAS["p"]
+    GAS["T"] = Tg; GAS["p"] = p_seal * Tg / T_REF
+    hot_all = l0_modes(iso); hot_shell, hot_gas = split(hot_all, vac_modes(iso))
+    gas_hot = dict(T_gas=Tg, p_seal=p_seal, p_hot=GAS["p"], c_seal=c_hho(T_REF), c_hot=c_hho(Tg), shell=hot_shell, gas_modes=hot_gas,
+                   n_m3=p_seal / (1.380649e-23 * T_REF))
+    GAS["p"] = p_seal; GAS["T"] = T_REF
     em = EM(np.full(th.n, T_REF))   # design point (293 K) used for fields, vectors, crossings
     return dict(stack=st, cells=cells, mats=mats, th=th, frames=frames, times=times, Tss=Tss, q=q,
                 ac=ac, ac_bond=ac_bond, m_iso=m_iso, m_bond=m_bond, gas_modes=gas_iso, em=em, em_hot=em_hot, oprof=oprof, oinfo=oinfo,
-                s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer)
+                s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer, gas_hot=gas_hot)
 
 # ------------------------------------------------- display + tracks ---------------------------
 def display_map(st):
@@ -545,7 +561,7 @@ def package(pre, runs, ref):
     ac_ref = ref.get(round(2 * st["r_q"] / MM, 2), {}) if pre["group"] == "phi" else (ref.get(5.0, {}) if pre["id"] == "base5" else {})
     if pre.get("bare"):   # exact general-n bare-shell modes from minimal_test_calc_output.txt [calc]
         ac_ref = {"minA": {"0S2": 1.005e6, "0S1": 1.356e6, "0T2": 1.112e6, },
-                  "minB": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }}.get(pre["id"], {})
+                  "minB": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }, "scope": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }}.get(pre["id"], {})
     out["acoustic_ref_l_ge_1"] = {k: r4(v) for k, v in ac_ref.items()}
     pg = pre["p_atm"] * 101325.0; rho_g = pg * 0.012011 / (8.314 * T_REF)
     out["propagation"] = dict(c=C0, n_group_quartz_486=1.584, n_rf_quartz=math.sqrt(4.5), c_sound_gas=math.sqrt(1.4 * 8.314 * T_REF / 0.012011),
@@ -647,6 +663,10 @@ def package(pre, runs, ref):
         fl(em["over_voltage"], f"Tank needs {em['V_pk']:.0f} V on BTO > {em['V_work']:.0f} V working (half breakdown)")
         fl(em["saturates"], f"Ferrite B_max {em['B_max']*1e3:.0f} mT near feed holes > B_sat ~{B_SAT*1e3:.0f} mT [est]")
         fl(em["J_feed"] > 0.8e9, f"Pt feed current density {em['J_feed']/1e4:.2g} A/cm2 > 0.8e5 A/cm2 contact limit")
+        gh = run["gas_hot"]
+        for nm, TT in (("Quartz inner wall", Tq_in), ("Gas (est = inner wall, lower bound)", gh["T_gas"])):
+            if TT >= 773.15: flags.append(f"{nm} {TT-273.15:.0f} C is IN the HHO autoignition range ~500-585 C [given range]")
+            elif TT >= 723.15: flags.append(f"{nm} {TT-273.15:.0f} C is APPROACHING HHO autoignition (~500-585 C) [given range]")
         fl(max(Tss) >= 2999, "Temperatures hit the 3000 K solver cap: stack has failed thermally (values not physical)")
         sel_frames = list(range(0, len(frames)))
         out["powers"][f"{P:g}"] = dict(
@@ -672,6 +692,9 @@ def package(pre, runs, ref):
             optical=dict(P_opt=F_OPT * P, converted_W=r4(oinfo["converted_W"]), escaped_W=r4(oinfo["escaped_W"])),
             thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_phos=r4(Tph), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
                          heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum()))),
+            gas=dict(T_gas_K=r4(gh["T_gas"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),
+                     c_seal=r4(gh["c_seal"]), c_hot=r4(gh["c_hot"]), shell_l0_hot=r4(gh["shell"][:6]), gas_modes_hot=r4(gh["gas_modes"][:8]),
+                     note="computed state, not an input: gas T taken = steady inner-wall T [est lower bound]; fixed N,V => p ~ T, c ~ sqrt(T); Paschen knee ~ n d unchanged to first order"),
             flags=flags)
     return out
 
@@ -739,6 +762,7 @@ def main():
         ks = list(c["powers"]); p0, p1, p10 = c["powers"][ks[0]], c["powers"][ks[1]], c["powers"][ks[-1]]
         log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in p10['acoustic']['l0_isolated'][:4]]} MHz | drive {p10['acoustic']['f_drive']/1e6:.3f} MHz "
                    f"stress@{ks[-1]}W {p10['acoustic']['peak_stress_MPa']} MPa Qeff {p10['acoustic']['Q_eff']} | f_e {p10['electric']['f_e']/1e6:.3f} MHz (0-bias {p10['electric']['f_zero_bias']/1e6:.3f}) "
+                   f"| T_gas(est) {p1['gas']['T_gas_K']} K p {p1['gas']['p_hot_Pa']} Pa c {p1['gas']['c_hot']} m/s @{ks[1]}W "
                    f"| T_qz_in {ks[0]}W {p0['thermal']['T_quartz_in']} K {ks[1]}W {p1['thermal']['T_quartz_in']} K, {ks[-1]}W {p10['thermal']['T_quartz_in']} K | crossings {len(p10['crossings'])}")
         print(log[-1], flush=True)
     data = dict(meta=dict(title="Stratified bubble sphere - multi-domain radial model v0", date="2026-10-19",
@@ -753,11 +777,8 @@ def main():
     with open(os.path.join(HERE, "solver_v0_output.txt"), "w") as f:
         f.write("\n".join(log) + "\n")
     print("wrote model_data_v0.json", os.path.getsize(os.path.join(HERE, "model_data_v0.json")) // 1024, "kB")
-    if args.build:
-        tpl = open(os.path.join(HERE, "viewer_template.html")).read()
-        html = tpl.replace("/*__MODEL_DATA__*/null", json.dumps(data, separators=(",", ":")))
-        open(os.path.join(HERE, "index.html"), "w").write(html)
-        print("wrote index.html", os.path.getsize(os.path.join(HERE, "index.html")) // 1024, "kB")
+    if args.build:   # index.html = template + drive_model.js + drive_ui.js + this JSON
+        import subprocess; subprocess.run([sys.executable, os.path.join(HERE, "build.py")], check=True)
 
 if __name__ == "__main__":
     main()
