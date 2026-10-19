@@ -127,7 +127,11 @@ def test_ingest_staged_refuses_outside_ci(tmp_path, monkeypatch):
 
 def test_ingest_staged_in_simulated_ci_appends_once(tmp_path, monkeypatch):
     led = tmp_path / "f.jsonl"
-    real = (ROOT / "ledger" / "findings.jsonl").read_text(encoding="utf-8")
+    # CI on main has already ingested the staged records into the real ledger, so test against a
+    # copy with those records removed: each one must then be appended exactly once.
+    staged_ids = {r["id"] for r in L.parse_staged_dir(PENDING, CFG)[0]}
+    lines = (ROOT / "ledger" / "findings.jsonl").read_text(encoding="utf-8").splitlines(keepends=True)
+    real = "".join(x for x in lines if not x.strip() or json.loads(x).get("id") not in staged_ids)
     led.write_text(real, encoding="utf-8")
     monkeypatch.setattr(LC, "ledger_path", lambda c: led)
     res = LC.cmd_ingest_staged(A(), CFG, env=CI_ENV)
