@@ -32,6 +32,7 @@ Names the apparatus and its behavior. Unchanged project terms.
 | **ring-down** | Decay of amplitude after drive is removed. |
 | **ring-up** | Build-up of amplitude after drive is applied. |
 | **detune** | Offset of drive frequency from a resonance. |
+| **tune** | Being on resonance; the opposite of detune. |
 | **Q** | Quality factor; sharpness of a resonance (energy stored vs energy lost per cycle). |
 | **standing wave** | A spatial mode with fixed nodes and antinodes under continuous drive. |
 
@@ -40,6 +41,7 @@ Names the apparatus and its behavior. Unchanged project terms.
 - Ring-down: "After drive-off, ring-down τ fitted to 12 ms."
 - Ring-up: "Ring-up to steady amplitude took ~3 Q-cycles."
 - Detune: "Sweep held at +2% detune from the acoustic peak."
+- Tune: "A tuned core draws minimal transmitter current."
 - Q: "Loaded Q dropped from ~800 to ~200 at 4 W."
 - Standing wave: "The standing wave antinode sat at the stratified-core boundary."
 
