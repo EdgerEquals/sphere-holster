@@ -547,3 +547,11 @@ Danny (t382). The acoustic l=0 search window is widened from **20 kHz – 12 MHz
 - **Named constants** in `solver_v0.py`: `FMIN_HZ = 1.0`, `FMAX_HZ = 50e6`, `N_FREQ_GRID = 20000` (linear grid; was 4000 over ~12 MHz, df ~ 3 kHz; scaled for the 50 MHz band → df = 2.5 kHz). `geometry_sweep_v0.py` `FMIN`/`FMAX`/`NGRID` import the same values; `free_modes`, `gas_rigid_l0` and reflection harmonics use them.
 - **No recorded rationale** for the old 20 kHz–12 MHz band; 12 MHz was clipping overtones for the rarefied-winner core.
 - **1 Hz:** floor of the acoustic search band. The **1 Hz thermal cycle** remains a slow envelope modulating the drives (`DRIVE_THERMAL_ENVELOPE_Hz`), not an acoustic mode marched in `l0_modes`.
+
+## Decision: Claude in two roles — chat reviewer and Claude Code executor (2026-10-19)
+Danny's decision (2026-10-19). Claude stays in the project in **two** roles. They are separate, and both are first-class in the GitHub review ledger.
+
+1. **Chat Claude (reviewer, read-only).** Same role as in the four-model repo prompt rounds (Kimi, DeepSeek, Claude, Grok). Reviews design and code; does not run the solver, does not edit files, does not commit. Findings are scored in the ledger the same way as Kimi and DeepSeek (labelled issues plus the append-only JSONL log).
+2. **Claude Code CLI (executor).** Installed and configured on the bot's computer (box), authenticated via `ANTHROPIC_API_KEY` stored at `~/.config/claude-code-env/anthropic.env` (outside the repo; never committed). It may run the solver, run tests, and file local commits. **All of its output is gated behind the caller's review before anything is pushed.** Push remains caller-only.
+
+Both roles are scored as first-class ledger entries, on the same footing as Kimi and DeepSeek findings. The key path above is a machine location note only; the secret itself is not recorded here.
