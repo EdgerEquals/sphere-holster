@@ -42,3 +42,7 @@ Decided by Danny on 2026-10-19 (round 3); see `DESIGN_STATE.md`, "Locked holster
 - Never use °C in calculations, the solver, data files or `DESIGN_STATE.md`: Kelvin is canonical. °C is GUI-only, shown next to K; GUI ambient is a linked K/°C pair.
 - Never add Perplexity (not in use for now). Qwen is not connected yet: do not wire it without Danny's go-ahead.
 - Never let a reviewer edit `.github/workflows/` or merge to main.
+- Never add electrode geometry, formulas, presets or code: the drive stays "no drive mechanism defined" (fail closed) until Danny defines one.
+- Never make knee frequency an external dial (it is emergent, self-oscillating); never lump switching frequency, heat-transfer speed and heat-removal rate (plus thermal mass) into one time constant. See `DESIGN_STATE.md`, "Intended model behaviour (2026-10-19)".
+- Never let a design cross autoignition without the cooling cascade (driven over the knee; too hot ignites; cascading cooling prevents ignition).
+- Architecture: 7 energy domains (optical, acoustic, electric, magnetic, thermal, chemical, information) + 12 knees, each with its own holster = 19 holsters. Say "energy domains", never "power domains".

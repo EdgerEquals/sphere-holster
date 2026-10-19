@@ -62,7 +62,7 @@ Every tool working on this project reads this file first, never reintroduces a r
 5. Which phosphor. (The electrode-placement / Ti/Pt light-blocking question is closed: electrodes are retired, 2026-10-19.)
 6. Which layer 5 option.
 7. The HHO fill amount.
-8. **How the gas is driven with no electrodes.** Open for Danny. The old "central electrode or external field" choice is superseded because electrodes are retired. Note: `drive_model.js` still models a DBD across a central-electrode gap, so its Paschen/breakdown numbers and the 10.71–98.95 Torr window (600 V) rest on a gap that does not exist.
+8. **How the gas is driven with no electrodes.** Open for Danny. The old "central electrode or external field" choice is superseded because electrodes are retired. Since 2026-10-19 the code has **no drive mechanism defined**: `drive_model.js` and `solver_v0.py` carry a fail-closed stub (zero deposited energy, zero discharge, zero electric/magnetic field and loss). The old DBD gap, Paschen V_b and the 10.71–98.95 Torr window were removed with the electrodes. Do not invent a drive to fill the stub.
 
 ## Retired (never reintroduce)
 - Oil bath
@@ -74,14 +74,14 @@ Every tool working on this project reads this file first, never reintroduces a r
 - Cold-regime work
 - `Backwards_Derived_Spec_from_Ionisation`: its numbers and layer roles
 - Grok's radial diamond spokes
-- Electrodes of any kind (2026-10-19): Ti/Pt film, ITO/transparent-electrode case, central 50 µm wire / DBD centre electrode. There are no electrodes in the design.
+- Electrodes of any kind (retired 2026-10-19): Ti/Pt film, ITO/transparent-electrode case, central 50 µm wire / DBD centre electrode. There are no electrodes in the design.
 
 ---
 
 ## Information layer (harness architecture)
 Full spec: the Drive doc "Stratified Sphere — Information Layer (Harness Architecture) 2026-10-19".
 
-- **Harnesses:** 18 in total. There are 6 domain harnesses (optical, acoustic, electric, magnetic, thermal and chemical), which run in parallel on GitHub Actions and pass results to each other between rounds. There are also 12 knee harnesses.
+- **Holsters (Danny, 2026-10-19):** 19 in total, one per knee and one per energy domain: **12 knee holsters + 7 energy-domain holsters**. The seven energy domains are optical, acoustic, electric, magnetic, thermal, chemical and **information** (the information layer is a real domain). Each knee and each energy domain has its **own** holster; the holster is not a single shared component. Say "energy domains", not "power domains". (Superseded: "18 harnesses: 6 domain + 12 knee", and the same-day 6 + 12 = 18 holster note.) The domain holsters run in parallel on GitHub Actions and pass results to each other between rounds.
 - **Coordinator:** Cursor. It reads a granularity dial: shallow for scouting, deep for validating.
 - **Checks:**
   - The Claude API audits Cursor's merges every few rounds.
@@ -150,7 +150,7 @@ Source: `reviews/2026-10-19_round5/` (Claude and Grok replies to the open repo p
 
 ### Cut (rejected)
 - **All electrode items.** There are no electrodes in the design, period: no Ti/Pt film, no ITO/transparent-electrode case, no central 50 µm wire / DBD centre electrode. Added to Retired.
-- **Open consequence (not answered here):** `drive_model.js` is a DBD with a centre-electrode gap, so its Paschen/breakdown numbers and the 10.71–98.95 Torr window rest on a gap that does not exist. How the gas is driven without electrodes is an open question for Danny (Open item 8).
+- **Electrodes removed from the model entirely (Danny, 2026-10-19).** No formula, geometry, preset or code path references an electrode. `drive_model.js` lost the centre-electrode gap (r0, gap, Cd/Cg, share, V_amp), Paschen V_b, the ionisation window and the knee/clamp conduction; `solver_v0.py` lost the Ti/Pt layer, ALPHA_PT, sheet resistances, the BTO-on-Ti/Pt LC tank and the bare-shell discharge field. Both now return "no drive mechanism defined" (fail closed: zero energy, zero discharge-derived outputs). How the gas is driven is Open item 8.
 
 ### Keep (reviewer suggestion rejected)
 - **The Kelvin reference** (293 K outer reference temperatures) stays, because Danny uses it to select thermal active materials placement in the tone. Grok's suggestion to replace it with required-conductance output is rejected. Locked above.
@@ -161,3 +161,45 @@ Source: `reviews/2026-10-19_round5/` (Claude and Grok replies to the open repo p
 - Uncertainty bands.
 - l ≥ 1 and anisotropic quartz modes.
 - FEniCS / MEEP / OpenFOAM cases, held until folds 1–3 pass.
+
+## Intended model behaviour (2026-10-19)
+Design intent from Danny, recorded only. No drive mechanism or new physics is coded for it; the drive stays "no drive mechanism defined". Reviewers check model changes against this section.
+
+### The knee, ignition and cascading cooling
+Danny: *"The system is driven over the knee — that is what makes it go that way. If it gets too hot, it ignites. If it is cooling and cooling cascading, then it will never ignite. Modelling this ignition-vs-cooling behaviour is part of what we want to try."*
+
+- The **knee is the thermal trigger**: the system is driven over the knee.
+- **Ignition** (HHO autoignition, 773.15–858.15 K) is the failure mode when it gets too hot.
+- **Cascading cooling** is the mechanism that prevents ignition.
+- Reviewers flag any design or output that crosses autoignition without the cooling cascade. They must not propose electrode-based drives (electrodes are retired) to get there.
+
+### Knee frequency is emergent, not a dial
+Danny: the frequency and switching of the knee energy come from within the system itself. There is an input pump, but more layers must be built out before reaching it. The knee is **self-oscillating**; its frequency is an **emergent property of the layers**, not an externally set dial.
+
+- Reviewers flag any change that treats knee frequency as an external input or dial as contrary to intent.
+- The `drive_model.js` drive-frequency input `f` (and the former `V_amp`, removed with the electrodes) is **legacy scaffolding** relative to this intent. It stays for now (see deferred items below).
+- A frequency sweep to find which frequencies talk to each other is a **future** item; the model is not there yet.
+
+### Three thermal rates plus thermal mass, never lumped
+The model must treat these independently, never folded into one time constant:
+
+1. **Switching frequency:** how quickly or slowly the knee is switched.
+2. **Heat-transfer speed:** how fast heat moves through a material before it soaks or saturates.
+3. **Heat-removal rate:** how fast heat leaves the system, by whatever path (conduction, convection, radiation).
+
+**Thermal mass** (how much heat a material holds before it pushes back) is also required. Reviewers flag any lumping of these into one time constant, for example the single `tauLumped`.
+
+### Deferred / fold items from this intent
+- **Model ignition vs cascading cooling** (drive over the knee vs cascading cooling). Ties to Claude's periodic-steady-state temperature item (round-5 deferred: peak / cycle average / periodic steady state).
+- **Retire the external drive-frequency input** (`f` in `drive_model.js`, and `T = 1/f`, `ncyc`, `regime(p.f)`) once the layers exist for the knee to self-oscillate. Do not remove it before then.
+- **Frequency sweep** (which frequencies talk to each other): future, after the layers are built.
+- **Thermal rates: where the code is now, and what is missing** (as of 2026-10-19):
+
+| Quantity | Where it is now | What is missing |
+|---|---|---|
+| (a) Switching frequency | Only the external `p.f` in `drive_model.js` (cycle `T = 1/f`, `ncyc` steps). `solver_v0.py` has no switching (steady/transient P_circ scenarios). | Emergent self-oscillating knee switching. Today it is a dial, which is contrary to intent. |
+| (b) Heat-transfer speed | `drive_model.js`: `tau_g = a²/(π²α_g)` (gas conduction), `tau_w = (b−a)²/(π²α_q)` (quartz wall diffusion), gas-wall conductance `Ggw = Cv_g/tau_g`, 24-cell quartz conduction with k(T). `solver_v0.py`: 1-D finite-volume conduction through every layer, with k(T) for quartz and interface resistances. | No per-layer "time to soak/saturate" output. `drive_model.js` models quartz only (no other layers). `Ggw` ties gas transfer to gas heat capacity. |
+| (c) Heat-removal rate | `drive_model.js`: `Gout` = natural convection + radiation (`natconvH`, Churchill sphere + radiation) in series with outer-cell conduction, to ambient `Ta`. `solver_v0.py`: outer surface held at 293 K (the locked Kelvin reference, an ideal sink, not a removal rate). | No breakdown of removal by path (conduction / convection / radiation reported separately). No finite removal rate in the solver. |
+| Thermal mass | `drive_model.js`: `Cq` (ρ c_p V per quartz cell), `Cv_g` (gas). `solver_v0.py`: ρ c_p per material for every layer. | Not reported per layer as "heat held before pushing back". |
+| Lumping (flag) | `tauLumped = Ctot/hA0` in `drive_model.js` folds total thermal mass and removal into one time constant. It sets the run length (`tEnd`) and is listed as a "whole-bubble" thermal mode. | Replace with separate transfer / removal / mass quantities; keep `tauLumped` only as a labelled diagnostic, if at all. |
+

@@ -5,7 +5,7 @@
 | `dial.yml` | Granularity dial (`shallow` scouting / `deep` validating): models, `max_tokens` caps, diff caps, calls per review, audit interval |
 | `retired.txt` | Retired items + regexes; scanned on added diff lines before any API call (free) and given to every reviewer |
 | `prompts/_base.md` | Common reviewer rules + JSON verdict format |
-| `prompts/{optical,acoustic,electric,magnetic,thermal,chemical}.md` | Per-domain review focus |
+| `prompts/{optical,acoustic,electric,magnetic,thermal,chemical}.md` | Per-domain review focus. Architecture (Danny, 2026-10-19): 7 energy domains (these six + information) and 12 knees, each with its own holster = 19 holsters. **Gap:** there is no `prompts/information.md` and no `information` entry in `dial.yml` `domains:` yet; not built here. |
 | `prompts/coordinator-merge.md` | Always applied: checks Cursor's merge (the biggest single risk) |
 | `prompts/crosscheck.md` | Added in cross-check mode (reviewer gets the other's latest verdict) |
 | `prompts/_grok_source_check.md` | Grok's source-check role (web search, URLs per claim) |
@@ -47,7 +47,7 @@ reintroduced retired items. No physics sourcing (Grok) and no design audit (Clau
 
 ## Shared web-search slot (Tavily)
 
-One search slot for the whole holster: any model, Cursor or the bot can use it. Script `scripts/tavily_search.py`
+One search slot shared across all holsters (19: 12 knee + 7 energy-domain): any model, Cursor or the bot can use it. Script `scripts/tavily_search.py`
 (stdlib, `POST https://api.tavily.com/search`, Bearer auth), workflow `.github/workflows/tavily-search.yml`.
 
 - Search on its own: `gh workflow run tavily-search.yml -f query='<query>' [-f max_results=5] [-f search_depth=basic]`,

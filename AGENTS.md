@@ -19,7 +19,9 @@ Reviewers (Claude, Grok, Claude Code) read it too.
 | Tavily (web search) | **Shared web-search slot** for any model/Cursor. Rule: use it whenever a review/check needs current info or external sources. Kimi/DeepSeek search + filter first; Claude/Grok spend after. Grok reviews: 1 pre-search by default (xAI built-in search off) | `/tavily-search <query>` → `.github/workflows/tavily-search.yml` |
 | Perplexity | **Not used for now.** Do not add it. | — |
 
-Six domains: optical, acoustic, electric, magnetic, thermal, chemical. Plasma is the source that drives them, not a domain.
+Seven energy domains: optical, acoustic, electric, magnetic, thermal, chemical and information (the information layer is a real domain; Danny, 2026-10-19). Plasma is the source that drives them, not a domain. Say "energy domains", not "power domains".
+
+Holsters: 19 in total, one per knee and one per energy domain (12 knee holsters + 7 energy-domain holsters). Each has its own holster; the holster is not a single shared component.
 
 ## The loop
 
@@ -135,6 +137,10 @@ Reviewers FAIL any reintroduction. A deterministic scan (`harness/retired.txt`) 
 - **Kelvin canonical:** calculations, the solver, data files and `DESIGN_STATE.md` use K. °C appears only in the GUI, alongside K. Reviewers flag any °C in calculations/solver/data/spec and any GUI temperature without its °C pair.
 - **GUI ambient** is a linked K/°C pair: enter either, the other updates (K = °C + 273.15).
 - Round-5 decisions (fold / cut / keep / defer): `DESIGN_STATE.md`, "Danny's decisions on round-5 review (2026-10-19)".
+- **Electrodes are gone from the model**, not just the design: no formula, geometry, preset or code path may reference one. The drive is a fail-closed stub, "no drive mechanism defined". Any electrode reference (outside a labelled retirement note) is an ERROR.
+- **Intended model behaviour** (`DESIGN_STATE.md`, "Intended model behaviour (2026-10-19)"): the system is driven over the knee (the thermal trigger); too hot means it ignites; cascading cooling prevents ignition. Flag designs/outputs that cross autoignition without the cooling cascade; never propose an electrode-based drive.
+- **Knee frequency is emergent** (self-oscillating, from the layers), never an external dial. Flag any change that treats it as an input. `drive_model.js`'s `f` is legacy scaffolding (deferred).
+- **Three thermal rates + thermal mass, never lumped:** switching frequency, heat-transfer speed, heat-removal rate, plus thermal mass. Flag any single lumped time constant (e.g. `tauLumped`).
 
 ## Limits for every agent
 
