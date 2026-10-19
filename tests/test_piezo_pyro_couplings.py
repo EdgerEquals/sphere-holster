@@ -5,6 +5,7 @@ tourmaline sol-gel, point group 3m): both. Couplings report polarization / energ
 are no collecting conductors and no circuit. With no source (the circulating-power scenarios are removed and the drive is
 the no-drive stub) they are exactly zero."""
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -99,7 +100,11 @@ def test_no_source_run_gives_exactly_zero_couplings_in_solver_output():
         assert pz["P_grain_peak_C_m2"] == 0.0 and pz["U_e_layer_J"] == 0.0
         # thermal march now solves in theta = T - 293 K: the zero-heat state is exactly zero (the old ~1e-9 K drift is gone)
         assert py["dP_grain_C_m2"] == 0.0 and py["dPdt_grain_peak_A_m2"] == 0.0
-        assert pz["f_mode_Hz"] == pytest.approx(run["ac"]["f"], rel=1e-3)   # solver's own eigenmode, not an input dial
+        # every computed l=0 shell mode is carried (none selected), each at the solver's own eigenfrequency
+        assert pz["f_modes_Hz"] == pytest.approx(run["m_iso"], rel=1e-3) and pz["n_modes"] == len(run["m_iso"]) > 0
+        assert len(pz["modes"]) == len(run["m_iso"]) and "f_mode_Hz" not in pz
+        for m in pz["modes"]:
+            assert m["P_grain_peak_C_m2"] == 0.0 and m["U_e_layer_J"] == 0.0 and m["E_internal_open_peak_V_m"] == 0.0
 
 
 def test_model_data_routes_couplings_to_electric_and_thermal_domains():
@@ -136,20 +141,73 @@ def test_solver_layer2_peak_comes_from_its_own_samples():
     pre = next(p for p in S.PRESETS if p["id"] == "base5")
     st = S.build_stack(pre["core_d"], pre["wall"])
     iso = [x for x in st["layers"] if x[0] in ("quartz", "layer2", "bto", "gddy")]
-    f = S.run_case(pre, {})["ac"]["f"]   # the solver's own selection: lowest computed l=0 shell mode (fundamental)
-    ac = S.mode_energy_stats(f, iso, 1.0e-6)
+    fs = S.run_case(pre, {})["m_iso"]   # every computed l=0 shell mode (none selected)
+    assert len(fs) > 1
+    lay = {m: (a, b) for m, a, b in iso}
+    for f in fs:
+        ac = S.mode_energy_stats(f, iso, 1.0e-6)
+        for key in ("quartz", "layer2"):
+            own = max(s for r, m, s in ac["profile_m"] if m == key)
+            assert S.piezo_coupling(key, ac["profile_m"], *lay[key], 293.0, f)["sigma_peak_Pa"] == pytest.approx(own, rel=1e-12)
+            assert own > 0
+
+
+def test_every_computed_mode_is_carried_and_none_selected():
+    # mode-locking framing (DESIGN_STATE 2026-10-19): the lowest-mode selection is removed; every l=0 shell mode is carried
+    assert not hasattr(S, "lowest_shell_mode")
+    pre = next(p for p in S.PRESETS if p["id"] == "base5")
+    run = S.run_case(pre, {})
+    assert [m["f"] for m in run["ac"]["modes"]] == sorted(run["m_iso"]) and run["ac"]["f"] is None
+    assert [m["f"] for m in run["ac_bond"]["modes"]] == sorted(run["m_bond"])
+    for m in run["ac"]["modes"] + run["ac_bond"]["modes"]:   # each mode's own energy marched from 0: all zero with no source
+        assert m["W"] == 0.0 and m["peak_stress"] == 0.0 and sum(m["loss"].values()) == 0.0
+        assert m["tau_ac"] == pytest.approx(m["Q_eff"] / (math.pi * m["f"]))
+    st = S.package(pre, [run], {})["state"]
+    a = st["acoustic"]
+    assert a["n_modes"] == len(a["modes"]) == len(run["m_iso"]) and a["carried"] == f"all l=0 shell modes ({len(run['m_iso'])})"
+    assert "f_mode" not in a and a["bonded"]["n_modes"] == len(run["m_bond"]) == len(a["l0_bonded"])
+    v = next(x for x in st["vectors"] if x["domain"] == "acoustic")
+    assert v["f_start"] == S.r4(min(run["m_iso"])) and v["f_end"] == S.r4(max(run["m_iso"]))   # spans all modes
+
+
+def test_aggregates_are_sum_and_max_over_all_modes():
+    # synthetic per-mode energies (the no-source run has W = 0) to check the aggregate rules on non-zero numbers
+    pre = next(p for p in S.PRESETS if p["id"] == "base5")
+    st = S.build_stack(pre["core_d"], pre["wall"])
+    iso = [x for x in st["layers"] if x[0] in ("quartz", "layer2", "bto", "gddy")]
+    fs = S.run_case(pre, {})["m_iso"]
+    modes = S.all_modes_stats(fs, iso, 1.0e-6)
+    agg = S.sum_over_modes(modes, iso)
+    assert agg["f"] is None and agg["f_modes"] == sorted(fs)
+    assert agg["W"] == pytest.approx(len(fs) * 1.0e-6)
+    assert agg["peak_stress"] == max(m["peak_stress"] for m in modes)
+    assert agg["tau_ac"] == max(m["tau_ac"] for m in modes)
+    for k in agg["loss"]:
+        assert agg["loss"][k] == pytest.approx(sum(m["loss"].get(k, 0.0) for m in modes))
+    for k, row in enumerate(agg["profile_m"]):
+        assert row[2] == pytest.approx(sum(m["profile_m"][k][2] for m in modes))
+    assert agg["peak_stress_sum"] == pytest.approx(max(x[1] for x in agg["profile"])) and agg["peak_stress_sum"] >= agg["peak_stress"]
     lay = {m: (a, b) for m, a, b in iso}
     for key in ("quartz", "layer2"):
-        own = max(s for r, m, s in ac["profile_m"] if m == key)
-        assert S.piezo_coupling(key, ac["profile_m"], *lay[key], 293.0, f)["sigma_peak_Pa"] == pytest.approx(own, rel=1e-12)
-        assert own > 0
+        pz = S.piezo_over_modes(key, modes, *lay[key], 293.0)
+        per = [S.piezo_coupling(key, m["profile_m"], *lay[key], 293.0, m["f"]) for m in modes]
+        assert pz["n_modes"] == len(per) == len(pz["modes"]) and pz["f_modes_Hz"] == [m["f"] for m in modes]
+        assert pz["U_e_layer_J"] == pytest.approx(sum(x["U_e_layer_J"] for x in per)) and pz["U_e_layer_J"] > 0
+        for k in S.PIEZO_PEAK_KEYS:
+            assert pz[k] == max(x[k] for x in per)
 
 
-def test_mode_selection_is_the_lowest_computed_shell_mode_and_never_invented():
-    # 2 MHz selection target removed 2026-10-19: select the fundamental; with no computed mode, no frequency is invented
-    assert S.lowest_shell_mode([3.121e6, 0.694e6, 6.016e6]) == 0.694e6
-    assert S.lowest_shell_mode([]) is None
+def test_empty_mode_list_gives_no_modes_and_zeros():
     st = S.build_stack(2.0, 0.5)
+    assert S.all_modes_stats([], st["layers"], 0.0) == []
+    agg = S.sum_over_modes([], st["layers"])
+    assert agg["f"] is None and agg["f_modes"] == [] and agg["modes"] == [] and agg["tau_ac"] is None
+    assert agg["W"] == 0.0 and agg["peak_stress"] == 0.0 and agg["peak_stress_sum"] == 0.0 and agg["loss"] == {}
+    assert all(s == 0.0 for _, _, s in agg["profile_m"])
+    a, b = next((x[1], x[2]) for x in st["layers"] if x[0] == "quartz")
+    pz = S.piezo_over_modes("quartz", [], a, b, 293.0)
+    assert pz["n_modes"] == 0 and pz["f_modes_Hz"] == [] and pz["modes"] == []
+    assert pz["U_e_layer_J"] == 0.0 and all(pz[k] == 0.0 for k in S.PIEZO_PEAK_KEYS)
     nm = S.no_mode_stats(st["layers"], 0.0)
     assert nm["f"] is None and nm["peak_stress"] == 0.0 and nm["loss"] == {}
-    assert all(s == 0.0 for _, _, s in nm["profile_m"])
+

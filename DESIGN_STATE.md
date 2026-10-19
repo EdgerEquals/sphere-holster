@@ -426,3 +426,11 @@ Danny's framing (2026-10-19), following the 2 MHz removal note above. Not built.
 - **Golden-ratio tracking:** the path walked through the geometry space.
 - **In-phase round-trip score:** boundary reflections landing on real modes, knees crossed at the right thresholds, and the cascade holding together. This is what tells you when a good spot has been found.
 - **The sweep is a search, not a prediction.**
+
+## Note: solver now carries every mode (2026-10-19)
+The code now matches the framing above.
+
+- **Selection removed:** the single-mode selection (the lowest l=0 shell mode, from `4710eed`) is gone from `solver_v0.py`. The solver no longer picks a mode, for the isolated shell or the bonded stack.
+- **Every mode carried:** every computed l=0 shell mode, isolated and bonded, goes through the mode-energy calculation (its own mode shape, energy marched from 0, Q_eff, tau_ac, peak stress, loss and energy shares) and through the piezo coupling (each layer at each mode's own frequency). Per-mode results are in `acoustic.modes`, `acoustic.bonded.modes` and `electric.piezo.<layer>.modes`.
+- **Aggregates, not a selection:** where one number is needed, it is taken over all modes. Mode energy, loss and piezo layer energy are summed over all modes. The acoustic stress field, the piezo AC field and the core gas pressure are summed over all modes (in-phase superposition, an upper bound), and the quartz stress flag uses that sum. Peak stress, the piezo peaks (sigma, P, E, u_e) and tau_ac are the maximum over all modes. Q_eff and energy shares stay per mode, because combining them would need a weighting the model does not have.
+- **No source:** every mode's energy is still marched from 0 with no drive, so every field and mode energy is exactly zero and the stack stays at exactly 293 K. If no mode is computed, the lists are empty and no frequency is invented.

@@ -564,10 +564,59 @@ def mode_energy_stats(f, layers, W_mode):
     prof_m = [(x[0], x[1], scale * max(abs(x[3]), abs(x[4]))) for x in rows]   # (r, material, |sigma|): per-layer lookups
     return dict(f=f, W=W_mode, peak_stress=smax, Q_eff=1 / invQ, share=share, loss=loss, profile=prof, profile_m=prof_m)
 
-def lowest_shell_mode(modes):
-    """Selected acoustic mode: the lowest computed l=0 shell mode (fundamental). None if the solver found none;
-    no frequency is invented (the former 2 MHz selection target was removed 2026-10-19)."""
-    return min(modes) if modes else None
+def mode_tau(st):
+    """Energy ring-down time constant of one mode, tau = Q_eff / (pi f) [s]; None without a frequency."""
+    return st["Q_eff"] / (math.pi * st["f"]) if st.get("f") and st.get("Q_eff") else None
+
+def all_modes_stats(freqs, layers, W_mode):
+    """Every computed l=0 shell mode carried (2026-10-19, mode-locking framing): no mode is selected. Each mode gets its
+    own mode_energy_stats with its own marched mode energy W_mode (0 with no source), plus its own tau_ac. Empty list ->
+    empty list (no frequency is invented)."""
+    out = []
+    for f in sorted(freqs):
+        st = mode_energy_stats(f, layers, W_mode)
+        st["tau_ac"] = mode_tau(st)
+        out.append(st)
+    return out
+
+def sum_over_modes(modes, layers):
+    """Aggregate over ALL carried modes, never a selection. Sum over all modes: mode energy W, loss per layer
+    (powers add for orthogonal modes) and the radial |sigma| / |u| profiles (in-phase superposition, an upper
+    bound). Max over all modes: peak_stress and tau_ac (slowest ring-down). Per-mode Q_eff and energy shares stay
+    per mode (no weighting is invented). With no mode: zero stress, no loss, f = None."""
+    if not modes:
+        z = no_mode_stats(layers, 0.0)
+        z.update(modes=[], f_modes=[], tau_ac=None, peak_stress_sum=0.0)
+        return z
+    n = len(modes[0]["profile"])
+    prof = [(modes[0]["profile"][k][0], sum(m["profile"][k][1] for m in modes), sum(abs(m["profile"][k][2]) for m in modes)) for k in range(n)]
+    prof_m = [(modes[0]["profile_m"][k][0], modes[0]["profile_m"][k][1], sum(m["profile_m"][k][2] for m in modes)) for k in range(n)]
+    loss = {}
+    for m in modes:
+        for k_, v_ in m["loss"].items(): loss[k_] = loss.get(k_, 0.0) + v_
+    taus = [m["tau_ac"] for m in modes if m["tau_ac"] is not None]
+    return dict(f=None, f_modes=[m["f"] for m in modes], modes=modes, W=sum(m["W"] for m in modes),
+                peak_stress=max(m["peak_stress"] for m in modes), peak_stress_sum=max(x[1] for x in prof),
+                Q_eff=None, share={}, loss=loss, tau_ac=(max(taus) if taus else None), profile=prof, profile_m=prof_m)
+
+PIEZO_PEAK_KEYS = ("sigma_peak_Pa", "P_grain_peak_C_m2", "P_layer_net_upper_C_m2", "E_internal_open_peak_V_m", "u_e_peak_J_m3")
+PIEZO_SUM_KEYS = ("U_e_layer_J",)
+
+def piezo_over_modes(key, modes, a, b, T_mean):
+    """piezo_coupling for EVERY carried mode (each at its own eigenfrequency and its own stress profile), plus the
+    aggregate over all modes: U_e_layer_J = sum over all modes; peak quantities (sigma, P, E, u_e) = max over all
+    modes. No mode is selected; with no mode the aggregate is zero and f_modes_Hz is empty."""
+    per = [piezo_coupling(key, m["profile_m"], a, b, T_mean, m["f"]) for m in modes]
+    agg = dict(per[0]) if per else piezo_coupling(key, [], a, b, T_mean, None)
+    agg.pop("f_mode_Hz", None)
+    for k_ in PIEZO_PEAK_KEYS:
+        agg[k_] = max(x[k_] for x in per) if per else 0.0
+    for k_ in PIEZO_SUM_KEYS:
+        agg[k_] = sum(x[k_] for x in per) if per else 0.0
+    agg.update(n_modes=len(per), f_modes_Hz=[x["f_mode_Hz"] for x in per],
+               aggregate="all l=0 shell modes (%d): U_e_layer_J = sum over all modes; sigma/P/E/u_e peaks = max over all modes" % len(per),
+               modes=[{k_: x[k_] for k_ in ("f_mode_Hz",) + PIEZO_PEAK_KEYS + PIEZO_SUM_KEYS} for x in per])
+    return agg
 
 def no_mode_stats(layers, W_mode):
     """Stand-in when no l=0 shell mode was computed: no frequency (f = None), zero stress everywhere, no loss."""
@@ -745,13 +794,14 @@ def run_case(pre, ref):
         return shell, [f for f in loaded if f not in shell]
     m_iso_all = l0_modes(iso); m_bond_all = l0_modes(lay)
     m_iso, gas_iso = split(m_iso_all, vac_modes(iso)); m_bond, _ = split(m_bond_all, vac_modes(lay))
-    # selection = lowest computed l=0 shell mode (fundamental), geometry only; all computed modes are still reported.
-    # The former 2 MHz selection target was removed 2026-10-19 (unverified artifact, see DESIGN_STATE).
-    f_ac = lowest_shell_mode(m_iso); f_bond = lowest_shell_mode(m_bond)
-    # acoustic mode energy marched from 0: dW/dt = -(w/Q_eff) W + P_src, P_src = 0 (no drive) -> W = 0 at all times
-    W_ac = 0.0
-    ac = mode_energy_stats(f_ac, iso, W_ac) if f_ac is not None else no_mode_stats(iso, W_ac)
-    ac_bond = mode_energy_stats(f_bond, lay, W_ac) if f_bond is not None else None
+    # No mode is selected (2026-10-19, mode-locking framing; the lowest-mode selection of 4710eed and the earlier 2 MHz
+    # target are removed). Every computed l=0 shell mode, isolated and bonded, is carried through the mode-energy
+    # calculation; aggregates are sums / maxima over all modes (sum_over_modes), never a pick.
+    # acoustic mode energy marched from 0 for EACH mode: dW_n/dt = -(w_n/Q_n) W_n + P_src,n, P_src,n = 0 (no drive) -> W_n = 0
+    W_ac = 0.0   # every mode's own marched energy (identical: all zero with no source)
+    ac_modes = all_modes_stats(m_iso, iso, W_ac); ac_bond_modes = all_modes_stats(m_bond, lay, W_ac)
+    ac = sum_over_modes(ac_modes, iso)
+    ac_bond = sum_over_modes(ac_bond_modes, lay) if ac_bond_modes else None
     # static fill-pressure stress in the quartz (Lame thick sphere, inner wall hoop) [calc]
     p = pre["p_atm"] * 101325.0; a, b = st["r_in"], st["r_q"]
     s_fill = p * (b ** 3 + 2 * a ** 3) / (2 * (b ** 3 - a ** 3))
@@ -861,6 +911,16 @@ def r4(x, n=4):
     if x == 0 or not math.isfinite(x): return 0.0 if x == 0 else None
     return float(f"{x:.{n}g}")
 
+MODE_AGGREGATES = dict(W_mJ="sum over all modes", loss_W="sum over all modes (per layer, then total)",
+                       peak_stress_MPa="max over all modes", peak_stress_sum_MPa="max of the stress profile summed over all modes (in-phase superposition, upper bound; used in the quartz stress flag)",
+                       tau_ac_max_s="max over all modes (slowest ring-down)", field="state.fields.acoustic = |sigma| summed over all modes (in-phase upper bound)",
+                       Q_eff_share="per mode only (no weighting is invented)")
+
+def modes_json(modes):
+    """Per-mode output, one entry per carried l=0 shell mode."""
+    return [dict(f=r4(m["f"]), Q_eff=r4(m["Q_eff"]), tau_ac_s=r4(m["tau_ac"]), W_mJ=r4(m["W"] * 1e3), peak_stress_MPa=r4(m["peak_stress"] / 1e6),
+                 loss_W=r4(sum(m["loss"].values())), share={k: r4(v) for k, v in m["share"].items()}) for m in modes]
+
 def package(pre, runs, ref):
     st = runs[0]["stack"]; table = display_map(st)
     cells, mats = runs[0]["cells"], runs[0]["mats"]
@@ -893,7 +953,7 @@ def package(pre, runs, ref):
         th = run["th"]
         # ---- piezo (-> electric holster) and pyro (-> thermal holster) couplings, quartz + layer2 ----
         lay_ab = {m: (a, b) for m, a, b in run["stack"]["layers"]}
-        prow = ac["profile_m"]   # (r, material, |sigma|): each layer reads only its own samples
+        # every carried mode's own (r, material, |sigma|) profile; each layer reads only its own samples
         piezo_out, pyro_out = {}, {}
         for key in ("quartz", "layer2", "bto"):
             if key not in lay_ab:
@@ -901,7 +961,9 @@ def package(pre, runs, ref):
             ii = [i for i, m in enumerate(mats) if m == key]
             Tm_ss = float(np.mean(run["Tss"][ii]))
             if PIEZO[key].get("d") is not None:
-                piezo_out[key] = {k_: r4(v_) for k_, v_ in piezo_coupling(key, prow, *lay_ab[key], Tm_ss, ac["f"]).items()}
+                pz_ = piezo_over_modes(key, ac["modes"], *lay_ab[key], Tm_ss)
+                pz_["modes"] = [{k_: r4(v_) for k_, v_ in x.items()} for x in pz_["modes"]]
+                piezo_out[key] = {k_: (v_ if k_ == "modes" else r4(v_)) for k_, v_ in pz_.items()}
             Tfr = [float(np.mean(fr[ii])) for fr in run["frames"]]
             pyro_out[key] = {k_: r4(v_) for k_, v_ in pyro_coupling(key, run["times"], Tfr, Tm_ss).items()}
         # fields on viewer grid (core gets zeros except optical source / temperature of wall)
@@ -911,17 +973,22 @@ def package(pre, runs, ref):
         Itot = np.zeros(len(cells))
         for lam, pr in run["oprof"].items():
             for i, (_, I) in enumerate(pr): Itot[i] += I
-        acp = {round(r, 12): s for r, s, u in ac["profile"]}
-        ac_r = np.array(sorted(acp)); ac_s = np.array([acp[k] for k in ac_r])
-        stress = [float(np.interp(r, ac_r, ac_s)) if ac_r[0] <= r <= ac_r[-1] else 0.0 for r in rc]
+        def on_cells(profile):   # one mode's |sigma| profile interpolated onto the cell centres
+            acp = {round(r, 12): s for r, s, u in profile}
+            ac_r = np.array(sorted(acp)); ac_s = np.array([acp[k] for k in ac_r])
+            return [float(np.interp(r, ac_r, ac_s)) if ac_r[0] <= r <= ac_r[-1] else 0.0 for r in rc]
+        stress_modes = [on_cells(m["profile"]) for m in ac["modes"]]
+        stress = [sum(x) for x in zip(*stress_modes)] if stress_modes else [0.0] * len(rc)   # sum over all modes
         bare = run["stack"]["bare"]
         if bare:
             pass
         Efield = [float(x) for x in run["E_ss"]]   # marched radial field (steady end of the march), V/m
         Bf = [0.0 for r in rc]   # radial E / radial currents have no curl in spherical symmetry: B = 0 [calc]
-        # piezo AC field amplitude at the mode frequency (phasor of the same march equation), per cell, own layer only
-        E_ac = [piezo_E_ac(m, float(np.interp(r, ac_r, ac_s)) if ac_r[0] <= r <= ac_r[-1] else 0.0, float(run["Tss"][i]), ac["f"])
-                if m in ("quartz", "layer2") else 0.0 for i, (r, m) in enumerate(zip(rc, mats))]
+        # piezo AC field amplitude per mode at that mode's own frequency (phasor of the same march equation), per cell,
+        # own layer only; the field carried on the grid is the sum over all modes (in-phase superposition, upper bound)
+        E_ac_modes = [[piezo_E_ac(m, sm[i], float(run["Tss"][i]), md["f"]) if m in ("quartz", "layer2") else 0.0
+                       for i, m in enumerate(mats)] for md, sm in zip(ac["modes"], stress_modes)]
+        E_ac = [sum(x) for x in zip(*E_ac_modes)] if E_ac_modes else [0.0] * len(rc)
         el_layers = {}
         for key in dict.fromkeys(mats):
             ii = [i for i, m in enumerate(mats) if m == key]
@@ -932,18 +999,20 @@ def package(pre, runs, ref):
         # ---- REAL core fields (previously the core got zeros -> black disc) ----
         gh = run["gas_hot"]; a_in = run["stack"]["r_in"]; ch = run["chem"]
         core_T = gas_T_profile(float(Tss[0]), gh["P_cond"], a_in, r_core)
-        u_a = abs(ac["profile"][0][2]); w_ac = 2 * math.pi * ac["f"] if ac["f"] else 0.0
-        rho_g = gh["p_seal"] * 0.012011 / (8.314 * T_REF); k_g = w_ac / gh["c_hot"]
+        rho_g = gh["p_seal"] * 0.012011 / (8.314 * T_REF)
         def j0_(x): return 1.0 if x == 0 else math.sin(x) / x
         def j1_(x): return 0.0 if x == 0 else math.sin(x) / x ** 2 - math.cos(x) / x
-        jw = j1_(k_g * a_in)
-        core_p = [abs(u_a * rho_g * w_ac ** 2 * j0_(k_g * r) / (k_g * jw)) if jw else 0.0 for r in r_core]   # gas pressure amplitude, p = A j0(kr)
+        def core_p_mode(md):   # gas pressure amplitude driven by one mode's inner-wall displacement, p = A j0(kr)
+            u_a = abs(md["profile"][0][2]); w_ac = 2 * math.pi * md["f"]; k_g = w_ac / gh["c_hot"]; jw = j1_(k_g * a_in)
+            return [abs(u_a * rho_g * w_ac ** 2 * j0_(k_g * r) / (k_g * jw)) if jw else 0.0 for r in r_core]
+        cpm = [core_p_mode(md) for md in ac["modes"]]
+        core_p = [sum(x) for x in zip(*cpm)] if cpm else [0.0] * len(r_core)   # sum over all modes
         core_I = [float(Itot[0]) * r / a_in for r in r_core]   # net radial flux of a uniform optically-thin emitter: F = P r/(4 pi a^3) [est]
         core_E = [0.0 for r in r_core]   # gas core: no free charge and no polar material -> D = 0 -> E = 0 [calc]
         core_B = [0.0 for r in r_core]
         wall_peak = max(stress) if stress else 0.0
         core_note = dict(
-            acoustic=f"HHO gas pressure in the core p = A j0(kr) (gas-loaded mode at {f"{ac['f']/1e6:.3f} MHz" if ac['f'] else "none (no l=0 shell mode computed)"}, c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
+            acoustic=f"HHO gas pressure in the core p = A j0(kr), summed over all l=0 shell modes ({len(ac['modes'])}{': ' + ', '.join(f'{x/1e6:.3f}' for x in ac['f_modes']) + ' MHz' if ac['modes'] else ', none computed'}; in-phase upper bound), c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
             thermal=f"steady gas T profile (uniform heating {gh['P_cond']:.3g} W conducted to the wall, k~T^0.75): centre {core_T[0]:.0f} K, wall {float(Tss[0]):.0f} K, volume mean {gh['T_gas']:.0f} K",
             optical="net radial flux of a uniformly emitting, optically thin plasma: F(r) = P r/(4 pi a^3), zero at the centre by symmetry [est emission profile]. Log colour scale.",
             electric=f"marched radial field E(r,t) from 0 (eps dE/dt + sigma E = -dP/dt, J_src = 0: {NO_DRIVE}); core E = 0 (no free charge, D = 0); max |E| in the stack {max(abs(x) for x in Efield):.3g} V/m",
@@ -956,7 +1025,8 @@ def package(pre, runs, ref):
             n_ = MAT[m]["n"] or 1.0
             acc_o += (b - a) * n_ / C0; acc_a += (b - a) / MAT[m]["cL"]
             t_opt.append(acc_o); t_ac.append(acc_a)
-        tau_ac = ac["Q_eff"] / (math.pi * ac["f"]) if ac["f"] else None
+        tau_ac = ac["tau_ac"]   # max over all modes (slowest ring-down); per-mode values in acoustic.modes
+        f_lo = min(ac["f_modes"]) if ac["f_modes"] else None; f_hi = max(ac["f_modes"]) if ac["f_modes"] else None
         # vectors (start/termination radii and frequencies)
         lay = {m: (a, b) for m, a, b in run["stack"]["layers"]}
         f_opt = C0 / (486.1e-9)
@@ -971,7 +1041,7 @@ def package(pre, runs, ref):
             r_in_, r_q_ = run["stack"]["r_in"], run["stack"]["r_q"]
             vectors = [
                 dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / 656.3e-9, r_start=r_in_, r_end=r_q_, what="Balmer lines pass the bare quartz (~90 % per wall incl. ~4.6 % Fresnel per surface); they leave the sphere"),
-                dict(domain="acoustic", f_start=ac["f"], f_end=ac["f"], r_start=r_in_, r_end=r_q_, what="l=0 breathing mode of the bare shell, gas-loaded; reflects at the free outer surface"),
+                dict(domain="acoustic", f_start=f_lo, f_end=f_hi, r_start=r_in_, r_end=r_q_, what=f"all l=0 shell modes ({len(ac['modes'])}) of the bare shell, gas-loaded, spanned from lowest to highest; reflect at the free outer surface"),
                 dict(domain="thermal", f_start=thermal_track(run["stack"], r_in_ + 1e-6), f_end=thermal_track(run["stack"], R), r_start=r_in_, r_end=R,
                      what="1-D conduction through the wall to still air + radiation (natural convection, eps 0.9 est); no sink chosen"),
             ]
@@ -979,8 +1049,8 @@ def package(pre, runs, ref):
           vectors = [
             dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / 656.3e-9, r_start=run["stack"]["r_in"],
                  r_end=oinfo["term_r"] or R, what="Balmer 434/486/656 nm pass the quartz and layer two, cross the BTO film and are absorbed in the metallic Gd-Dy film [est]; inner phosphor removed pending further work (2026-10-19)"),
-            dict(domain="acoustic", f_start=ac["f"], f_end=ac["f"], r_start=run["stack"]["r_in"], r_end=lay["gddy"][1],
-                 r_end_bonded=ac_term_bond, what="lowest l=0 shell mode (fundamental); isolated shell reflects at the Gd-Dy free surface; if the ladder is bonded, 90 % of loss is reached at the marked radius"),
+            dict(domain="acoustic", f_start=f_lo, f_end=f_hi, r_start=run["stack"]["r_in"], r_end=lay["gddy"][1],
+                 r_end_bonded=ac_term_bond, what=f"all l=0 shell modes ({len(ac['modes'])}), spanned from lowest to highest; isolated shell reflects at the Gd-Dy free surface; if the ladder is bonded, 90 % of the loss summed over all bonded modes is reached at the marked radius"),
             dict(domain="thermal", f_start=thermal_track(run["stack"], run["stack"]["r_in"] + 1e-6), f_end=thermal_track(run["stack"], R),
                  r_start=run["stack"]["r_in"], r_end=R, what="heat diffuses to the 293 K reference surface (no sink chosen)"),
         ]
@@ -1007,7 +1077,7 @@ def package(pre, runs, ref):
         def fl(cond, txt):
             if cond: flags.append(txt)
         fl(Tq_in > 846, f"Quartz inner wall {Tq_in:.0f} K > 573 C alpha-beta")
-        fl(sig_th + ac["peak_stress"] + run["s_fill"] > 48e6, f"Quartz stress: thermal {sig_th/1e6:.0f} + acoustic {ac['peak_stress']/1e6:.0f} + fill {run['s_fill']/1e6:.2f} MPa > 48 MPa design")
+        fl(sig_th + ac["peak_stress_sum"] + run["s_fill"] > 48e6, f"Quartz stress: thermal {sig_th/1e6:.0f} + acoustic (all modes superposed) {ac['peak_stress_sum']/1e6:.0f} + fill {run['s_fill']/1e6:.2f} MPa > 48 MPa design")
         fl(not bare and Tbto > T_CURIE, f"BTO {Tbto:.0f} K > Curie ~393 K (piezo off)")
         fl(not bare and Tcal > 473, f"CALORIVAC max {Tcal:.0f} K > 200 C (H loss)")
         fl(not bare and Tgd > 260, f"Gd-Dy {Tgd:.0f} K above its ~260 K Tc (MCE knee missed)")
@@ -1032,20 +1102,25 @@ def package(pre, runs, ref):
                           entropy_ec_J_K={k: r4(v) for k, v in run["s_ec"].items()},
                           entropy_note="electrocaloric entropy change ds = p_net dE (Maxwell relation), integrated over the march and each polar layer's volume; owned by the chemical holster (DESIGN_STATE electrocaloric item)",
                           sources="D0(H2) 4.478 eV, D0(O2) 5.116 eV [lit NIST CCCBDB]; dHf H2O(g) -241.826 kJ/mol [lit NIST WebBook]; eta_diss 0.2, chain 1, wall share 0.5, D_H [PLACEHOLDERS]; branching H+O2->OH+O drives autoignition [lit, standard H2-O2 mechanism, e.g. Glassman, Combustion]"),
-            units=dict(optical="W/m2", acoustic="Pa (peak, l=0 mode)", electric="V/m (marched radial field, steady end of the march)", magnetic="T", thermal="K (steady)", chemical="W/m3 (dissociation power density in gas; surface recombination in the first quartz cell)"),
+            units=dict(optical="W/m2", acoustic="Pa (peak, sum over all l=0 shell modes)", electric="V/m (marched radial field, steady end of the march)", magnetic="T", thermal="K (steady)", chemical="W/m3 (dissociation power density in gas; surface recombination in the first quartz cell)"),
             thermal_frames=dict(t=r4(list(run["times"]), 3), T=[r4(gas_T_profile(float(frames[k][0]), gh["P_cond"] if k > 0 else 0.0, a_in, r_core) + list(frames[k]), 4) for k in sel_frames]),
             t_opt=r4([0.0] * len(r_core) + t_opt, 3), t_ac=r4([0.0] * len(r_core) + t_ac, 3), tau_ac=r4(tau_ac), tau_e=None,
             vectors=vectors, thermal_track=thermal_tr,
-            acoustic=dict(f_mode=r4(ac["f"]), l0_isolated=r4(run["m_iso"]), l0_bonded=r4(run["m_bond"][:25]), gas_cavity_modes=r4(run["gas_modes"][:8]), W_mJ=r4(ac["W"] * 1e3),
-                          peak_stress_MPa=r4(ac["peak_stress"] / 1e6), Q_eff=r4(ac["Q_eff"]), loss_W=r4(sum(ac["loss"].values())),
-                          share={k: r4(v) for k, v in ac["share"].items()},
-                          bonded=dict(f=r4(run["ac_bond"]["f"]), Q_eff=r4(run["ac_bond"]["Q_eff"]), peak_stress_MPa=r4(run["ac_bond"]["peak_stress"] / 1e6),
-                                      loss_W=r4(sum(run["ac_bond"]["loss"].values()))) if run["ac_bond"] else None,
+            acoustic=dict(carried=f"all l=0 shell modes ({len(ac['modes'])})", n_modes=len(ac["modes"]), f_modes=r4(ac["f_modes"]),
+                          l0_isolated=r4(run["m_iso"]), l0_bonded=r4(run["m_bond"]), gas_cavity_modes=r4(run["gas_modes"][:8]),
+                          modes=modes_json(ac["modes"]),
+                          W_mJ=r4(ac["W"] * 1e3), peak_stress_MPa=r4(ac["peak_stress"] / 1e6), peak_stress_sum_MPa=r4(ac["peak_stress_sum"] / 1e6),
+                          loss_W=r4(sum(ac["loss"].values())), tau_ac_max_s=r4(ac["tau_ac"]),
+                          aggregates=MODE_AGGREGATES,
+                          bonded=dict(carried=f"all l=0 shell modes ({len(run['ac_bond']['modes'])})", n_modes=len(run["ac_bond"]["modes"]),
+                                      modes=modes_json(run["ac_bond"]["modes"]), W_mJ=r4(run["ac_bond"]["W"] * 1e3),
+                                      peak_stress_MPa=r4(run["ac_bond"]["peak_stress"] / 1e6), peak_stress_sum_MPa=r4(run["ac_bond"]["peak_stress_sum"] / 1e6),
+                                      loss_W=r4(sum(run["ac_bond"]["loss"].values())), tau_ac_max_s=r4(run["ac_bond"]["tau_ac"])) if run["ac_bond"] else None,
                           fill_stress_MPa=r4(run["s_fill"] / 1e6)),
             electric=dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, piezo_on=em["piezo_on"], piezo=piezo_out,
-                          piezo_note="acoustic -> electric coupling at the solver's own l=0 eigenmode with the marched mode energy (0: no source); polarization and energy density inside the layer only (no collecting conductors, no circuit)",
+                          piezo_note="acoustic -> electric coupling for every l=0 shell mode at its own eigenfrequency with its own marched mode energy (0: no source); per-mode values in each layer's 'modes'; aggregate: U_e summed over all modes, peaks max over all modes; polarization and energy density inside the layer only (no collecting conductors, no circuit)",
                           march=dict(equation="eps dE/dt + sigma E = -dP/dt - J_src; J_src = 0 (no-drive stub); E(0) = 0; implicit Euler on the thermal time grid",
-                                     sources="P = pyroelectric polarization (layer two, BTO; aligned upper bound eta = %g); piezo enters as the phasor at the mode frequency; electrocaloric heat -> thermal, entropy -> chemical" % ETA_ALIGN,
+                                     sources="P = pyroelectric polarization (layer two, BTO; aligned upper bound eta = %g); piezo enters as the phasor at each mode's own frequency, summed over all l=0 shell modes; electrocaloric heat -> thermal, entropy -> chemical" % ETA_ALIGN,
                                      layers=el_layers, E_max_V_m=r4(max(abs(x) for x in Efield)), E_piezo_ac_max_V_m=r4(max(abs(x) for x in E_ac)),
                                      ec_heat_J={k: r4(v) for k, v in run["q_ec_J"].items()})),
             magnetic=dict(none=True, note=NO_DRIVE),
@@ -1157,14 +1232,14 @@ def main():
         run = run_case(pre, ref)   # one no-source run (no power levels)
         c = package(pre, [run], ref); find_crossings(c); cases.append(c)
         S_ = c["state"]
-        log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in S_['acoustic']['l0_isolated'][:4]]} MHz | lowest l=0 shell mode {f"{S_['acoustic']['f_mode']/1e6:.3f} MHz" if S_['acoustic']['f_mode'] else "none"} "
-                   f"W {S_['acoustic']['W_mJ']} mJ stress {S_['acoustic']['peak_stress_MPa']} MPa Qeff {S_['acoustic']['Q_eff']} | E max {S_['electric']['march']['E_max_V_m']} V/m "
+        log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in S_['acoustic']['l0_isolated'][:4]]} MHz | all l=0 shell modes ({S_['acoustic']['n_modes']}; bonded {S_['acoustic']['bonded']['n_modes'] if S_['acoustic']['bonded'] else 0}) "
+                   f"W sum {S_['acoustic']['W_mJ']} mJ stress max {S_['acoustic']['peak_stress_MPa']} MPa Qeff {[m['Q_eff'] for m in S_['acoustic']['modes'][:4]]} | E max {S_['electric']['march']['E_max_V_m']} V/m "
                    f"| T_gas {S_['gas']['T_gas_K']} K p {S_['gas']['p_hot_Pa']} Pa | T_qz_in {S_['thermal']['T_quartz_in']} K total heat {S_['thermal']['total_heat_W']} W | crossings {len(S_['crossings'])}")
         print(log[-1], flush=True)
     data = dict(meta=dict(title="Stratified bubble sphere - multi-domain radial model v0", date="2026-10-19",
                           status="v0 PROTOTYPE - ESTIMATED PHYSICS - not validated - paper model, nothing measured",
                           scenario="No source (2026-10-19): the circulating-power scenarios and power levels are removed; nothing is injected. "
-                                   "Electric field marched from 0 (J_src = 0: " + NO_DRIVE + "); acoustic mode energy marched from 0 at the lowest l=0 isolated-shell mode (fundamental); "
+                                   "Electric field marched from 0 (J_src = 0: " + NO_DRIVE + "); acoustic mode energy marched from 0 for every computed l=0 shell mode (all modes carried, none selected; aggregates are sums / maxima over all modes); "
                                    "couplings (piezo, pyro, electrocaloric) run on whatever the fields carry; outer surface held at 293 K (reference only, no sink chosen).",
                           phi=PHI, materials=MAT, ref_file="shell_phi_sweep_calc_output.txt (read-only)" if ref else None),
                 cases=cases)
