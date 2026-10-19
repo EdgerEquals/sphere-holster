@@ -383,7 +383,9 @@ class ElectricMarch:
         return Eo, En
 
 # ----------------------------------------------------------------------------------------------
-def build_stack(core_d_mm, wall_mm, bare=False):
+def build_stack(core_d_mm, wall_mm, bare=False, t_l2=5 * UM):
+    """t_l2: layer-two (tourbillon) thickness [m]; default 5 um (base). Only the opt-in geometry sweep
+    (geometry_sweep_v0.py) passes another value; every default run uses 5 um."""
     r_in = core_d_mm / 2 * MM
     r_q = r_in + wall_mm * MM
     L = []
@@ -393,7 +395,7 @@ def build_stack(core_d_mm, wall_mm, bare=False):
     def add(key, t):
         r0 = L[-1][2] if L else r_in
         L.append((key, r0, r0 + t))
-    add("quartz", wall_mm * MM); add("layer2", 5 * UM); add("bto", BTO_T)   # inner phosphor removed pending further work (2026-10-19)
+    add("quartz", wall_mm * MM); add("layer2", t_l2); add("bto", BTO_T)   # inner phosphor removed pending further work (2026-10-19)
     r_B = L[-1][2]                       # first phi step starts at the BTO outer boundary [Danny rule, rec BTO report]
     add("gddy", 3 * UM)
     r1, r2 = r_B * PHI, r_B * PHI ** 2   # phi-stepped thick zones [v0 layout assumption]
