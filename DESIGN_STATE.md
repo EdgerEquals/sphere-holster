@@ -446,3 +446,33 @@ Danny's request (2026-10-19), following the geometry note and the mode-locking f
 - **Golden ratio:** a secondary, non-scoring column. It gives the adjacent ratios of the sharp-lock frequencies against 1.618 (the tracking scale, not a rule).
 - **Top geometries (score):** #1 bubble 3.087 mm, wall 1.938 mm, tourbillon 8.59 µm (OD 10.05 mm), score 215 (154 mode + 61 reflection locks, 22 sharp, 174 distinct modes). #2 bubble 3.087 mm, wall 2.058 mm, tourbillon 9.69 µm, score 215 (24 sharp). The whole top 10 sits at the 3.087 mm bubble with a wall of 1.94–2.06 mm, scoring 210–215. **base5 ranks 391 of 751**, with score 68 (40 mode + 28 reflection locks, 14 sharp).
 - **Trend:** the score follows the number of modes in the window (correlation 0.98). That means it rises with bubble radius (0.95) and wall thickness (0.64), and hardly depends on tourbillon thickness (0.04). Almost every lock is a gas-cavity mode or round trip landing on a broad bonded-stack mode (Q_eff ~ 20–300). The quartz layer takes part only through 60 B–Q and 188 reflection–Q locks across the whole sweep, and the tourbillon only through 24 reflection–T locks. No Q–T lock occurs anywhere. Under the current scoring, the best spot is the edge of the box: the score is driven by mode density, not by a sharp alignment.
+
+## Future item: transient solver (pulse in, layer-by-layer response out) (2026-10-19)
+Danny's intent (2026-10-19), recorded only; nothing is coded. Today's solver is steady-state: the thermal march converges to a wall temperature, `GAS = {p, T}` is set once (and reset to 293 K after the hot-gas pass), and modes are computed from that frozen picture. The transient mode follows the coupled physics instead. Once a geometry locks and a threshold triggers, even a single pulse puts energy into every domain at once, and each layer's transient response is what the model measures and feeds back on. Every parameter references and modulates the others.
+
+1. **Purpose:** a time-domain run. The pulse is the input; the layer-by-layer transient response is the output.
+2. **State variables evolved each step:**
+   - live gas pressure and temperature, plus the density and sound speed derived from them;
+   - mode frequencies and amplitudes per cavity (bubble, quartz, tourmaline alloy layer, bonded stack);
+   - lock state;
+   - the thermal field across every layer;
+   - piezo and BTO state (polarisation, strain, permittivity ε(T), Curie side).
+3. **Coupling terms:**
+   - gas heating from the pulse and from chemistry (2H₂+O₂ heat release);
+   - thermal conduction between layers;
+   - acoustic coupling between cavities through the wall;
+   - piezo response to strain;
+   - optical absorption feeding back into heating.
+   - **Gas Q at the live state:** the derived gas Q, `gas_Q(f, a, p, T, comp)`, is evaluated at the live gas state each step, never at the 293 K default. The same goes for each mode's linewidth in the lock check.
+4. **Pulse input:** a single electromagnetic pulse, entering as a source term through the piezo/BTO layer. There are no electrodes. This defines the source only for the transient run; the no-source run and the zero-run acceptance rule stay as they are (no pulse gives exactly 0 and 293 K).
+5. **Per-step log:**
+   - per-layer temperature;
+   - gas pressure;
+   - mode frequencies per cavity;
+   - lock state;
+   - energy per energy domain.
+6. **Open questions:**
+   - **Time step and stability:** the domains run from nanoseconds (electric) through microseconds (acoustic) to seconds (thermal), so the scheme needs splitting or adaptive steps.
+   - **Initial conditions:** whether to start from the steady-state solution.
+   - **The trigger:** how the threshold is detected, and what counts as a lock.
+   - **Known defect:** the averaged gas temperature in the current steady run reads 293.023 K with no heating. This is a quadrature artifact and must be fixed at its source before transient runs build on it.
