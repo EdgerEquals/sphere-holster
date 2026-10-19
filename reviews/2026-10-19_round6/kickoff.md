@@ -7,7 +7,9 @@
 
 **Round 6 scope:** threshold measure + value (first open question), sequencing recommendations, peer scoring into the ledger, two-gate rules. **No amplitude sweep in this round.**
 
-**Round 7 (not this kickoff):** the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core is kicked off **only after** the threshold is defined by the team and **approved by the human gate (Edger_Equals)**. See §2.
+**Round 7 (not this kickoff):** next milestone after round 6; **purpose TBD** (defined when round 7 is drafted). Sits between the threshold debate and the amplitude sweep.
+
+**Round 8 (not this kickoff):** the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core is kicked off **only after** the threshold is defined by the team and **approved by the human gate (Edger_Equals)**, and after round 7. See §2.
 
 Core geometry remains locked for later rounds (do not re-open here): bubble **0.57295 mm**, wall **1.43463 mm**, tourbillon **9.12441 µm**, fill **0.1044 × ambient** (HHO 2:1), window **1 Hz–50 MHz**.
 
@@ -50,21 +52,24 @@ When the caller says **"send it"** or **"launch round 6,"** the coordinator fire
 
 Prepend the round-6 scope override to the shared user text: **threshold / sequencing / peer scoring / gates first; no sweep this round.**
 
-**After fire:** write replies under `reviews/2026-10-19_round6/` as `kimi.md`, `deepseek.md`, `claude.md`, `grok.md` (plus any `ping.json` / raw sidecars in a local out dir). The coordinator **reports back when replies land**. Do not start round 7 / any sweep from this launch.
+**After fire:** write replies under `reviews/2026-10-19_round6/` as `kimi.md`, `deepseek.md`, `claude.md`, `grok.md` (plus any `ping.json` / raw sidecars in a local out dir). The coordinator **reports back when replies land**. Do not start round 7, the round-8 sweep, or any sweep from this launch.
 
 
 ---
 
-## 2. Round 7 note — 4 W amplitude sweep (deferred)
+## 2. Round 8 note — 4 W amplitude sweep (deferred)
 
 **Round 6 has no sweep work.** Do not run `drive_W=1` sweeps, single-point drive smokes for kickoff, or write `drive_4W_*.json` / `geometry_drive_4W_sweep_v0.json` as round-6 deliverables.
 
-The **4 W** (`drive_W=1`; 1 W × four domains) amplitude sweep on the rarefied core is **round 7**. It is kicked off **only after**:
+**Round 7** is the next milestone after round 6 (between threshold debate and the sweep). Its **purpose is TBD** — to be defined when round 7 is drafted. It is **not** the 4 W amplitude sweep.
 
-1. The team has proposed and peer-scored the automated-gate threshold (measure + value), and  
-2. The **human gate (Edger_Equals)** has **approved** that threshold.
+The **4 W** (`drive_W=1`; 1 W × four domains) amplitude sweep on the rarefied core is **round 8**. It is kicked off **only after**:
 
-Round-7 launch commands, smoke scripts, and sweep artifact paths belong in a future `reviews/…_round7/` kickoff (or an addendum after threshold lock). Until then, treat any sweep instructions in older drafts of this file or in `prompt.md` Task 1 as **deferred to round 7**.
+1. The team has proposed and peer-scored the automated-gate threshold (measure + value),  
+2. The **human gate (Edger_Equals)** has **approved** that threshold, and  
+3. Round 7 (purpose TBD) has run or been explicitly waived by Edger_Equals.
+
+Round-8 launch commands, smoke scripts, and sweep artifact paths belong in a future `reviews/…_round8/` kickoff (or an addendum after threshold lock / round 7). Until then, treat any sweep instructions in older drafts of this file or in `prompt.md` Task 1 as **deferred to round 8**.
 
 ---
 
@@ -78,9 +83,9 @@ Give **every** model the same verbatim text from [`prompt.md`](prompt.md), with 
 | **DeepSeek** | Same cheap filter as Kimi (independent) | `python scripts/review_deepseek.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
 | **Claude (chat)** | Paid / read-only method review; **cross-reviews the other three**; never runs solver or commits | Holster Claude channel / Messages API (see prior `reviews/2026-10-19_round5/claude_run.py` pattern); findings → ledger |
 | **Grok** | Paid source / claim cross-check against DESIGN_STATE + kickoff; **cross-reviews the other three** | `python scripts/review_grok.py` with prompt context, or round runner; Tavily pre-search opt-in only if needed |
-| **Claude Code CLI** (executor, not a fifth “review voice”) | Runs suite, stages ledger / local commits for round-6 docs; **self-check** before every commit/ledger line; **does not start the round-7 sweep** | Box CLI (`claude`); output gated by caller; **do not push** |
+| **Claude Code CLI** (executor, not a fifth “review voice”) | Runs suite, stages ledger / local commits for round-6 docs; **self-check** before every commit/ledger line; **does not start the round-8 sweep** | Box CLI (`claude`); output gated by caller; **do not push** |
 
-Suggested order for **round 6:** suite green → fan-out threshold + sequencing asks → proposals → peer scores into ledger → human gate settles threshold → **then** round 7 may start.
+Suggested order for **round 6:** suite green → fan-out threshold + sequencing asks → proposals → peer scores into ledger → human gate settles threshold → **then** round 7 (purpose TBD) → **then** round 8 may start the 4 W sweep.
 
 ---
 
@@ -96,7 +101,7 @@ Suggested order for **round 6:** suite green → fan-out threshold + sequencing 
 | Process recommendations | `reviews/2026-10-19_round6/recommendations.md` (seed for DESIGN_STATE; caller locks) |
 | Ledger staging | `ledger/pending/*.jsonl` (CI ingest); never hand-edit `ledger/findings.jsonl` on main outside documented tools |
 | Ledger mirror | labelled GitHub issues (`ledger`, `model:<x>`, `sev:<x>`, …) when dial/dispatch allows |
-| Sweep / amplitude JSON (**round 7 only**) | repo root `drive_4W_amplitude_v0.json` or `geometry_drive_4W_sweep_v0.json` — **not** round-6 deliverables |
+| Sweep / amplitude JSON (**round 8 only**) | repo root `drive_4W_amplitude_v0.json` or `geometry_drive_4W_sweep_v0.json` — **not** round-6 deliverables |
 
 Every Claude Code ledger line must include suite **pass/fail + count**.
 
@@ -150,26 +155,27 @@ Placeholder options to debate:
 | Confidence score | e.g. model-stated confidence below a floor forces surface-to-user even if the gap is small |
 | Combo | both: large gap **or** low confidence → must escalate; small gap + high confidence → still must clear the human gate this round until a threshold is chosen |
 
-**Status:** threshold definition = **TBD** (team proposes → human gate approves). Round **7** sweep waits on that approval.
+**Status:** threshold definition = **TBD** (team proposes → human gate approves). Round **7** (purpose TBD) and the round **8** sweep wait on that approval.
 
 ---
 
-## 5b. Sequencing (threshold first — round 7 sweep is not first)
+## 5b. Sequencing (threshold first — round 8 sweep is not first)
 
 **Order of operations** (fixed unless the human gate reorders it):
 
 1. **Round 6 — threshold debate.** The team (**Kimi, DeepSeek, Claude, Grok**) debates and proposes the automated-gate threshold (**measure + value**) as their **first open question** (see §5), with peer scoring (§5b below).
 2. **Human gate settles the threshold.** **Edger_Equals** makes the **final call** on that definition.
-3. **Round 7 — only then** run the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core (separate kickoff).
-4. Prediction checks, both gates, and any feedback fan-out follow the two-gate rules in §5.
+3. **Round 7 — next milestone** after round 6 (between threshold debate and the sweep). **Purpose TBD**; defined when round 7 is drafted.
+4. **Round 8 — only then** run the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core (separate kickoff).
+5. Prediction checks, both gates, and any feedback fan-out follow the two-gate rules in §5.
 
-The **4 W amplitude sweep is NOT part of round 6** and is **NOT the first step**. Do not start round-7 sweep work until the threshold is settled (or Edger_Equals explicitly waives that hold).
+The **4 W amplitude sweep is NOT part of round 6** and is **NOT the first step**. Do not start round-8 sweep work until the threshold is settled (or Edger_Equals explicitly waives that hold). Round 7 is a milestone with purpose TBD, not the sweep.
 
 ### Team ask — recommendations on this sequencing
 
 Each of the four models should **recommend** whether this order is the next best step:
 
-- Agree with **threshold-debate → human approval → then round-7 sweep**, with brief reasoning; or
+- Agree with **threshold-debate → human approval → round 7 (TBD) → then round-8 sweep**, with brief reasoning; or
 - Propose a **different order**, with brief reasoning (what moves, what waits, and why).
 
 Capture replies under this folder (e.g. in each model’s `.md` or a shared `sequencing.md`). The human gate decides whether to keep or change the order.
@@ -191,11 +197,11 @@ After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **mea
 |---|---|---|
 | 1 | Branch | On `holster-loop-2026-10-19` with round-6 files present (`prompt.md`, this kickoff) |
 | 2 | Core geometry | Locked rarefied winner known for later rounds (0.57295 / 1.43463 / 9.12441 µm @ 0.1044× HHO 2:1) — not re-opened in round 6 |
-| 3 | Window | `FMIN_HZ=1`, `FMAX_HZ=50e6` recorded for round 7; not a round-6 sweep prerequisite |
+| 3 | Window | `FMIN_HZ=1`, `FMAX_HZ=50e6` recorded for round 8; not a round-6 sweep prerequisite |
 | 4 | Full suite | Green; record exact `N passed` |
 | 5 | Prompt §5 / self-check | Understood; executor will not commit on red suite |
 | 6 | Models | Kimi, DeepSeek, Claude (chat), Grok each have the **same** brief ready (round-6 scope: no sweep) |
-| 7 | Outputs | Round-6 paths in §4 agreed; sweep JSON deferred to round 7; no push without caller |
+| 7 | Outputs | Round-6 paths in §4 agreed; sweep JSON deferred to round 8; no push without caller |
 | 8 | Retired | No electrodes / retired items reintroduced in proposals |
 | 9 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
 | 10 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
@@ -203,8 +209,8 @@ After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **mea
 | 12 | Sequencing | Team recommendations on threshold-first vs alternate order **received** |
 | 13 | Peer scores | Peer scores on threshold proposals **recorded in the ledger** |
 | 14 | Four pings fired | Kimi, DeepSeek, Claude, Grok pings launched as one job ("send it" / "launch round 6") |
-| 15 | Round 7 hold | No 4 W sweep started until threshold is settled |
+| 15 | Round 8 hold | No 4 W sweep started until threshold is settled; round 7 purpose TBD |
 
-**NO-GO:** suite red, prompt not shared identically, intent to push without caller, or starting the 4 W sweep before threshold approval.
+**NO-GO:** suite red, prompt not shared identically, intent to push without caller, or starting the round-8 4 W sweep before threshold approval.
 
-When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 sweep waits**.
+When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 purpose TBD**; **round 8 sweep waits**.
