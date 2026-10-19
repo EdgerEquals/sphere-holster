@@ -1,14 +1,16 @@
 <!doctype html><meta charset='utf-8'><title>Stratified Sphere holster ledger</title>
-<style>body{font:14px system-ui;margin:2em;max-width:70em}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 8px;text-align:right}td:first-child,td:nth-child(2){text-align:left}</style>
+<style>body{font:14px system-ui;margin:2em;max-width:70em}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 8px;text-align:right}td:first-child,td:nth-child(2),td:nth-child(3){text-align:left}</style>
 <h1>Holster ledger: monthly cost per model</h1>
-<p>Generated from <code>ledger/findings.jsonl</code>. Source: issues #7 to #9.</p>
-<h2>2026-10: $0.9098</h2><table><tr><th>Reviewer</th><th>model</th><th>calls</th><th>input</th><th>cached</th><th>output</th><th>reasoning</th><th>cost (USD)</th></tr>
-<tr><td>Claude</td><td>claude-sonnet-5-5</td><td>6</td><td>47054</td><td>0</td><td>11832</td><td>6000</td><td>0.2289</td></tr>
-<tr><td>Grok</td><td>grok-4.7</td><td>7</td><td>222949</td><td>91264</td><td>28966</td><td>21537</td><td>0.5611</td></tr>
-<tr><td>Kimi</td><td>kimi-k2.6</td><td>6</td><td>10707</td><td>2048</td><td>25774</td><td>24100</td><td>0.1116</td></tr>
-<tr><td>DeepSeek</td><td>deepseek-flash</td><td>5</td><td>8844</td><td>0</td><td>10073</td><td>8066</td><td>0.0082</td></tr>
-<tr><td>Tavily</td><td>tavily-basic</td><td>3</td><td>0</td><td>0</td><td>0</td><td>0</td><td>3 credits</td></tr>
+<p>Generated from <code>ledger/findings.jsonl</code>. Source: issues #7 to #9. Review class (round 4): code-review = backed by a CI execution receipt; spec-review = no receipt, never scored; legacy = before the gate.</p>
+<h2>2026-10: $0.9098</h2><p>By review class: legacy $0.9098</p><table><tr><th>Reviewer</th><th>model</th><th>review class</th><th>calls</th><th>input</th><th>cached</th><th>output</th><th>reasoning</th><th>cost (USD)</th></tr>
+<tr><td>Claude</td><td>claude-sonnet-5-5</td><td>legacy</td><td>6</td><td>47054</td><td>0</td><td>11832</td><td>6000</td><td>0.2289</td></tr>
+<tr><td>Grok</td><td>grok-4.7</td><td>legacy</td><td>7</td><td>222949</td><td>91264</td><td>28966</td><td>21537</td><td>0.5611</td></tr>
+<tr><td>Kimi</td><td>kimi-k2.6</td><td>legacy</td><td>6</td><td>10707</td><td>2048</td><td>25774</td><td>24100</td><td>0.1116</td></tr>
+<tr><td>DeepSeek</td><td>deepseek-flash</td><td>legacy</td><td>5</td><td>8844</td><td>0</td><td>10073</td><td>8066</td><td>0.0082</td></tr>
+<tr><td>Tavily</td><td>tavily-basic</td><td>legacy</td><td>3</td><td>0</td><td>0</td><td>0</td><td>0</td><td>3 credits</td></tr>
 </table>
+<h1>Execution receipts (CI only, attested)</h1>
+<p>No receipts yet.</p>
 <h1>Reviewer scorecards</h1><pre># Reviewer scorecards
 
 Ledger as of 2026-10-19T06:15:13Z, from `ledger/findings.jsonl` (issue #8).
@@ -21,4 +23,15 @@ Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed led
 | Grok | 15 | 15 | 0 | 0 | 0 | n/a | not run | not run | 0 |
 | Kimi | 10 | 10 | 0 | 0 | 0 | n/a | not run | not run | 0 |
 | DeepSeek | 16 | 16 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+
+Spec-review findings (no execution receipt) are excluded from every number above; legacy = before the receipt gate. Excluded per reviewer: Claude 0, Grok 0, Kimi 0, DeepSeek 0.
+
+## Planted receipt cases (`ledger/planted/v1/receipts`): all rejected
+
+| case | kind | rejected | reason |
+|---|---|---|---|
+| fake-edited | fake receipt | yes | digest mismatch: evidence was altered or hand-written |
+| fake-unsigned | fake receipt | yes | attestation not verified: no attestations found |
+| stub-locked-io | stub receipt | yes | target source of solver_v0.py:l0_modes is a stub; target source of solver_v0.py:propagate is a stub; target source of so |
+| stub-claimed | stub receipt | yes | stub entrypoint (or no stub check recorded) |
 </pre>

@@ -4,22 +4,25 @@
 #     Issue filing on workflow_run is OFF unless harness/ledger.json file_issues.auto_on_workflow_run is true.
 #   - issues closed/labeled: a ledger issue's outcome becomes a status record (closed completed = fixed,
 #     closed not planned = rejected, label status:accepted/rejected/fixed wins), then scorecards are refreshed.
-#   - workflow_dispatch: ingest a given run, backfill, validate, or mirror (dry-run unless apply=true).
+#   - workflow_dispatch: ingest a given run, backfill, validate, classify-legacy, or mirror (dry-run unless apply=true).
+#   - Execution receipts (round 4): receipt-* artifacts from engineering-tests / sim-stack / mcp-gateway on main are
+#     appended only after scripts/receipt.py checks the producing run (workflow path, head sha, run id) and verifies
+#     the GitHub artifact attestation. This is the only write path for receipts.
 # Pushes use the workflow GITHUB_TOKEN, which does not trigger other workflows (no CI or paid-audit churn).
 name: ledger
 
 on:
   workflow_run:
-    workflows: [claude-audit, grok-check, kimi-check, deepseek-check, mcp-gateway]
+    workflows: [claude-audit, grok-check, kimi-check, deepseek-check, mcp-gateway, engineering-tests, sim-stack]
     types: [completed]
   issues:
     types: [closed, labeled]
   workflow_dispatch:
     inputs:
       action:
-        description: validate | ingest-run | backfill | mirror
+        description: validate | ingest-run | backfill | classify-legacy | mirror
         type: choice
-        options: [validate, ingest-run, backfill, mirror]
+        options: [validate, ingest-run, backfill, classify-legacy, mirror]
         default: validate
       run_id:
         description: Workflow run id to ingest (ingest-run)
@@ -43,7 +46,8 @@ permissions:
 jobs:
   ingest:
     if: >-
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'skipped') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'skipped' &&
+       github.event.workflow_run.event != 'pull_request') ||
       (github.event_name == 'workflow_dispatch' && inputs.action != 'mirror') ||
       (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'ledger'))
     runs-on: ubuntu-latest
@@ -51,6 +55,7 @@ jobs:
     permissions:
       contents: write   # append to ledger/ on main
       actions: read     # download the finished run's artifacts
+      attestations: read  # verify execution receipt attestations
     steps:
       - uses: actions/checkout@v7
         with:
@@ -69,6 +74,8 @@ jobs:
           [ -n "$RUN_ID" ] || { echo "::error::run_id is required"; exit 1; }
           gh run download "$RUN_ID" -R "$REPO" -D arts || echo "no artifacts for run $RUN_ID"
           ls arts || true
+          # producing run's identity, for receipt checks (from the API, not from the artifact)
+          gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '"RUN_WORKFLOW_PATH=\(.path|split("@")[0])\nRUN_HEAD_SHA=\(.head_sha)"' >> "$GITHUB_ENV"
       - name: Ingest, refresh scorecards and cost rollup, commit
         env:
           RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
@@ -78,6 +85,7 @@ jobs:
           STATE: ${{ github.event.issue.state }}
           REASON: ${{ github.event.issue.state_reason }}
           LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+          GH_TOKEN: ${{ github.token }}   # gh attestation verify (receipts)
         run: |
           regen() {
             if [ "$EVENT" = issues ]; then
@@ -86,6 +94,8 @@ jobs:
               python scripts/ledger.py backfill
             elif [ "$ACTION" = validate ]; then
               python scripts/ledger.py validate
+            elif [ "$ACTION" = classify-legacy ]; then
+              python scripts/ledger.py classify-legacy
             else
               for d in "$GITHUB_WORKSPACE"/arts/*/; do
                 [ -d "$d" ] && python scripts/ledger.py ingest --dir "$d" --ref "$(basename "$d")" --run-id "$RUN_ID"

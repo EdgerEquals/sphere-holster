@@ -44,6 +44,15 @@ on:
         description: Tavily query (default = derived from the PR title / commit + changed files)
         type: string
         default: ""
+      spec_review:
+        description: "Receipt gate: auto (receipt decides) | spec-review (force spec class: cross-cutting/design review, cheap route, never scored) | spec-review-paid (spec class, paid model allowed)"
+        type: choice
+        options: [auto, spec-review, spec-review-paid]
+        default: auto
+      gate_dry_run:
+        description: "Receipt gate: decide and report the review class only (no review, no dispatch, no model call)"
+        type: boolean
+        default: false
   issue_comment:
     types: [created]
 
@@ -61,7 +70,8 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
-      actions: read
+      actions: write        # receipt gate: dispatch the cheap spec-review route (was: read)
+      attestations: read    # receipt gate: verify execution receipt attestations
     uses: ./.github/workflows/review-core.yml
     with:
       reviewer: grok
@@ -75,6 +85,9 @@ jobs:
       allow_push_gate: false
       web_search: ${{ inputs.web_search }}
       search_query: ${{ inputs.search_query }}
+      spec_review: ${{ inputs.spec_review == 'spec-review' || inputs.spec_review == 'spec-review-paid' }}
+      spec_review_paid: ${{ inputs.spec_review == 'spec-review-paid' }}
+      gate_dry_run: ${{ inputs.gate_dry_run == true }}
     secrets:
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}

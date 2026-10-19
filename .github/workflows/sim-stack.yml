@@ -34,12 +34,24 @@ jobs:
     name: FEniCSx (DOLFINx 0.11.0) - Poisson + 1D heat
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write       # execution receipt attestation (main only)
+      attestations: write
     steps:
       - uses: actions/checkout@v7
       - name: Pull pinned DOLFINx image
         run: time docker pull "$DOLFINX_IMAGE"
-      - name: Smoke test
-        run: docker run --rm -u 0 -v "$PWD:/repo" -w /repo "$DOLFINX_IMAGE" python3 sim/fenics/smoke_fenics.py
+      - name: Smoke test (line-traced for the sim-fenics receipt)
+        run: |
+          docker run --rm -u 0 -v "$PWD:/repo" -w /repo "$DOLFINX_IMAGE" \
+            python3 scripts/exec_trace.py --root /repo --files sim/fenics/smoke_fenics.py --out sim/fenics/out/trace.json -- sim/fenics/smoke_fenics.py
+      - name: Execution receipt (sim-fenics)
+        uses: ./.github/actions/receipt
+        with:
+          component: sim-fenics
+          checks: sim/fenics/out/summary.md
+          trace: sim/fenics/out/trace.json
       - name: Summary
         if: always()
         run: |

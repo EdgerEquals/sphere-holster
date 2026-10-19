@@ -81,17 +81,46 @@ def score(findings: list[dict], keys: dict, retired=None, cfg=None) -> dict:
             "matched_findings": tp, "unmatched_findings": fp, "by_category": by_cat, "matches": matched}
 
 
+RECEIPT_CASES = L.ROOT / "ledger" / "planted" / "v1" / "receipts" / "cases.json"
+
+
+def receipt_rubric(cases_path: Path = RECEIPT_CASES) -> dict:
+    """#8 rubric, round 4: planted 'fake receipt' and 'stub receipt' cases must all be rejected, for the expected
+    reason. 'permissive' cases use a verifier that accepts any signature, so the stub/digest checks must catch them
+    on their own; 'none-registered' cases use a verifier that finds no attestation (as gh would for a hand-made file)."""
+    import receipt as R
+    verifiers = {"permissive": lambda b, ev, spec: (True, "attestation verified (planted: permissive)"),
+                 "none-registered": lambda b, ev, spec: (False, "attestation not verified: no attestations found")}
+    data = json.loads(Path(cases_path).read_text(encoding="utf-8"))
+    rows = []
+    for c in data["cases"]:
+        res = R.verify_receipt(c["evidence"], c.get("claimed_digest"), attest=verifiers[c["verifier"]],
+                               sources=c.get("target_sources"))
+        why = "; ".join(res["reasons"])
+        ok = (not res["ok"]) and c["expect_reason"].lower() in why.lower()
+        rows.append({"id": c["id"], "kind": c["kind"], "rejected": not res["ok"], "reason": why[:240], "pass": ok})
+    return {"fixture": data["fixture"], "cases": rows, "all_rejected": all(r["pass"] for r in rows)}
+
+
 def scorecards(records: list[dict], keys: dict | None = None, cfg=None) -> dict:
     cfg = cfg or L.load_config()
     keys = keys or load_keys()
     st = L.current_status(records)
+    classes = L.review_classes(records)
     cards = {}
     for r in records:
         if r["kind"] != "finding" or r.get("reviewer") not in L.REVIEWERS.values():
             continue
         c = cards.setdefault(r["reviewer"], {"findings": 0, "by_status": {"open": 0, "accepted": 0, "rejected": 0, "fixed": 0},
-                                             "by_severity": {s: 0 for s in cfg["severity_order"]}, "planted_runs": []})
+                                             "by_severity": {s: 0 for s in cfg["severity_order"]}, "planted_runs": [],
+                                             "spec_review_excluded": 0, "by_class": {k: 0 for k in L.REVIEW_CLASSES}})
+        c.setdefault("spec_review_excluded", 0); c.setdefault("by_class", {k: 0 for k in L.REVIEW_CLASSES})
         if r["source"]["type"] == "planted":
+            continue
+        cls = classes.get(r["id"], "legacy")
+        c["by_class"][cls] += 1
+        if cls == "spec-review":            # round 4: spec reviews never count toward scorecards
+            c["spec_review_excluded"] += 1
             continue
         c["findings"] += 1
         c["by_status"][st.get(r["id"], "open")] += 1
@@ -101,14 +130,15 @@ def scorecards(records: list[dict], keys: dict | None = None, cfg=None) -> dict:
         c["acceptance_rate"] = round(good / (good + bad), 3) if (good + bad) else None
     runs = {}
     for r in records:
-        if r["kind"] == "finding" and r["source"]["type"] == "planted":
+        if r["kind"] == "finding" and r["source"]["type"] == "planted" and classes.get(r["id"]) != "spec-review":
             runs.setdefault((r["reviewer"], r["source"].get("run_id")), []).append(r)
     for (rev, run), fs in sorted(runs.items(), key=lambda kv: str(kv[0])):
         s = score(fs, keys, cfg=cfg)
         cards.setdefault(rev, {"findings": 0, "by_status": {}, "by_severity": {}, "planted_runs": [], "acceptance_rate": None})
         cards[rev]["planted_runs"].append({"run": run, "event_utc": fs[0].get("event_utc"), **{k: s[k] for k in
                                            ("fixture", "recall", "precision", "keys_caught", "by_category")}})
-    return {"generated_utc": L.ledger_as_of(records), "fixture": keys["fixture"], "reviewers": cards}
+    return {"generated_utc": L.ledger_as_of(records), "fixture": keys["fixture"], "reviewers": cards,
+            "receipt_rubric": receipt_rubric()}
 
 
 def render_md(sc: dict) -> str:
@@ -127,6 +157,15 @@ def render_md(sc: dict) -> str:
                   f"{b.get('rejected', 0)} | {fmt(c.get('acceptance_rate'))} | "
                   f"{fmt(last['recall']) if last else 'not run'} | {fmt(last['precision']) if last else 'not run'} | "
                   f"{len(c['planted_runs'])} |")
+    L_ += ["", "Spec-review findings (no execution receipt) are excluded from every number above; legacy = before the "
+           "receipt gate. Excluded per reviewer: " + ", ".join(f"{rev} {sc['reviewers'].get(rev, {}).get('spec_review_excluded', 0)}"
+                                                         for rev in ("Claude", "Grok", "Kimi", "DeepSeek")) + "."]
+    rr = sc.get("receipt_rubric")
+    if rr:
+        L_ += ["", f"## Planted receipt cases (`{rr['fixture']}`): {'all rejected' if rr['all_rejected'] else 'NOT ALL REJECTED'}", "",
+               "| case | kind | rejected | reason |", "|---|---|---|---|"]
+        for c in rr["cases"]:
+            L_.append(f"| {c['id']} | {c['kind']} | {'yes' if c['rejected'] else 'NO'} | {c['reason'][:120]} |")
     return "\n".join(L_) + "\n"
 
 

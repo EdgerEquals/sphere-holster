@@ -1,64 +1,402 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/EdgerEquals/stratified-sphere-model/ledger/schema/finding.v1.schema.json",
-  "title": "Stratified Sphere review ledger record, v1",
-  "description": "One line of ledger/findings.jsonl. The file is append-only: records are never edited or removed; a later 'status' or 'mirror' record refers back to a finding by id.",
+  "title": "Stratified Sphere review ledger record, v1 / v1.1",
+  "description": "One line of ledger/findings.jsonl. The file is append-only: records are never edited or removed; a later 'status' or 'mirror' record refers back to a finding by id. v1.1 (2026-10-19, round 4) adds kind 'receipt' (CI-only execution receipt, attested), kind 'class' (review_class backfill) and the optional review_class field. v1 records stay valid; a finding or cost record with no review_class and no class record counts as 'legacy'.",
   "type": "object",
-  "required": ["schema", "kind", "id", "recorded_utc", "source"],
+  "required": [
+    "schema",
+    "kind",
+    "id",
+    "recorded_utc",
+    "source"
+  ],
   "properties": {
-    "schema": {"const": "ssm-ledger/v1"},
-    "kind": {"enum": ["finding", "status", "mirror", "cost", "gateway_run", "planted_run"]},
-    "id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "description": "First 16 hex chars of hash."},
-    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "sha256 of the normalised dedup key."},
-    "recorded_utc": {"type": "string", "format": "date-time"},
-    "event_utc": {"type": ["string", "null"], "description": "When the reviewed event happened (review start / run time)."},
+    "schema": {
+      "enum": [
+        "ssm-ledger/v1",
+        "ssm-ledger/v1.1"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "finding",
+        "status",
+        "mirror",
+        "cost",
+        "gateway_run",
+        "planted_run",
+        "receipt",
+        "class"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "First 16 hex chars of hash."
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the normalised dedup key."
+    },
+    "recorded_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "When the reviewed event happened (review start / run time)."
+    },
     "source": {
       "type": "object",
-      "required": ["type", "ref"],
+      "required": [
+        "type",
+        "ref"
+      ],
       "properties": {
-        "type": {"enum": ["verdict_artifact", "review_round", "ping_artifact", "gateway", "planted", "issue", "manual"]},
-        "ref": {"type": "string"},
-        "run_id": {"type": ["string", "null"]},
-        "head_sha": {"type": ["string", "null"]},
-        "scope": {"type": ["string", "null"]}
+        "type": {
+          "enum": [
+            "verdict_artifact",
+            "review_round",
+            "ping_artifact",
+            "gateway",
+            "planted",
+            "issue",
+            "manual",
+            "receipt_artifact",
+            "backfill"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
-    "reviewer": {"enum": ["Claude", "Grok", "Kimi", "DeepSeek", "Tavily", "Gateway", "Danny", "Cursor"]},
-    "model": {"type": ["string", "null"]},
-    "severity": {"enum": ["note", "minor", "major", "blocker"]},
-    "domain": {"type": "string"},
-    "file": {"type": "string"},
-    "claim": {"type": "string"},
-    "note": {"type": "string"},
-    "review_verdict": {"enum": ["PASS", "FAIL", "ERROR", "SKIPPED", null]},
-    "injection_flags": {"type": "array", "items": {"type": "string"}},
-    "finding_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "description": "status/mirror: the finding this refers to."},
-    "status": {"enum": ["open", "accepted", "rejected", "fixed"]},
-    "issue_number": {"type": ["integer", "null"]},
+    "reviewer": {
+      "enum": [
+        "Claude",
+        "Grok",
+        "Kimi",
+        "DeepSeek",
+        "Tavily",
+        "Gateway",
+        "Danny",
+        "Cursor"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "note",
+        "minor",
+        "major",
+        "blocker"
+      ]
+    },
+    "domain": {
+      "type": "string"
+    },
+    "file": {
+      "type": "string"
+    },
+    "claim": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    },
+    "review_verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "ERROR",
+        "SKIPPED",
+        null
+      ]
+    },
+    "injection_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "finding_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "status/mirror: the finding this refers to."
+    },
+    "status": {
+      "enum": [
+        "open",
+        "accepted",
+        "rejected",
+        "fixed"
+      ]
+    },
+    "issue_number": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
     "tokens": {
       "type": "object",
       "properties": {
-        "input": {"type": ["integer", "null"]},
-        "cached": {"type": ["integer", "null"]},
-        "cache_write": {"type": ["integer", "null"]},
-        "output": {"type": ["integer", "null"]},
-        "reasoning": {"type": ["integer", "null"]}
+        "input": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cached": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cache_write": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "output": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reasoning": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
       }
     },
-    "cost_usd": {"type": ["number", "null"]},
-    "cost_basis": {"type": "string", "description": "reported | computed | unknown, plus price note."},
-    "credits": {"type": ["number", "null"], "description": "Tavily credits."},
-    "tool": {"type": "string"},
-    "ok": {"type": "boolean"},
-    "summary": {"type": "string"},
-    "fixture": {"type": "string"},
-    "planted_keys_hit": {"type": "array", "items": {"type": "string"}}
+    "cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cost_basis": {
+      "type": "string",
+      "description": "reported | computed | unknown, plus price note."
+    },
+    "credits": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Tavily credits."
+    },
+    "tool": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "fixture": {
+      "type": "string"
+    },
+    "planted_keys_hit": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "review_class": {
+      "enum": [
+        "code-review",
+        "spec-review",
+        "legacy"
+      ],
+      "description": "code-review: a valid execution receipt covered the reviewed component(s); counts toward scorecards. spec-review: no receipt (or explicit spec review); never scored or mirrored as fixable issues. legacy: before the receipt gate (no-receipt)."
+    },
+    "component": {
+      "type": "string"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "attestation": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "type",
+        "component",
+        "head_sha",
+        "workflow",
+        "run_id",
+        "result",
+        "entrypoints",
+        "stub_check",
+        "trace_check",
+        "checks"
+      ]
+    },
+    "target_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "allOf": [
-    {"if": {"properties": {"kind": {"const": "finding"}}}, "then": {"required": ["reviewer", "severity", "domain", "file", "claim", "note", "status", "hash"]}},
-    {"if": {"properties": {"kind": {"const": "status"}}}, "then": {"required": ["finding_id", "status"]}},
-    {"if": {"properties": {"kind": {"const": "mirror"}}}, "then": {"required": ["finding_id", "issue_number"]}},
-    {"if": {"properties": {"kind": {"const": "cost"}}}, "then": {"required": ["reviewer", "model", "tokens", "cost_usd", "cost_basis", "hash"]}},
-    {"if": {"properties": {"kind": {"const": "gateway_run"}}}, "then": {"required": ["tool", "ok", "summary", "hash"]}}
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "finding"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reviewer",
+          "severity",
+          "domain",
+          "file",
+          "claim",
+          "note",
+          "status",
+          "hash"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "status"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "finding_id",
+          "status"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "mirror"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "finding_id",
+          "issue_number"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "cost"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reviewer",
+          "model",
+          "tokens",
+          "cost_usd",
+          "cost_basis",
+          "hash"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "gateway_run"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tool",
+          "ok",
+          "summary",
+          "hash"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "receipt"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "component",
+          "artifact_digest",
+          "evidence",
+          "attestation",
+          "target_files",
+          "hash"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "class"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "finding_id",
+          "review_class"
+        ]
+      }
+    }
   ]
 }

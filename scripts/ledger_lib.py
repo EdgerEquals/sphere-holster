@@ -14,13 +14,16 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
+import os
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "harness" / "ledger.json"
 SCHEMA_PATH = ROOT / "ledger" / "schema" / "finding.v1.schema.json"
-SCHEMA_TAG = "ssm-ledger/v1"
+SCHEMA_TAG = "ssm-ledger/v1.1"   # v1.1 adds receipt/class kinds + review_class; v1 lines stay valid
+REVIEW_CLASSES = ("code-review", "spec-review", "legacy")
 REVIEWERS = {"claude": "Claude", "grok": "Grok", "kimi": "Kimi", "deepseek": "DeepSeek"}
 
 
@@ -307,9 +310,83 @@ def parse_gateway_run(g: dict, cfg: dict, ref: str, run_id=None) -> list[dict]:
              "summary": sanitise(g.get("summary"), cfg, 800)}]
 
 
-def parse_artifact_dir(d: Path, cfg: dict, ref: str, run_id=None) -> list[dict]:
+# ------------------------------------------------------------------ receipts + review class (v1.1, round 4)
+class ReceiptRefused(Exception):
+    pass
+
+
+def make_receipt(evidence: dict, digest: str, attestation: str, ref: str, run_id=None) -> dict:
+    h = dedup_hash("receipt", evidence.get("component"), evidence.get("head_sha"), digest)
+    return {"schema": SCHEMA_TAG, "kind": "receipt", "id": h[:16], "hash": h, "recorded_utc": now_utc(),
+            "event_utc": evidence.get("generated_utc"),
+            "source": {"type": "receipt_artifact", "ref": ref, "run_id": str(run_id or evidence.get("run_id")),
+                       "head_sha": evidence.get("head_sha"), "scope": evidence.get("job")},
+            "reviewer": "Gateway" if evidence.get("component") == "mcp-gateway" else "Cursor",
+            "component": evidence.get("component"), "artifact_digest": digest, "attestation": attestation[:300],
+            "target_files": list(evidence.get("files") or []), "evidence": evidence, "ok": evidence.get("result") == "pass",
+            "summary": f"{evidence.get('component')} at {str(evidence.get('head_sha'))[:12]}: "
+                       f"{evidence.get('numeric_checks')} numeric checks pass, run {evidence.get('run_url')}"}
+
+
+def accept_receipt(evidence_bytes: bytes, ref: str, run_meta: dict | None, verifier=None, env=os.environ) -> dict:
+    """Turn an uploaded receipt into a ledger record, or raise ReceiptRefused. CI-only: needs GITHUB_ACTIONS, the
+    producing run's metadata (workflow path, head sha, run id from the workflow_run event / API) and a signature
+    verifier. There is no local write path: called outside Actions it always refuses."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import receipt as R  # local import: receipt.py imports nothing from here
+    if env.get("GITHUB_ACTIONS") != "true" or not run_meta or verifier is None:
+        raise ReceiptRefused("receipt ingest runs only inside the ledger workflow (no local/Cursor/reviewer write path)")
+    ev = json.loads(evidence_bytes)
+    if R.canonical(ev) != evidence_bytes.strip():
+        raise ReceiptRefused("evidence.json is not in canonical form (edited after CI wrote it)")
+    for k_ev, k_run in (("workflow", "workflow_path"), ("head_sha", "head_sha"), ("run_id", "run_id")):
+        if str(ev.get(k_ev)) != str(run_meta.get(k_run)):
+            raise ReceiptRefused(f"evidence {k_ev}={ev.get(k_ev)} does not match the producing run ({run_meta.get(k_run)})")
+    res = R.verify_receipt(ev, R.digest(evidence_bytes.strip()), attest=verifier)
+    if not res["ok"]:
+        raise ReceiptRefused("; ".join(res["reasons"]))
+    return make_receipt(ev, res["digest"], res["attestation"], ref, run_meta.get("run_id"))
+
+
+def make_class(finding_id: str, review_class: str, why: str) -> dict:
+    h = dedup_hash("class", finding_id, review_class)
+    return {"schema": SCHEMA_TAG, "kind": "class", "id": h[:16], "hash": h, "recorded_utc": now_utc(),
+            "source": {"type": "backfill", "ref": why}, "finding_id": finding_id, "review_class": review_class}
+
+
+def review_classes(records: list[dict]) -> dict[str, str]:
+    """id -> effective review_class for finding and cost records (record field, else class record, else legacy)."""
+    out = {r["id"]: r.get("review_class") or "legacy" for r in records if r["kind"] in ("finding", "cost")}
+    explicit = {r["id"] for r in records if r["kind"] in ("finding", "cost") and r.get("review_class")}
+    for r in records:
+        if r["kind"] == "class" and r["finding_id"] in out and r["finding_id"] not in explicit:
+            out[r["finding_id"]] = r["review_class"]
+    return out
+
+
+def legacy_backfill(records: list[dict]) -> list[dict]:
+    have = {r["finding_id"] for r in records if r["kind"] == "class"}
+    return [make_class(r["id"], "legacy", "pre-receipt-gate backfill (no receipt)") for r in records
+            if r["kind"] in ("finding", "cost") and not r.get("review_class") and r["id"] not in have]
+
+
+def parse_artifact_dir(d: Path, cfg: dict, ref: str, run_id=None, run_meta=None, verifier=None, refused=None) -> list[dict]:
     d = Path(d)
     out = []
+    rc = None
+    rcf = next(iter(sorted(d.rglob("review_class.json"))), None)
+    if rcf is not None:
+        try:
+            rc = json.loads(rcf.read_text(encoding="utf-8")).get("review_class")
+        except (json.JSONDecodeError, AttributeError):
+            rc = None
+        rc = rc if rc in REVIEW_CLASSES else None
+    for f in sorted(d.rglob("evidence.json")):
+        try:
+            out.append(accept_receipt(f.read_bytes(), ref, run_meta, verifier))
+        except (ReceiptRefused, json.JSONDecodeError) as e:
+            if refused is not None:
+                refused.append(f"{f}: {e}")
     for f in sorted(d.rglob("*.json")):
         try:
             obj = json.loads(f.read_text(encoding="utf-8"))
@@ -326,6 +403,10 @@ def parse_artifact_dir(d: Path, cfg: dict, ref: str, run_id=None) -> list[dict]:
                 out += parse_gateway_run(g, cfg, ref, run_id)
         elif f.name == "results.json" and isinstance(obj, (dict, list)) and ("tavily" in f.parent.name.lower() or "tavily" in ref.lower()):
             out += parse_tavily_json(obj, ref, cfg)
+    if rc:
+        for r in out:
+            if r["kind"] in ("finding", "cost"):
+                r["review_class"] = rc
     return out
 
 
@@ -346,10 +427,13 @@ def dedup(new: list[dict], existing: list[dict]) -> list[dict]:
     return out
 
 
-def append_records(path: Path, records: list[dict], schema: dict | None = None) -> list[dict]:
-    """Validate, dedup against the file, and append. Never rewrites existing lines."""
+def append_records(path: Path, records: list[dict], schema: dict | None = None, allow_receipts: bool = False) -> list[dict]:
+    """Validate, dedup against the file, and append. Never rewrites existing lines. Receipt records are only
+    accepted from the verified CI ingest path (allow_receipts=True after accept_receipt)."""
     path = Path(path)
     schema = schema or load_schema()
+    if not allow_receipts and any(r.get("kind") == "receipt" for r in records):
+        raise ReceiptRefused("receipt records can only be appended by the CI ingest path (accept_receipt)")
     for r in records:
         errs = validate(r, schema)
         if errs:

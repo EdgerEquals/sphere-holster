@@ -16,6 +16,15 @@ default_level: shallow
 # or whenever the commit message contains "[audit]".
 audit_every_n_rounds: 3
 
+# Receipt gate (round 4, locked 2026-10-19; scripts/receipt_gate.py). Before a paid Claude/Grok review the gate
+# looks for a CI execution receipt (harness/receipts.json) covering every component the target touches.
+#   receipt found  -> review_class code-review: paid review runs, findings count in scorecards, can mirror to issues
+#   no receipt     -> review_class spec-review: never scored or mirrored; with "enforce" the paid review is skipped
+#                     and spec_review_route gets a cheap check instead, unless the spec_review_paid input is set
+# "enforce" | "warn" (paid review still runs, annotated) | "off" (no routing; class is still recorded). Keep quoted.
+receipt_gate: "enforce"
+spec_review_route: [deepseek]
+
 levels:
   shallow:
     claude_model: claude-sonnet-5-5

@@ -1,0 +1,28 @@
+{
+  "_comment": "Execution receipts (round 4, locked 2026-10-19). A receipt proves a component really ran in CI: real entrypoints, called, with passing numeric checks. Only the listed workflow, on main, may produce a component's receipt; the ledger and the review gate verify a GitHub artifact attestation for every receipt. Components not listed here never get receipts, so reviews that touch only them are spec-reviews.",
+  "source_ref": "refs/heads/main",
+  "min_numeric_checks": 1,
+  "components": {
+    "compute-core": {
+      "workflow": ".github/workflows/engineering-tests.yml",
+      "files": ["solver_v0.py"],
+      "entrypoints": ["solver_v0.py:l0_modes", "solver_v0.py:propagate", "solver_v0.py:c_hho"],
+      "checks_format": "pytest-rows",
+      "description": "Acoustic/thermal core solver, exercised by the SymPy locked-value suite."
+    },
+    "sim-fenics": {
+      "workflow": ".github/workflows/sim-stack.yml",
+      "files": ["sim/fenics/smoke_fenics.py", "sim/summary.py"],
+      "entrypoints": ["sim/fenics/smoke_fenics.py", "sim/fenics/smoke_fenics.py:solve"],
+      "checks_format": "summary-md",
+      "description": "DOLFINx smoke test (Poisson exact P2, P1 convergence rate, 1D heat)."
+    },
+    "mcp-gateway": {
+      "workflow": ".github/workflows/mcp-gateway.yml",
+      "files": ["gateway/ssm_mcp_server.py", "gateway/Dockerfile.fenics", "sim/fenics/smoke_fenics.py", "sim/summary.py"],
+      "entrypoints": ["gateway/ssm_mcp_server.py:call_tool", "gateway/ssm_mcp_server.py:run_smoke", "gateway/ssm_mcp_server.py:handle"],
+      "checks_format": "summary-md",
+      "description": "MCP gateway: fenics_poisson_smoke called over MCP inside the hardened container."
+    }
+  }
+}

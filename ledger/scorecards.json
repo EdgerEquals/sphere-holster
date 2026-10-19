@@ -17,6 +17,12 @@
         "blocker": 0
       },
       "planted_runs": [],
+      "spec_review_excluded": 0,
+      "by_class": {
+        "code-review": 0,
+        "spec-review": 0,
+        "legacy": 28
+      },
       "acceptance_rate": null
     },
     "Grok": {
@@ -34,6 +40,12 @@
         "blocker": 0
       },
       "planted_runs": [],
+      "spec_review_excluded": 0,
+      "by_class": {
+        "code-review": 0,
+        "spec-review": 0,
+        "legacy": 15
+      },
       "acceptance_rate": null
     },
     "Kimi": {
@@ -51,6 +63,12 @@
         "blocker": 0
       },
       "planted_runs": [],
+      "spec_review_excluded": 0,
+      "by_class": {
+        "code-review": 0,
+        "spec-review": 0,
+        "legacy": 10
+      },
       "acceptance_rate": null
     },
     "DeepSeek": {
@@ -68,7 +86,47 @@
         "blocker": 0
       },
       "planted_runs": [],
+      "spec_review_excluded": 0,
+      "by_class": {
+        "code-review": 0,
+        "spec-review": 0,
+        "legacy": 16
+      },
       "acceptance_rate": null
     }
+  },
+  "receipt_rubric": {
+    "fixture": "ledger/planted/v1/receipts",
+    "cases": [
+      {
+        "id": "fake-edited",
+        "kind": "fake receipt",
+        "rejected": true,
+        "reason": "digest mismatch: evidence was altered or hand-written",
+        "pass": true
+      },
+      {
+        "id": "fake-unsigned",
+        "kind": "fake receipt",
+        "rejected": true,
+        "reason": "attestation not verified: no attestations found",
+        "pass": true
+      },
+      {
+        "id": "stub-locked-io",
+        "kind": "stub receipt",
+        "rejected": true,
+        "reason": "target source of solver_v0.py:l0_modes is a stub; target source of solver_v0.py:propagate is a stub; target source of solver_v0.py:c_hho is a stub",
+        "pass": true
+      },
+      {
+        "id": "stub-claimed",
+        "kind": "stub receipt",
+        "rejected": true,
+        "reason": "stub entrypoint (or no stub check recorded)",
+        "pass": true
+      }
+    ],
+    "all_rejected": true
   }
 }

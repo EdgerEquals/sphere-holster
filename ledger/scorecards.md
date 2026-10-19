@@ -10,3 +10,14 @@ Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed led
 | Grok | 15 | 15 | 0 | 0 | 0 | n/a | not run | not run | 0 |
 | Kimi | 10 | 10 | 0 | 0 | 0 | n/a | not run | not run | 0 |
 | DeepSeek | 16 | 16 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+
+Spec-review findings (no execution receipt) are excluded from every number above; legacy = before the receipt gate. Excluded per reviewer: Claude 0, Grok 0, Kimi 0, DeepSeek 0.
+
+## Planted receipt cases (`ledger/planted/v1/receipts`): all rejected
+
+| case | kind | rejected | reason |
+|---|---|---|---|
+| fake-edited | fake receipt | yes | digest mismatch: evidence was altered or hand-written |
+| fake-unsigned | fake receipt | yes | attestation not verified: no attestations found |
+| stub-locked-io | stub receipt | yes | target source of solver_v0.py:l0_modes is a stub; target source of solver_v0.py:propagate is a stub; target source of so |
+| stub-claimed | stub receipt | yes | stub entrypoint (or no stub check recorded) |

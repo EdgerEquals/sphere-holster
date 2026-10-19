@@ -1,0 +1,60 @@
+# Execution receipt (round 4 decision, locked 2026-10-19). Used by the CI jobs that own a component in
+# harness/receipts.json. Emits only on main (push that touched the component's files, dispatch or schedule),
+# never on pull requests. scripts/receipt.py refuses stubs, untraced entrypoints and runs without passing numeric
+# checks (fails closed). The evidence file is signed with a GitHub artifact attestation; the ledger and the
+# review gate verify that signature, so a receipt cannot be written from a laptop, Cursor or a reviewer.
+# The calling job needs: permissions id-token: write, attestations: write, contents: read.
+name: ssm-receipt
+description: Emit, attest and upload an execution receipt for one component.
+inputs:
+  component: {description: "Component name in harness/receipts.json", required: true}
+  checks: {description: "Path to the checks file (pytest rows JSON or sim summary.md)", required: true}
+  trace: {description: "Path to the exec_trace.py output", required: true}
+  force: {description: "Emit even if the component's files did not change in this push", required: false, default: "false"}
+runs:
+  using: composite
+  steps:
+    - name: Decide whether to emit
+      id: want
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        COMPONENT: ${{ inputs.component }}
+        FORCE: ${{ inputs.force }}
+        BEFORE: ${{ github.event.before }}
+      run: |
+        want=false
+        if [ "$GITHUB_REF" != "refs/heads/main" ] || [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          echo "receipt: not main / pull request - no receipt"
+        elif [ "$GITHUB_EVENT_NAME" != "push" ] || [ "$FORCE" = "true" ] || [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+          want=true
+        else
+          files=$(python3 -c "import json;print(' '.join(json.load(open('harness/receipts.json'))['components']['$COMPONENT']['files']))")
+          changed=$(gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE...$GITHUB_SHA" --jq '.files[].filename' || echo "__unknown__")
+          for f in $files __unknown__ .github/actions/receipt/action.yml scripts/receipt.py scripts/stub_detector.py scripts/exec_trace.py harness/receipts.json; do
+            if printf '%s\n' "$changed" | grep -qxF "$f"; then want=true; fi
+          done
+          [ "$want" = true ] || echo "receipt: $COMPONENT files unchanged in this push - earlier receipt stays valid"
+        fi
+        echo "want=$want" >> "$GITHUB_OUTPUT"
+    - name: Emit receipt (refuses stubs / untraced / failing runs)
+      if: steps.want.outputs.want == 'true'
+      shell: bash
+      run: python3 scripts/receipt.py emit --component "${{ inputs.component }}" --checks "${{ inputs.checks }}" --trace "${{ inputs.trace }}" --out "receipt-out/${{ inputs.component }}"
+    - name: Attest receipt evidence
+      if: steps.want.outputs.want == 'true'
+      uses: actions/attest-build-provenance@v4
+      with:
+        subject-path: receipt-out/${{ inputs.component }}/evidence.json
+    - name: Upload receipt artifact (ingested by the ledger workflow)
+      if: steps.want.outputs.want == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: receipt-${{ inputs.component }}-${{ github.run_id }}
+        path: receipt-out/${{ inputs.component }}/
+        retention-days: 90
+    - name: Receipt summary
+      if: steps.want.outputs.want == 'true'
+      shell: bash
+      run: |
+        { echo "### Execution receipt: ${{ inputs.component }}"; echo '```json'; cat "receipt-out/${{ inputs.component }}/receipt.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

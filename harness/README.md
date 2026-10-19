@@ -11,6 +11,7 @@
 | `prompts/_grok_source_check.md` | Grok's source-check role (web search, URLs per claim) |
 | `prompts/_rote_check.md` | Kimi / DeepSeek free-tier rote-check role (units, arithmetic, DESIGN_STATE.md consistency, retired items) |
 | `KIMI_START.md` | Paste-in starter for a Kimi chat session (same rote-check role, by hand) |
+| `receipts.json` | Execution-receipt components (round 4): producing workflow, files, entrypoints, check format per component |
 
 Scripts: `scripts/review_claude.py`, `scripts/review_grok.py`, `scripts/review_kimi.py`, `scripts/review_deepseek.py`
 (stdlib only; PyYAML optional), shared code in `scripts/harness_common.py` (+ `scripts/oai_compat.py` for the
@@ -72,6 +73,40 @@ One search slot for the whole holster: any model, Cursor or the bot can use it. 
   search artifact to `/claude-audit`.
 - Cost: basic/fast = 1 credit, advanced = 2; free plan 1,000 credits/month, no card
   (https://docs.tavily.com/documentation/quickstart). Key from https://app.tavily.com.
+
+## Receipt gate (round 4, locked 2026-10-19)
+
+Paid reviews (Claude, Grok) only count as **code reviews** when CI has proved the reviewed code really runs.
+
+- **Receipt** = ledger record `kind: receipt` (schema v1.1): commit sha, component, CI job + result, sha256 of the
+  canonical evidence file, run id/url, target files/entrypoints, stub check, line-trace coverage, numeric checks.
+  Written only by `.github/actions/receipt` inside the component's own workflow on main, signed with a GitHub artifact
+  attestation, and appended only by `ledger.yml` after `gh attestation verify` (signer workflow, `refs/heads/main`,
+  source commit). There is no local, Cursor or reviewer write path: `scripts/receipt.py emit` refuses outside
+  Actions, `ledger.py ingest` refuses receipts outside the ledger workflow, and the gate re-verifies the signature.
+- **Components** (`receipts.json`): `compute-core` (engineering-tests; `solver_v0.py` l0_modes/propagate/c_hho,
+  SymPy locked values), `sim-fenics` (sim-stack; `sim/fenics/smoke_fenics.py`), `mcp-gateway` (mcp-gateway;
+  `gateway/ssm_mcp_server.py` handle/call_tool/run_smoke over MCP in the hardened container). A receipt is emitted on
+  dispatch/schedule, or on a push that changed the component's files; it stays valid while those files are unchanged.
+- **Anti-stub rule** (Kimi's round-4 concern): no receipt unless every entrypoint (a) is not a stub by AST (body only
+  `pass` / `...` / `raise NotImplementedError` / returns a constant or its own argument), (b) actually executed
+  (`scripts/exec_trace.py`: at least 3 body lines, or half a module), (c) raised no NotImplementedError, and (d) the run
+  has ≥1 passing numeric check and no failing check. Fails closed. Planted `fake receipt` and `stub receipt` cases
+  (`ledger/planted/v1/receipts/`) are part of the #8 rubric and must all be rejected (`ledger/scorecards.md`).
+- **Gate** (`scripts/receipt_gate.py`, job `receipt` in `review-core.yml`, before the paid `review` job):
+  code-review if every touched component has a valid receipt; otherwise spec-review. Docs/spec-only diffs are always
+  spec-review. `dial.yml` `receipt_gate`: `enforce` (default: spec-review skips the paid model and dispatches
+  `spec_review_route`, default DeepSeek), `warn` (paid runs, annotated), `off` (no routing). The class is recorded in
+  every case.
+- **Dispatch input `spec_review`** on claude-audit / grok-check: `auto` (receipt decides), `spec-review` (force a
+  spec review, e.g. a cross-cutting DESIGN_STATE review; cheap route), `spec-review-paid` (spec review on the paid
+  model). `gate_dry_run=true` only reports the decision: no review, no dispatch, no model call.
+- **Effect downstream:** verdict artifacts carry `review_class.json`; the ledger stamps `review_class` on findings and
+  costs; the scorer excludes spec-review from scorecards and planted precision/recall; mirroring skips spec-review;
+  the monthly cost rollup splits spend by class. Findings from before the gate are `legacy` (no receipt).
+
+Local inspection (read-only, no write path): `python scripts/receipt_gate.py decide --head <sha> --no-attest`,
+`python scripts/stub_detector.py solver_v0.py:l0_modes`.
 
 ## Costs
 

@@ -60,6 +60,7 @@ def session(cmd, call=None, args=None, popen=subprocess.Popen) -> dict:
                 summary += f" in {sc['seconds']} s"
             if sc.get("summary"):
                 summary += "\n" + sc["summary"][:600]
+                rec["full_summary"] = sc["summary"]
             elif r.get("content"):
                 summary += "\n" + str(r["content"][0].get("text", ""))[:600]
         rec.update(ok=ok, summary=summary, tool=call or "tools/list")
@@ -77,12 +78,17 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--server-name", required=True); ap.add_argument("--call", default=None)
     ap.add_argument("--out", default="gateway-out"); ap.add_argument("--allow-fail", action="store_true")
+    ap.add_argument("--summary-out", default=None, help="write the tool's full summary table here (receipt checks)")
     ap.add_argument("cmd", nargs=argparse.REMAINDER)
     a = ap.parse_args(argv)
     cmd = a.cmd[1:] if a.cmd and a.cmd[0] == "--" else a.cmd
     started = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rec = session(cmd, a.call)
     rec.update(started_utc=started, server=a.server_name, head_sha=os.environ.get("GITHUB_SHA"))
+    full = rec.pop("full_summary", "")
+    if a.summary_out:
+        Path(a.summary_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.summary_out).write_text(full, encoding="utf-8")
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     f = out / "gateway_run.json"
     runs = json.loads(f.read_text()) if f.is_file() else []

@@ -1,0 +1,809 @@
+{
+ "fixture": "ledger/planted/v1/receipts",
+ "_comment": "Planted receipt cases for the #8 rubric (round 4, anti-stub rule). Every case must be REJECTED by scripts/receipt.py verify_receipt. 'fake' cases have no valid CI attestation or were edited; the 'stub' case is a stub with locked I/O and must be refused even if a signature verifier said yes.",
+ "cases": [
+  {
+   "id": "fake-edited",
+   "kind": "fake receipt",
+   "expect": "reject",
+   "expect_reason": "digest mismatch",
+   "evidence": {
+    "checks": [
+     {
+      "expected": "5.4",
+      "got": "999",
+      "name": "lock_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.944",
+      "got": "0.944",
+      "name": "lock_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.236",
+      "name": "lock_shell_thickness_mode_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1",
+      "got": "1.0",
+      "name": "test_shell_id_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "2",
+      "got": "2.0",
+      "name": "test_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.87",
+      "name": "test_shell_breathing_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "533",
+      "got": "533.0",
+      "name": "hho_sound_speed_293K_mps (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.4",
+      "got": "1.4",
+      "name": "hho_gamma (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "dHf_H2O_gas_kJ_per_mol (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test shell wall = (OD-ID)/2 [mm]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.2395099952429756",
+      "name": "lock shell 1S0, exact l=0, cL/cT 5900/4090 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.3154603023579776",
+      "name": "lock shell 1S0 with solver default VRH 6048/4090 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.203389830508475",
+      "name": "slab cL/(2t) with VRH cL 6048 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "-",
+      "got": "6109.567999999999",
+      "name": "cL implied by slab cL/(2t) = 3.236 MHz [m/s]",
+      "status": "INFO"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.8546658172529324",
+      "name": "test shell 0S0 breathing, exact l=0, vrh 6048/4090 [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.8546658172529324",
+      "got": "1.8544277350643663",
+      "name": "solver_v0 vs SymPy, test_0S0 (vrh) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.2395099952429756",
+      "got": "3.239543389587217",
+      "name": "solver_v0 vs SymPy, lock_1S0 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "533.0",
+      "got": "532.89717362788",
+      "name": "HHO c = sqrt(gamma R T / M) at 293 K, gamma 1.4, M 12.010 g/mol [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "532.89717362788",
+      "got": "532.8601646222132",
+      "name": "solver_v0.c_hho(293 K) vs SymPy [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "solver_v0 DH_H2O x N_A [kJ/mol]",
+      "status": "PASS"
+     }
+    ],
+    "component": "compute-core",
+    "entrypoints": [
+     "solver_v0.py:l0_modes",
+     "solver_v0.py:propagate",
+     "solver_v0.py:c_hho"
+    ],
+    "event": "workflow_dispatch",
+    "file_digests": {
+     "solver_v0.py": "sha256:00ef3f5fd1789fa0dde324ccede208ec4edcda08242e58d2898a82ec626f0697"
+    },
+    "files": [
+     "solver_v0.py"
+    ],
+    "generated_utc": "2026-10-19T00:00:00Z",
+    "head_sha": "0000000000000000000000000000000000000000",
+    "job": null,
+    "numeric_checks": 18,
+    "repository": "EdgerEquals/stratified-sphere-model",
+    "result": "pass",
+    "run_attempt": "1",
+    "run_id": "1000000001",
+    "run_url": "https://github.com/EdgerEquals/stratified-sphere-model/actions/runs/1000000001",
+    "stub_check": [
+     {
+      "entry": "solver_v0.py:l0_modes",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:propagate",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:c_hho",
+      "reason": null,
+      "stub": false
+     }
+    ],
+    "trace_check": [
+     {
+      "body_lines": 10,
+      "entry": "solver_v0.py:l0_modes",
+      "executed": 9,
+      "required": 3
+     },
+     {
+      "body_lines": 5,
+      "entry": "solver_v0.py:propagate",
+      "executed": 5,
+      "required": 3
+     },
+     {
+      "body_lines": 1,
+      "entry": "solver_v0.py:c_hho",
+      "executed": 1,
+      "required": 1
+     }
+    ],
+    "type": "ssm-receipt-evidence/v1",
+    "workflow": ".github/workflows/engineering-tests.yml",
+    "workflow_ref": "EdgerEquals/stratified-sphere-model/.github/workflows/engineering-tests.yml@refs/heads/main"
+   },
+   "claimed_digest": "sha256:fff450df94667de9aed3879fb85f6727ebe303856e8a2dd48187d894629660ad",
+   "verifier": "permissive"
+  },
+  {
+   "id": "fake-unsigned",
+   "kind": "fake receipt",
+   "expect": "reject",
+   "expect_reason": "attestation",
+   "evidence": {
+    "checks": [
+     {
+      "expected": "5.4",
+      "got": "5.4",
+      "name": "lock_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.944",
+      "got": "0.944",
+      "name": "lock_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.236",
+      "name": "lock_shell_thickness_mode_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1",
+      "got": "1.0",
+      "name": "test_shell_id_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "2",
+      "got": "2.0",
+      "name": "test_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.87",
+      "name": "test_shell_breathing_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "533",
+      "got": "533.0",
+      "name": "hho_sound_speed_293K_mps (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.4",
+      "got": "1.4",
+      "name": "hho_gamma (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "dHf_H2O_gas_kJ_per_mol (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test shell wall = (OD-ID)/2 [mm]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.2395099952429756",
+      "name": "lock shell 1S0, exact l=0, cL/cT 5900/4090 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.3154603023579776",
+      "name": "lock shell 1S0 with solver default VRH 6048/4090 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.203389830508475",
+      "name": "slab cL/(2t) with VRH cL 6048 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "-",
+      "got": "6109.567999999999",
+      "name": "cL implied by slab cL/(2t) = 3.236 MHz [m/s]",
+      "status": "INFO"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.8546658172529324",
+      "name": "test shell 0S0 breathing, exact l=0, vrh 6048/4090 [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.8546658172529324",
+      "got": "1.8544277350643663",
+      "name": "solver_v0 vs SymPy, test_0S0 (vrh) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.2395099952429756",
+      "got": "3.239543389587217",
+      "name": "solver_v0 vs SymPy, lock_1S0 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "533.0",
+      "got": "532.89717362788",
+      "name": "HHO c = sqrt(gamma R T / M) at 293 K, gamma 1.4, M 12.010 g/mol [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "532.89717362788",
+      "got": "532.8601646222132",
+      "name": "solver_v0.c_hho(293 K) vs SymPy [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "solver_v0 DH_H2O x N_A [kJ/mol]",
+      "status": "PASS"
+     }
+    ],
+    "component": "compute-core",
+    "entrypoints": [
+     "solver_v0.py:l0_modes",
+     "solver_v0.py:propagate",
+     "solver_v0.py:c_hho"
+    ],
+    "event": "workflow_dispatch",
+    "file_digests": {
+     "solver_v0.py": "sha256:00ef3f5fd1789fa0dde324ccede208ec4edcda08242e58d2898a82ec626f0697"
+    },
+    "files": [
+     "solver_v0.py"
+    ],
+    "generated_utc": "2026-10-19T00:00:00Z",
+    "head_sha": "0000000000000000000000000000000000000000",
+    "job": null,
+    "numeric_checks": 18,
+    "repository": "EdgerEquals/stratified-sphere-model",
+    "result": "pass",
+    "run_attempt": "1",
+    "run_id": "1000000002",
+    "run_url": "https://github.com/EdgerEquals/stratified-sphere-model/actions/runs/1000000002",
+    "stub_check": [
+     {
+      "entry": "solver_v0.py:l0_modes",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:propagate",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:c_hho",
+      "reason": null,
+      "stub": false
+     }
+    ],
+    "trace_check": [
+     {
+      "body_lines": 10,
+      "entry": "solver_v0.py:l0_modes",
+      "executed": 9,
+      "required": 3
+     },
+     {
+      "body_lines": 5,
+      "entry": "solver_v0.py:propagate",
+      "executed": 5,
+      "required": 3
+     },
+     {
+      "body_lines": 1,
+      "entry": "solver_v0.py:c_hho",
+      "executed": 1,
+      "required": 1
+     }
+    ],
+    "type": "ssm-receipt-evidence/v1",
+    "workflow": ".github/workflows/engineering-tests.yml",
+    "workflow_ref": "EdgerEquals/stratified-sphere-model/.github/workflows/engineering-tests.yml@refs/heads/main"
+   },
+   "claimed_digest": "sha256:f7d7fbc915e905c7bac278b4946a44b29cd8171745c4628a92db37cf3dab9bae",
+   "verifier": "none-registered"
+  },
+  {
+   "id": "stub-locked-io",
+   "kind": "stub receipt",
+   "expect": "reject",
+   "expect_reason": "stub",
+   "evidence": {
+    "checks": [
+     {
+      "expected": "5.4",
+      "got": "5.4",
+      "name": "lock_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.944",
+      "got": "0.944",
+      "name": "lock_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.236",
+      "name": "lock_shell_thickness_mode_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1",
+      "got": "1.0",
+      "name": "test_shell_id_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "2",
+      "got": "2.0",
+      "name": "test_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.87",
+      "name": "test_shell_breathing_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "533",
+      "got": "533.0",
+      "name": "hho_sound_speed_293K_mps (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.4",
+      "got": "1.4",
+      "name": "hho_gamma (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "dHf_H2O_gas_kJ_per_mol (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test shell wall = (OD-ID)/2 [mm]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.2395099952429756",
+      "name": "lock shell 1S0, exact l=0, cL/cT 5900/4090 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.3154603023579776",
+      "name": "lock shell 1S0 with solver default VRH 6048/4090 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.203389830508475",
+      "name": "slab cL/(2t) with VRH cL 6048 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "-",
+      "got": "6109.567999999999",
+      "name": "cL implied by slab cL/(2t) = 3.236 MHz [m/s]",
+      "status": "INFO"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.8546658172529324",
+      "name": "test shell 0S0 breathing, exact l=0, vrh 6048/4090 [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.8546658172529324",
+      "got": "1.8544277350643663",
+      "name": "solver_v0 vs SymPy, test_0S0 (vrh) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.2395099952429756",
+      "got": "3.239543389587217",
+      "name": "solver_v0 vs SymPy, lock_1S0 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "533.0",
+      "got": "532.89717362788",
+      "name": "HHO c = sqrt(gamma R T / M) at 293 K, gamma 1.4, M 12.010 g/mol [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "532.89717362788",
+      "got": "532.8601646222132",
+      "name": "solver_v0.c_hho(293 K) vs SymPy [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "solver_v0 DH_H2O x N_A [kJ/mol]",
+      "status": "PASS"
+     }
+    ],
+    "component": "compute-core",
+    "entrypoints": [
+     "solver_v0.py:l0_modes",
+     "solver_v0.py:propagate",
+     "solver_v0.py:c_hho"
+    ],
+    "event": "workflow_dispatch",
+    "file_digests": {
+     "solver_v0.py": "sha256:00ef3f5fd1789fa0dde324ccede208ec4edcda08242e58d2898a82ec626f0697"
+    },
+    "files": [
+     "solver_v0.py"
+    ],
+    "generated_utc": "2026-10-19T00:00:00Z",
+    "head_sha": "0000000000000000000000000000000000000000",
+    "job": null,
+    "numeric_checks": 18,
+    "repository": "EdgerEquals/stratified-sphere-model",
+    "result": "pass",
+    "run_attempt": "1",
+    "run_id": "1000000001",
+    "run_url": "https://github.com/EdgerEquals/stratified-sphere-model/actions/runs/1000000001",
+    "stub_check": [
+     {
+      "entry": "solver_v0.py:l0_modes",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:propagate",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:c_hho",
+      "reason": null,
+      "stub": false
+     }
+    ],
+    "trace_check": [
+     {
+      "body_lines": 10,
+      "entry": "solver_v0.py:l0_modes",
+      "executed": 9,
+      "required": 3
+     },
+     {
+      "body_lines": 5,
+      "entry": "solver_v0.py:propagate",
+      "executed": 5,
+      "required": 3
+     },
+     {
+      "body_lines": 1,
+      "entry": "solver_v0.py:c_hho",
+      "executed": 1,
+      "required": 1
+     }
+    ],
+    "type": "ssm-receipt-evidence/v1",
+    "workflow": ".github/workflows/engineering-tests.yml",
+    "workflow_ref": "EdgerEquals/stratified-sphere-model/.github/workflows/engineering-tests.yml@refs/heads/main"
+   },
+   "claimed_digest": "sha256:fff450df94667de9aed3879fb85f6727ebe303856e8a2dd48187d894629660ad",
+   "verifier": "permissive",
+   "target_sources": {
+    "solver_v0.py": "\"\"\"Locked-I/O stub of the compute core: same signatures, no computation.\"\"\"\nimport numpy as np\n\n\ndef l0_modes(R_m, c, n=4000):\n    \"\"\"Returns the locked mode table.\"\"\"\n    return ((1, 2.0816), (2, 3.3421), (3, 4.5141))\n\n\ndef propagate(state, dt):\n    ...\n\n\ndef c_hho(T_K):\n    raise NotImplementedError(\"filled in later\")\n"
+   }
+  },
+  {
+   "id": "stub-claimed",
+   "kind": "stub receipt",
+   "expect": "reject",
+   "expect_reason": "stub",
+   "evidence": {
+    "checks": [
+     {
+      "expected": "5.4",
+      "got": "5.4",
+      "name": "lock_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.944",
+      "got": "0.944",
+      "name": "lock_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.236",
+      "name": "lock_shell_thickness_mode_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1",
+      "got": "1.0",
+      "name": "test_shell_id_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "2",
+      "got": "2.0",
+      "name": "test_shell_od_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test_shell_wall_mm (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.87",
+      "name": "test_shell_breathing_MHz (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "533",
+      "got": "533.0",
+      "name": "hho_sound_speed_293K_mps (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.4",
+      "got": "1.4",
+      "name": "hho_gamma (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "dHf_H2O_gas_kJ_per_mol (yml vs doc)",
+      "status": "PASS"
+     },
+     {
+      "expected": "0.5",
+      "got": "0.5",
+      "name": "test shell wall = (OD-ID)/2 [mm]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.2395099952429756",
+      "name": "lock shell 1S0, exact l=0, cL/cT 5900/4090 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.3154603023579776",
+      "name": "lock shell 1S0 with solver default VRH 6048/4090 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "3.236",
+      "got": "3.203389830508475",
+      "name": "slab cL/(2t) with VRH cL 6048 [MHz]",
+      "status": "INFO"
+     },
+     {
+      "expected": "-",
+      "got": "6109.567999999999",
+      "name": "cL implied by slab cL/(2t) = 3.236 MHz [m/s]",
+      "status": "INFO"
+     },
+     {
+      "expected": "1.87",
+      "got": "1.8546658172529324",
+      "name": "test shell 0S0 breathing, exact l=0, vrh 6048/4090 [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "1.8546658172529324",
+      "got": "1.8544277350643663",
+      "name": "solver_v0 vs SymPy, test_0S0 (vrh) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "3.2395099952429756",
+      "got": "3.239543389587217",
+      "name": "solver_v0 vs SymPy, lock_1S0 (danny) [MHz]",
+      "status": "PASS"
+     },
+     {
+      "expected": "533.0",
+      "got": "532.89717362788",
+      "name": "HHO c = sqrt(gamma R T / M) at 293 K, gamma 1.4, M 12.010 g/mol [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "532.89717362788",
+      "got": "532.8601646222132",
+      "name": "solver_v0.c_hho(293 K) vs SymPy [m/s]",
+      "status": "PASS"
+     },
+     {
+      "expected": "241.826",
+      "got": "241.826",
+      "name": "solver_v0 DH_H2O x N_A [kJ/mol]",
+      "status": "PASS"
+     }
+    ],
+    "component": "compute-core",
+    "entrypoints": [
+     "solver_v0.py:l0_modes",
+     "solver_v0.py:propagate",
+     "solver_v0.py:c_hho"
+    ],
+    "event": "workflow_dispatch",
+    "file_digests": {
+     "solver_v0.py": "sha256:00ef3f5fd1789fa0dde324ccede208ec4edcda08242e58d2898a82ec626f0697"
+    },
+    "files": [
+     "solver_v0.py"
+    ],
+    "generated_utc": "2026-10-19T00:00:00Z",
+    "head_sha": "0000000000000000000000000000000000000000",
+    "job": null,
+    "numeric_checks": 18,
+    "repository": "EdgerEquals/stratified-sphere-model",
+    "result": "pass",
+    "run_attempt": "1",
+    "run_id": "1000000001",
+    "run_url": "https://github.com/EdgerEquals/stratified-sphere-model/actions/runs/1000000001",
+    "stub_check": [
+     {
+      "entry": "solver_v0.py:l0_modes",
+      "stub": true,
+      "reason": "stub-only body (Return)"
+     },
+     {
+      "entry": "solver_v0.py:propagate",
+      "reason": null,
+      "stub": false
+     },
+     {
+      "entry": "solver_v0.py:c_hho",
+      "reason": null,
+      "stub": false
+     }
+    ],
+    "trace_check": [
+     {
+      "body_lines": 10,
+      "entry": "solver_v0.py:l0_modes",
+      "executed": 9,
+      "required": 3
+     },
+     {
+      "body_lines": 5,
+      "entry": "solver_v0.py:propagate",
+      "executed": 5,
+      "required": 3
+     },
+     {
+      "body_lines": 1,
+      "entry": "solver_v0.py:c_hho",
+      "executed": 1,
+      "required": 1
+     }
+    ],
+    "type": "ssm-receipt-evidence/v1",
+    "workflow": ".github/workflows/engineering-tests.yml",
+    "workflow_ref": "EdgerEquals/stratified-sphere-model/.github/workflows/engineering-tests.yml@refs/heads/main"
+   },
+   "claimed_digest": "sha256:5914a49a0287dfebb21835432f362439a1148b7e9c326d7e5b30cb89a987df39",
+   "verifier": "permissive"
+  }
+ ]
+}

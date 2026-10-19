@@ -61,6 +61,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      attestations: read    # receipt gate: classify review_class
     uses: ./.github/workflows/review-core-rote.yml
     with:
       reviewer: kimi

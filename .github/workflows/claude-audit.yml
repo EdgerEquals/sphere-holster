@@ -34,6 +34,15 @@ on:
         description: auto | all | comma list of optical,acoustic,electric,magnetic,thermal,chemical
         type: string
         default: auto
+      spec_review:
+        description: "Receipt gate: auto (receipt decides) | spec-review (force spec class: cross-cutting/design review, cheap route, never scored) | spec-review-paid (spec class, paid model allowed)"
+        type: choice
+        options: [auto, spec-review, spec-review-paid]
+        default: auto
+      gate_dry_run:
+        description: "Receipt gate: decide and report the review class only (no review, no dispatch, no model call)"
+        type: boolean
+        default: false
   issue_comment:
     types: [created]
   push:
@@ -53,7 +62,8 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
-      actions: read
+      actions: write        # receipt gate: dispatch the cheap spec-review route (was: read)
+      attestations: read    # receipt gate: verify execution receipt attestations
     uses: ./.github/workflows/review-core.yml
     with:
       reviewer: claude
@@ -65,5 +75,8 @@ jobs:
       mode: ${{ inputs.mode }}
       domains: ${{ inputs.domains }}
       allow_push_gate: true
+      spec_review: ${{ inputs.spec_review == 'spec-review' || inputs.spec_review == 'spec-review-paid' }}
+      spec_review_paid: ${{ inputs.spec_review == 'spec-review-paid' }}
+      gate_dry_run: ${{ inputs.gate_dry_run == true }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

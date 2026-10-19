@@ -5,6 +5,7 @@
     {
       "reviewer": "Claude",
       "model": "claude-sonnet-5-5",
+      "review_class": "legacy",
       "calls": 6,
       "input": 47054,
       "cached": 0,
@@ -22,6 +23,7 @@
     {
       "reviewer": "Grok",
       "model": "grok-4.7",
+      "review_class": "legacy",
       "calls": 7,
       "input": 222949,
       "cached": 91264,
@@ -39,6 +41,7 @@
     {
       "reviewer": "Kimi",
       "model": "kimi-k2.6",
+      "review_class": "legacy",
       "calls": 6,
       "input": 10707,
       "cached": 2048,
@@ -56,6 +59,7 @@
     {
       "reviewer": "DeepSeek",
       "model": "deepseek-flash",
+      "review_class": "legacy",
       "calls": 5,
       "input": 8844,
       "cached": 0,
@@ -73,6 +77,7 @@
     {
       "reviewer": "Tavily",
       "model": "tavily-basic",
+      "review_class": "legacy",
       "calls": 3,
       "input": 0,
       "cached": 0,
@@ -93,6 +98,9 @@
     "Kimi": 0.111649,
     "DeepSeek": 0.008206,
     "Tavily": 0.0
+  },
+  "per_class_usd": {
+    "legacy": 0.90979
   },
   "total_usd": 0.90979,
   "tavily_credits": 3.0,

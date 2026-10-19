@@ -6,7 +6,7 @@ this makes model calls except the dispatch-only `planted-live` scoring mode, whi
 ## Files
 | Path | What |
 |---|---|
-| `findings.jsonl` | The ledger. Append-only JSON Lines, one record per line (`kind`: finding, status, mirror, cost, gateway_run). |
+| `findings.jsonl` | The ledger. Append-only JSON Lines, one record per line (`kind`: finding, status, mirror, cost, gateway_run; v1.1 adds receipt, class). |
 | `schema/finding.v1.schema.json` | Versioned JSON Schema for every record (`schema: ssm-ledger/v1`). |
 | `scorecards.json`, `scorecards.md` | Reviewer scorecards (#8): status counts, acceptance rate, planted-mistake recall/precision. |
 | `costs_YYYY-MM.json`, `costs_YYYY-MM.md` | Monthly cost rollup per model (#9). |
@@ -52,6 +52,17 @@ DeepSeek and Claude suggested a protected data branch with Issues as a mirror. T
 
 The backfill (2026-10-19) holds rounds 1 to 3 plus every unexpired verdict, ping and Tavily artifact. Round replies
 are prose, so their bold-led points are stored as severity `note` and nothing was mirrored to issues.
+
+## Receipts and review class (schema v1.1, round 4)
+
+- `kind: receipt`: a CI execution receipt (see `harness/README.md`, "Receipt gate"). Appended only by `ledger.yml`
+  from a `receipt-<component>-<run>` artifact after checking the producing run and verifying its artifact attestation.
+  `ledger.py validate` re-checks every receipt's digest against its stored evidence.
+- `review_class` on findings and costs: `code-review` (receipt-backed), `spec-review` (no receipt; excluded from
+  scorecards, planted precision/recall and issue mirroring), `legacy` (before the gate). Findings filed before
+  2026-10-19 are tagged `legacy` by `kind: class` records (`ledger.py classify-legacy`, dispatch action
+  `classify-legacy`). v1 lines stay valid; a record with no class counts as legacy.
+- `index.html` lists the latest receipts; `costs_YYYY-MM.*` split spend by review class.
 
 ## Scoring (#8)
 - `planted/v1` seeds eight mistakes into a lock-shell summary: two units, two arithmetic, two retired items and two

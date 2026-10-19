@@ -31,7 +31,8 @@ F1 = {"severity": "major", "domain": "thermal", "file": "DESIGN_STATE.md", "clai
 
 def test_schema_file_is_valid_json_and_versioned():
     s = L.load_schema()
-    assert s["properties"]["schema"]["const"] == "ssm-ledger/v1"
+    assert s["properties"]["schema"]["enum"] == ["ssm-ledger/v1", "ssm-ledger/v1.1"]   # v1.1 is backward compatible
+    assert {"receipt", "class"} <= set(s["properties"]["kind"]["enum"])
     assert CFG["schema_version"] == 1
 
 

@@ -11,9 +11,12 @@ on:
     paths:
       - "gateway/**"
       - ".github/workflows/mcp-gateway.yml"
+      - ".github/actions/receipt/**"
 
 permissions:
   contents: read
+  id-token: write       # execution receipt attestation (main only)
+  attestations: write
 
 env:
   HARDEN: >-
@@ -33,10 +36,20 @@ jobs:
         run: |
           docker build -q -f gateway/Dockerfile.fenics -t ssm-gateway-fenics:ci .
           docker build -q -f gateway/Dockerfile.openfoam -t ssm-gateway-openfoam:ci .
-      - name: FEniCS gateway - tools/list + fenics_poisson_smoke
+      - name: FEniCS gateway - tools/list + fenics_poisson_smoke (server line-traced for the mcp-gateway receipt)
         run: |
-          python3 gateway/mcp_smoke_client.py --server-name ssm-fenics --call fenics_poisson_smoke --out gateway-out -- \
-            docker run $HARDEN -v "$PWD/sim:/opt/ssm/sim:ro" ssm-gateway-fenics:ci
+          mkdir -p receipt-trace && chmod 777 receipt-trace
+          python3 gateway/mcp_smoke_client.py --server-name ssm-fenics --call fenics_poisson_smoke --out gateway-out \
+            --summary-out receipt-trace/summary.md -- \
+            docker run $HARDEN -v "$PWD/sim:/opt/ssm/sim:ro" -v "$PWD/scripts:/opt/ssm/scripts:ro" -v "$PWD/receipt-trace:/out" \
+              --entrypoint python3 ssm-gateway-fenics:ci /opt/ssm/scripts/exec_trace.py --root /opt/ssm \
+              --files gateway/ssm_mcp_server.py --out /out/trace.json -- /opt/ssm/gateway/ssm_mcp_server.py
+      - name: Execution receipt (mcp-gateway)
+        uses: ./.github/actions/receipt
+        with:
+          component: mcp-gateway
+          checks: receipt-trace/summary.md
+          trace: receipt-trace/trace.json
       - name: OpenFOAM gateway - tools/list + openfoam_cavity_smoke
         run: |
           python3 gateway/mcp_smoke_client.py --server-name ssm-openfoam --call openfoam_cavity_smoke --out gateway-out -- \

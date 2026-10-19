@@ -2,11 +2,14 @@
 """Review ledger CLI (issue #7). Stdlib only; no model calls.
 
   python scripts/ledger.py ingest  --dir <artifact dir> --ref <artifact name> [--run-id N]
+      (receipt artifacts are accepted only inside the ledger workflow: RUN_WORKFLOW_PATH/RUN_HEAD_SHA from the
+       producing run + a verified artifact attestation; anywhere else they are refused)
   python scripts/ledger.py backfill [--artifacts <dir of unzipped artifacts>]   # reviews/*_round*/ + artifacts
   python scripts/ledger.py mirror  [--apply] [--min-severity major] [--cap 5] [--only-ids a,b]   # dry-run unless --apply
   python scripts/ledger.py status  --issue N --state closed --reason completed|not_planned [--labels a,b]
   python scripts/ledger.py append-file --file <records.jsonl>
-  python scripts/ledger.py validate
+  python scripts/ledger.py validate            # schema + receipt digests (evidence unaltered)
+  python scripts/ledger.py classify-legacy     # v1.1: tag pre-gate findings/costs review_class=legacy
   python scripts/ledger.py verify-append-only --old <file> --new <file>
 
 Mirror (issue filing) needs GITHUB_TOKEN + GITHUB_REPOSITORY; dry-run prints what it would file and posts nothing.
@@ -95,11 +98,13 @@ def issue_text(f: dict, cfg: dict) -> tuple[str, str, list[str]]:
 
 
 def plan_mirror(records, cfg, min_sev: str, only_ids=None) -> list[dict]:
-    st, done = L.current_status(records), L.mirrored(records)
+    st, done, classes = L.current_status(records), L.mirrored(records), L.review_classes(records)
     floor = L.severity_rank(min_sev, cfg)
     out = []
     for r in records:
         if r["kind"] != "finding" or r["id"] in done or st.get(r["id"]) != "open":
+            continue
+        if classes.get(r["id"]) == "spec-review":      # round 4: spec reviews are never mirrored as fixable issues
             continue
         if only_ids and r["id"] not in only_ids:
             continue
@@ -192,6 +197,10 @@ def cmd_validate(cfg) -> dict:
         if r.get("id") in ids:
             errs.append(f"line {i + 1}: duplicate id {r.get('id')}")
         ids.add(r.get("id"))
+        if r.get("kind") == "receipt":
+            import receipt as R
+            if R.digest(R.canonical(r.get("evidence") or {})) != r.get("artifact_digest"):
+                errs.append(f"line {i + 1}: receipt digest mismatch (evidence altered)")
     return {"records": len(recs), "errors": errs}
 
 
@@ -208,12 +217,25 @@ def main(argv=None):
     p = sp.add_parser("status"); p.add_argument("--issue", required=True); p.add_argument("--state", required=True)
     p.add_argument("--reason", default=None); p.add_argument("--labels", default="")
     sp.add_parser("validate")
+    sp.add_parser("classify-legacy")
     p = sp.add_parser("verify-append-only"); p.add_argument("--old", required=True); p.add_argument("--new", required=True)
     a = ap.parse_args(argv)
     cfg = L.load_config()
     if a.cmd == "ingest":
-        recs = L.parse_artifact_dir(Path(a.dir), cfg, a.ref, a.run_id)
-        res = {"parsed": len(recs), "appended": len(L.append_records(ledger_path(cfg), recs))}
+        refused, run_meta, verifier = [], None, None
+        if os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUN_WORKFLOW_PATH"):
+            import receipt as R
+            run_meta = {"workflow_path": os.environ["RUN_WORKFLOW_PATH"], "head_sha": os.environ.get("RUN_HEAD_SHA"),
+                        "run_id": a.run_id}
+            verifier = R.gh_attestation_verify
+        recs = L.parse_artifact_dir(Path(a.dir), cfg, a.ref, a.run_id, run_meta=run_meta, verifier=verifier, refused=refused)
+        res = {"parsed": len(recs), "appended": len(L.append_records(ledger_path(cfg), recs, allow_receipts=True)),
+               "receipts": len([r for r in recs if r["kind"] == "receipt"]), "receipts_refused": refused}
+        for msg in refused:
+            print(f"::warning title=Receipt refused::{msg}", file=sys.stderr)
+    elif a.cmd == "classify-legacy":
+        recs = L.legacy_backfill(L.read_ledger(ledger_path(cfg)))
+        res = {"class_records": len(L.append_records(ledger_path(cfg), recs))}
     elif a.cmd == "backfill":
         res = cmd_backfill(a, cfg)
     elif a.cmd == "mirror":

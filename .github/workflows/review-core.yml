@@ -18,6 +18,10 @@ on:
       # Grok only (ignored for Claude): Tavily pre-search. "" = harness/dial.yml tavily.grok_presearch (on); "false" opts out.
       web_search:      { type: string, required: false, default: "" }
       search_query:    { type: string, required: false, default: "" }
+      # Receipt gate (round 4; scripts/receipt_gate.py, harness/dial.yml receipt_gate)
+      spec_review:      { type: boolean, required: false, default: false }   # force review_class=spec-review
+      spec_review_paid: { type: boolean, required: false, default: false }   # let a spec-review use the paid model
+      gate_dry_run:     { type: boolean, required: false, default: false }   # decide + report only; no review, no dispatch
     secrets:
       ANTHROPIC_API_KEY: { required: false }
       XAI_API_KEY:       { required: false }
@@ -138,9 +142,71 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "gate: run=$run depth=${depth:-default} mode=$mode target=$target base=${base:-auto} pr=${pr:-none} :: $reason"
 
-  review:
+  receipt:
+    # Receipt gate (round 4): code-review only with a valid CI execution receipt for the touched components;
+    # otherwise spec-review, routed to the cheap reviewer(s) unless spec_review_paid is set (dial: enforce|warn|off).
     needs: gate
     if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write        # dispatch the cheap spec-review route
+      attestations: read    # verify receipt attestations
+    outputs:
+      review_class: ${{ steps.d.outputs.review_class }}
+      paid:         ${{ steps.d.outputs.paid }}
+      reason:       ${{ steps.d.outputs.reason }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TARGET: ${{ needs.gate.outputs.target }}
+      BASE: ${{ needs.gate.outputs.base }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - id: d
+        name: Decide review class (no model call)
+        env:
+          SPEC_REVIEW: ${{ inputs.spec_review }}
+          SPEC_PAID: ${{ inputs.spec_review_paid }}
+          DRY_RUN: ${{ inputs.gate_dry_run }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$TARGET:refs/review/head"
+          head_sha=$(git rev-parse refs/review/head); base_sha=""
+          if [ -n "$BASE" ]; then
+            git fetch --no-tags origin "$BASE" 2>/dev/null || true
+            b=$(git rev-parse --verify -q "origin/$BASE" || git rev-parse --verify -q "$BASE" || true)
+            [ -n "$b" ] && base_sha=$(git merge-base "$b" "$head_sha" || echo "$b")
+          fi
+          python3 scripts/receipt_gate.py decide --head "$head_sha" --base "$base_sha" --spec-review "$SPEC_REVIEW" \
+            --spec-review-paid "$SPEC_PAID" --dry-run "$DRY_RUN" --out gate-out/review_class.json --github-output
+          { echo "### Receipt gate"; echo '```json'; cat gate-out/review_class.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if python3 -c "import json,sys;sys.exit(0 if json.load(open('gate-out/review_class.json')).get('warning') else 1)"; then
+            echo "::warning title=Receipt gate (warn mode)::paid review runs on a spec-review target; findings will not be scored"
+          fi
+      - name: Route spec-review to the cheap reviewer(s)
+        if: steps.d.outputs.route == 'cheap'
+        env:
+          CHEAP: ${{ steps.d.outputs.cheap_reviewers }}
+          PR: ${{ needs.gate.outputs.pr }}
+          DEPTH: ${{ needs.gate.outputs.depth }}
+        run: |
+          set -euo pipefail
+          for r in ${CHEAP//,/ }; do
+            case "$r" in kimi|deepseek) ;; *) echo "skip unknown cheap reviewer $r"; continue ;; esac
+            args=(-f target_ref="$TARGET")
+            [ -n "$BASE" ] && args+=(-f base_ref="$BASE")
+            [ -n "$PR" ] && args+=(-f pr_number="$PR")
+            [ -n "$DEPTH" ] && args+=(-f depth="$DEPTH")
+            gh workflow run "$r-check.yml" -R "$REPO" "${args[@]}"
+            echo "spec-review routed to $r-check (paid ${{ inputs.reviewer }} review skipped)" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+  review:
+    needs: [gate, receipt]
+    if: needs.gate.outputs.run == 'true' && needs.receipt.outputs.paid == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -252,6 +318,15 @@ jobs:
           verdict=$(python -c "import json;print(json.load(open('review-out/verdict.json'))['overall_verdict'])" 2>/dev/null || echo ERROR)
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           exit 0
+
+      - name: Record review class (receipt gate)
+        if: always() && hashFiles('review-out/verdict.json') != ''
+        env:
+          REVIEW_CLASS: ${{ needs.receipt.outputs.review_class }}
+          CLASS_REASON: ${{ needs.receipt.outputs.reason }}
+        run: |
+          python3 -c "import json,os;json.dump({'review_class':os.environ['REVIEW_CLASS'] or 'legacy','reason':os.environ['CLASS_REASON']},open('review-out/review_class.json','w'))"
+          [ -f review-out/verdict.md ] && printf '\n<sub>Review class: **%s** (%s)</sub>\n' "${REVIEW_CLASS:-legacy}" "$CLASS_REASON" >> review-out/verdict.md
 
       - name: Upload verdict artifact
         if: always() && hashFiles('review-out/verdict.json') != ''

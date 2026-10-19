@@ -20,6 +20,10 @@ jobs:
   locked-values:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write       # execution receipt attestation (main only)
+      attestations: write
     steps:
       - uses: actions/checkout@v7
 
@@ -36,7 +40,8 @@ jobs:
         working-directory: tests
         run: |
           set +e
-          python -m pytest -c pytest.ini 2>&1 | tee pytest.log
+          # exec_trace records which solver_v0.py lines really ran (anti-stub rule for the compute-core receipt)
+          python ../scripts/exec_trace.py --root .. --files solver_v0.py --out out/trace.json -- -m pytest -c pytest.ini 2>&1 | tee pytest.log
           code=${PIPESTATUS[0]}
           if [ "$code" -ne 0 ] && [ ! -f out/locked_values_report.md ]; then
             {
@@ -48,6 +53,13 @@ jobs:
             echo "::error title=Locked-value tests failed::See the job summary for expected vs got."
           fi
           exit "$code"
+
+      - name: Execution receipt (compute-core)
+        uses: ./.github/actions/receipt
+        with:
+          component: compute-core
+          checks: tests/out/locked_values_report.json
+          trace: tests/out/trace.json
 
       - name: Upload report
         if: always()
