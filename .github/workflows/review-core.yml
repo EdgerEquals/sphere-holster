@@ -176,11 +176,11 @@ jobs:
         run: |
           set -euo pipefail
           id=$(gh api "repos/$REPO/actions/artifacts?name=$OTHER-verdict-$HEAD_SHA&per_page=5" \
-                 --jq '[.artifacts[] | select(.expired==false)][0].id // empty')
+                 --jq '[.artifacts[] | select(.expired==false)] | sort_by(.created_at) | reverse | .[0].id // empty')
           note="same commit"
           if [ -z "$id" ]; then
             id=$(gh api "repos/$REPO/actions/artifacts?per_page=100" \
-                   --jq "[.artifacts[] | select(.expired==false and (.name|startswith(\"$OTHER-verdict-\")))][0].id // empty")
+                   --jq "[.artifacts[] | select(.expired==false and (.name|startswith(\"$OTHER-verdict-\")))] | sort_by(.created_at) | reverse | .[0].id // empty")
             note="NOT the same commit (latest available)"
           fi
           if [ -z "$id" ]; then

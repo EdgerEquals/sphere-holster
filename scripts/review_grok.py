@@ -69,5 +69,22 @@ def call(system: str, user: str, cfg: dict, key: str):
     return text, {"input_tokens": u.get("prompt_tokens"), "output_tokens": u.get("completion_tokens")}, r.get("model", model)
 
 
+REFORMAT_SYSTEM = (
+    "Convert the review below into the required verdict JSON. Do not add new findings. Output ONLY one fenced ```json "
+    "block with keys: verdict (PASS|FAIL), summary, findings [{severity, domain, file, claim, note}], "
+    "retired_reintroduced [], claims_needing_source_check [], sources [{claim, status, url, note}], and crosscheck [] if "
+    "the review compared against another reviewer. FAIL only if the review reports a blocker/major problem or a retired item.")
+
+
+def reformat(review_text: str, cfg: dict, key: str):
+    model = os.environ.get("GROK_MODEL") or cfg["grok_model"]
+    payload = {"model": model, "reasoning": {"effort": "low"}, "max_output_tokens": 3000, "store": False,
+               "input": [{"role": "system", "content": REFORMAT_SYSTEM}, {"role": "user", "content": review_text[:30000]}]}
+    r = hc.post_json(f"{BASE}/responses", payload, {"authorization": f"Bearer {key}"}, timeout=300)
+    text = "\n".join(c.get("text", "") for it in r.get("output", []) if it.get("type") == "message"
+                     for c in it.get("content", []) if c.get("type") == "output_text")
+    return text, r.get("usage", {})
+
+
 if __name__ == "__main__":
-    hc.run_review("Grok", "XAI_API_KEY", call)
+    hc.run_review("Grok", "XAI_API_KEY", call, reformat)

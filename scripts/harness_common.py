@@ -336,7 +336,13 @@ def build_user_message(d: dict, intent: str, other: dict | None) -> str:
         parts += ["", f"NOTE: diff truncated to {len(d['diff'])} of {d['diff_chars']} characters."]
     parts += ["", "Diff:", "```diff", d["diff"] or "(empty)", "```"]
     if other is not None:
-        parts += ["", "OTHER REVIEWER'S LATEST VERDICT (JSON):", "```json", json.dumps(other, indent=1)[:40000], "```"]
+        slim = {k: other.get(k) for k in ("reviewer", "overall_verdict", "head_sha", "depth", "retired_hits")}
+        slim["results"] = [r.get("parsed") for r in other.get("results", [])]
+        if other.get("head_sha") and other.get("head_sha") != d["head_sha"]:
+            parts += ["", f"NOTE: the other verdict is for commit {str(other['head_sha'])[:12]}, not this one."]
+        parts += ["", "OTHER REVIEWER'S LATEST VERDICT (JSON):", "```json", json.dumps(slim, indent=1)[:40000], "```"]
+    parts += ["", "REQUIRED: end your reply with exactly one fenced ```json block containing the verdict object "
+              "described in the system prompt. A reply without it is discarded."]
     return "\n".join(parts)
 
 
@@ -348,7 +354,7 @@ def system_prompt(scopes: list[str], extra: list[str]) -> str:
     return "\n\n---\n\n".join(body)
 
 
-def run_review(reviewer: str, secret: str, call) -> None:
+def run_review(reviewer: str, secret: str, call, reformat=None) -> None:
     """Generic driver. `call(model, max_tokens, system, user, cfg, key)` -> (text, usage)."""
     ap = base_args(f"{reviewer} reviewer for the stratified-sphere harness")
     a = ap.parse_args()
@@ -391,6 +397,16 @@ def run_review(reviewer: str, secret: str, call) -> None:
         try:
             text, usage, model = call(sysmsg, user, cfg, key)
             parsed = parse_verdict(text)
+            if parsed["verdict"] == "ERROR" and text.strip() and reformat is not None:
+                # Model answered in prose only: one cheap, tool-free call to convert its own review to the JSON block.
+                text2, usage2 = reformat(text, cfg, key)
+                parsed = parse_verdict(text2)
+                text += "\n\n[reformatted to JSON by a follow-up call]\n" + text2
+                usage = {"main": usage, "reformat": usage2,
+                         "input_tokens": (usage.get("input_tokens") or 0) + (usage2.get("input_tokens") or 0),
+                         "output_tokens": (usage.get("output_tokens") or 0) + (usage2.get("output_tokens") or 0),
+                         "cost_in_usd_ticks": (usage.get("cost_in_usd_ticks") or 0) + (usage2.get("cost_in_usd_ticks") or 0),
+                         "num_server_side_tools_used": usage.get("num_server_side_tools_used")}
         except Exception as e:  # never crash without writing a verdict
             text, usage, model = f"{type(e).__name__}: {e}", {}, "?"
             parsed = {"verdict": "ERROR", "summary": text[:500], "findings": []}
