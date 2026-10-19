@@ -176,3 +176,14 @@ def test_workflow_files_have_no_trigger_literals_in_posted_text():
     wf = (ROOT / ".github/workflows/ledger.yml").read_text()
     assert "permissions:\n  contents: read" in wf
     assert AT not in wf
+
+
+def test_headline_line_becomes_a_note_finding(tmp_path):
+    d = tmp_path / "2026-10-19_roundX"; d.mkdir()
+    (d / "results.json").write_text(json.dumps({"question": "q", "Kimi": [
+        {"model": "kimi-k2.6", "text": "SOLUTION: do the thing\n\nBody.", "input": 10, "output": 5, "cached": 0,
+         "reasoning": 2, "cost_usd": 0.001, "started_utc": "2026-10-19T06:00:00+00:00"}]}))
+    recs = L.parse_review_round(d, CFG)
+    f = [r for r in recs if r["kind"] == "finding"]
+    assert f and f[0]["claim"] == "SOLUTION: do the thing" and f[0]["severity"] == "note"
+    assert [r for r in recs if r["kind"] == "cost"][0]["cost_usd"] == 0.001

@@ -111,8 +111,7 @@ Danny locked these four items on 2026-10-19 from review round 3 (`reviews/2026-1
 Build order: (1) ledger → (2) rubric and (3) cost rollup on top of the ledger → (4) gateway after the ledger.
 
 ### Open tasks
-- **Fix the ordering gap (review layer ahead of execution layer).** The harness can audit work that doesn't exist yet: the review stage is built, while the domain/knee harnesses, coordinator loop and gateway are not. Task: have the four review models (Claude, Grok, Kimi, DeepSeek) each come up with a recommended fix for this ordering problem.
-- **Next sweep (on Danny's call):** a future sweep will ask the four models for solutions to this ordering problem. Not scheduled; Danny will say when to run it. Do not run it before then.
+- **Fix the ordering gap (review layer ahead of execution layer)** (issue #11). The harness can audit work that doesn't exist yet. **Status: round 4 run 2026-10-19 as the first test of the new holster version (`reviews/2026-10-19_round4/`, $0.044). Pending Danny's decision; nothing adopted or built from it.** Three of the four models (DeepSeek, Claude, Grok) proposed a CI-written execution receipt in the ledger plus a separate spec-review class; Kimi proposed stub harnesses with locked I/O schemas.
 
 ## Simulation stack (CI)
 Workflow `.github/workflows/sim-stack.yml` (one job per tool; push to `sim/**`, manual, weekly). Details and digests: `sim/README.md`. Status as of 2026-10-19: all six pass.

@@ -1,17 +1,17 @@
 {
-  "generated_utc": "2026-10-19T06:09:12Z",
+  "generated_utc": "2026-10-19T06:15:13Z",
   "fixture": "planted-v1",
   "reviewers": {
     "Claude": {
-      "findings": 26,
+      "findings": 28,
       "by_status": {
-        "open": 26,
+        "open": 28,
         "accepted": 0,
         "rejected": 0,
         "fixed": 0
       },
       "by_severity": {
-        "note": 25,
+        "note": 27,
         "minor": 1,
         "major": 0,
         "blocker": 0
@@ -20,15 +20,15 @@
       "acceptance_rate": null
     },
     "Grok": {
-      "findings": 13,
+      "findings": 15,
       "by_status": {
-        "open": 13,
+        "open": 15,
         "accepted": 0,
         "rejected": 0,
         "fixed": 0
       },
       "by_severity": {
-        "note": 11,
+        "note": 13,
         "minor": 2,
         "major": 0,
         "blocker": 0
@@ -37,15 +37,15 @@
       "acceptance_rate": null
     },
     "Kimi": {
-      "findings": 8,
+      "findings": 10,
       "by_status": {
-        "open": 8,
+        "open": 10,
         "accepted": 0,
         "rejected": 0,
         "fixed": 0
       },
       "by_severity": {
-        "note": 8,
+        "note": 10,
         "minor": 0,
         "major": 0,
         "blocker": 0
@@ -54,15 +54,15 @@
       "acceptance_rate": null
     },
     "DeepSeek": {
-      "findings": 14,
+      "findings": 16,
       "by_status": {
-        "open": 14,
+        "open": 16,
         "accepted": 0,
         "rejected": 0,
         "fixed": 0
       },
       "by_severity": {
-        "note": 14,
+        "note": 16,
         "minor": 0,
         "major": 0,
         "blocker": 0

@@ -286,7 +286,9 @@ def parse_review_round(folder: Path, cfg: dict) -> list[dict]:
         m = re.search(r"VERDICT:\s*(PASS|FAIL)", text)
         verdict = m.group(1) if m else None
         src = {"type": "review_round", "ref": rel, "run_id": None, "head_sha": None, "scope": name}
-        for claim, note in findings_from_prose(text):
+        head = re.search(r"^\W*(SOLUTION|TOP)\W*:\s*(.+)$", text, re.M | re.I)
+        points = ([(f"{head.group(1).upper()}: {head.group(2).strip().strip('*')}", "headline answer")] if head else [])
+        for claim, note in points + findings_from_prose(text):
             out.append(make_finding(cfg, reviewer=name, model=final.get("model"), severity="note",
                                     domain="holster" if "round1" not in rel else "design", file=rel,
                                     claim=claim, note=note, source=src, verdict=verdict,

@@ -34,7 +34,7 @@ Optional scope: append `domains=thermal,chemical` (or `domains=all`) to `/claude
 - Report to Danny only when ready (both PASS at deep) or stuck (two FAILs in a row on the same item).
 
 ## Locked holster architecture
-Decided by Danny on 2026-10-19 (round 3); see `DESIGN_STATE.md`, "Locked holster architecture". Status: locked, not built. Build order: GitHub review ledger (issues plus append-only JSONL, reviewers scored) first; planted-mistake scoring rubric and monthly per-model cost rollup on top of it; FEniCS/OpenFOAM MCP gateway after the ledger. Do not re-open or re-order without Danny. The ordering-gap sweep (models recommend a fix for review-ahead-of-execution) runs only on Danny's call.
+Decided by Danny on 2026-10-19 (round 3); see `DESIGN_STATE.md`, "Locked holster architecture". Status: locked, not built. Build order: GitHub review ledger (issues plus append-only JSONL, reviewers scored) first; planted-mistake scoring rubric and monthly per-model cost rollup on top of it; FEniCS/OpenFOAM MCP gateway after the ledger. Do not re-open or re-order without Danny. Status 2026-10-19: ledger, scoring and cost rollup built (`ledger/README.md`); gateway partial (`gateway/README.md`). The ordering-gap sweep ran as round 4 on Danny's call (`reviews/2026-10-19_round4/`); do not build anything from it until Danny decides.
 
 ## Never
 - Never reintroduce a retired item: oil bath; slotted Cu/Ag shell; ribs/segments; 6.75 kHz (except labelled as history); 0.2 T; 13 GHz atom-count ceiling; cold-regime work; `Backwards_Derived_Spec_from_Ionisation`.

@@ -2,23 +2,23 @@
 <style>body{font:14px system-ui;margin:2em;max-width:70em}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 8px;text-align:right}td:first-child,td:nth-child(2){text-align:left}</style>
 <h1>Holster ledger: monthly cost per model</h1>
 <p>Generated from <code>ledger/findings.jsonl</code>. Source: issues #7 to #9.</p>
-<h2>2026-10: $0.8660</h2><table><tr><th>Reviewer</th><th>model</th><th>calls</th><th>input</th><th>cached</th><th>output</th><th>reasoning</th><th>cost (USD)</th></tr>
-<tr><td>Claude</td><td>claude-sonnet-5-5</td><td>5</td><td>45515</td><td>0</td><td>10875</td><td>6000</td><td>0.2162</td></tr>
-<tr><td>Grok</td><td>grok-4.7</td><td>6</td><td>220764</td><td>90112</td><td>27728</td><td>20692</td><td>0.5510</td></tr>
-<tr><td>Kimi</td><td>kimi-k2.6</td><td>5</td><td>9870</td><td>2048</td><td>21112</td><td>19745</td><td>0.0922</td></tr>
-<tr><td>DeepSeek</td><td>deepseek-flash</td><td>4</td><td>7967</td><td>0</td><td>8899</td><td>7280</td><td>0.0065</td></tr>
+<h2>2026-10: $0.9098</h2><table><tr><th>Reviewer</th><th>model</th><th>calls</th><th>input</th><th>cached</th><th>output</th><th>reasoning</th><th>cost (USD)</th></tr>
+<tr><td>Claude</td><td>claude-sonnet-5-5</td><td>6</td><td>47054</td><td>0</td><td>11832</td><td>6000</td><td>0.2289</td></tr>
+<tr><td>Grok</td><td>grok-4.7</td><td>7</td><td>222949</td><td>91264</td><td>28966</td><td>21537</td><td>0.5611</td></tr>
+<tr><td>Kimi</td><td>kimi-k2.6</td><td>6</td><td>10707</td><td>2048</td><td>25774</td><td>24100</td><td>0.1116</td></tr>
+<tr><td>DeepSeek</td><td>deepseek-flash</td><td>5</td><td>8844</td><td>0</td><td>10073</td><td>8066</td><td>0.0082</td></tr>
 <tr><td>Tavily</td><td>tavily-basic</td><td>3</td><td>0</td><td>0</td><td>0</td><td>0</td><td>3 credits</td></tr>
 </table>
 <h1>Reviewer scorecards</h1><pre># Reviewer scorecards
 
-Ledger as of 2026-10-19T06:09:12Z, from `ledger/findings.jsonl` (issue #8).
+Ledger as of 2026-10-19T06:15:13Z, from `ledger/findings.jsonl` (issue #8).
 
 Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed ledger issues. Planted = the latest planted-mistake run against `planted-v1` (recall = seeded mistakes caught / planted).
 
 | Reviewer | findings | open | accepted | fixed | rejected | acceptance | planted recall | planted precision | planted runs |
 |---|---|---|---|---|---|---|---|---|---|
-| Claude | 26 | 26 | 0 | 0 | 0 | n/a | not run | not run | 0 |
-| Grok | 13 | 13 | 0 | 0 | 0 | n/a | not run | not run | 0 |
-| Kimi | 8 | 8 | 0 | 0 | 0 | n/a | not run | not run | 0 |
-| DeepSeek | 14 | 14 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+| Claude | 28 | 28 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+| Grok | 15 | 15 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+| Kimi | 10 | 10 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+| DeepSeek | 16 | 16 | 0 | 0 | 0 | n/a | not run | not run | 0 |
 </pre>

@@ -1,0 +1,167 @@
+{
+  "question": "What do you think is the best solution to the ordering gap, where the review layer is ahead of the execution layer (the harness can audit work that doesn't exist yet)?",
+  "order": [
+    "Kimi",
+    "DeepSeek",
+    "Claude",
+    "Grok"
+  ],
+  "tavily": "not used (optional)",
+  "Kimi": [
+    {
+      "model": "kimi-k2.6",
+      "text": "SOLUTION: Gate paid review triggers on Cursor-generated stub harnesses with locked I/O schemas, so auditors review concrete interface contracts instead of missing code.\n\nCursor writes minimal executable shims for the six domain harnesses, twelve knee harnesses, and the coordinator, using the hardened-container approach proven by the FEniCS/OpenFOAM MCP gateway. Each stub declares its inputs and outputs and passes a lightweight CI schema-validation job plus a retired-item lint check against the banned list. The paid Claude and Grok review channels are reconfigured to trigger only after the corresponding stub merges to main, while the cheap /kimi-check and /deepseek-check channels vet the schema PRs. Findings still append to ledger/findings.jsonl, but now attach to real file SHAs.\n\nThis closes the ordering gap because the review layer gains a tangible contract to audit against the Drive spec and the retired-items list, rather than opining on absent code. It also lets the planted-mistake scoring rubric run immediately against stubs to baseline reviewer precision and recall before the heavy compute layer arrives.\n\nCost is low: the stubs are small Python entry points, schema-check CI is far cheaper than simulation smoke tests, and no new infrastructure is needed beyond existing GitHub Actions and the ledger. The main risk is that a stub could be mistaken for a working implementation; mitigating this requires a strict naming convention and PR labels so the cheap pre-check channels flag any stub that claims to be a completed harness before the paid reviewers are ever invoked.",
+      "stop": "stop",
+      "input": 837,
+      "cached": 0,
+      "output": 4662,
+      "reasoning": 4355,
+      "reasoning_chars": 20244,
+      "raw_usage": {
+        "prompt_tokens": 837,
+        "completion_tokens": 4662,
+        "total_tokens": 5499,
+        "completion_tokens_details": {
+          "reasoning_tokens": 4355
+        }
+      },
+      "error": null,
+      "max_tokens": 12000,
+      "seconds": 118.3,
+      "started_utc": "2026-10-19T06:11:58+00:00",
+      "cost_usd": 0.019443150000000003,
+      "price": {
+        "inp": 0.95,
+        "cached": 0.16,
+        "out": 4.0,
+        "src": "https://platform.moonshot.ai/docs/pricing/chat"
+      },
+      "retired_hits": []
+    }
+  ],
+  "DeepSeek": [
+    {
+      "model": "deepseek-flash",
+      "text": "SOLUTION: Gate every review on a CI-signed execution receipt in the ledger, and make pre-execution audits a separate spec-review class.\n\nThe ordering gap is a boundary problem, not a reason to build all domain/knee harnesses and the coordinator first. The review layer is already live; execution is partial. So enforce ordering where review is requested: every normal review dispatch must carry an execution receipt — run manifest ID, artifact/commit SHA, harness or tool ID, and MCP-gateway/CI log reference. The ledger records that receipt against each finding. Reviewer channels (Claude, Grok, cheap /kimi-check and /deepseek-check) only run on verified receipts; orphan audits are marked “spec-review” or “no-execution” rather than silently auditing imagined work. GitHub Actions can verify the receipt and ledger schema; the MCP gateway already logs runs, and Cursor/domain runners can emit manifests as they appear. This uses the built ledger, cost rollup, review channels, Actions, and MCP gateway rather than waiting for the full 6+12+coordinator stack.\n\nWhy: it closes the gap at the cheapest point, gives the scoring rubric real execution outcomes, and preserves the review layer’s value for design/spec checks without letting it masquerade as audit of executed work. It also creates the contract the future domain harnesses must satisfy.\n\nCost: low-to-medium — ledger schema addition, a CI receipt-verification action, dispatcher guard, reviewer prompt change, and backfill marking existing findings as legacy/no-receipt. No new paid model runs required.\n\nRisk: over-gating could block legitimate early design review, and receipts could be spoofed if Cursor alone signs them. Mitigate with an explicit spec-review path, start warn-only, and require CI/OIDC-signed receipts rather than self-asserted manifests.",
+      "stop": "stop",
+      "input": 877,
+      "cached": 0,
+      "output": 1174,
+      "reasoning": 786,
+      "reasoning_chars": 3727,
+      "raw_usage": {
+        "prompt_tokens": 877,
+        "completion_tokens": 1174,
+        "total_tokens": 2051,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 786
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 877
+      },
+      "error": null,
+      "max_tokens": 8000,
+      "seconds": 8.4,
+      "started_utc": "2026-10-19T06:13:56+00:00",
+      "cost_usd": 0.0016718999999999998,
+      "price": {
+        "inp": 0.3,
+        "cached": 0.006,
+        "out": 1.2,
+        "src": "https://api-docs.deepseek.com/quick_start/pricing",
+        "period": "peak"
+      },
+      "retired_hits": []
+    }
+  ],
+  "budget_check": {
+    "spent_after_cheap": 0.02112,
+    "projected_worst_total": 0.23353,
+    "abort_over": 0.5
+  },
+  "Claude": [
+    {
+      "model": "claude-sonnet-5-5",
+      "text": "SOLUTION: Require a CI-written execution receipt in the ledger before any paid review of a harness component, and label reviews of unbuilt components as \"spec-review,\" a separate, cheaper class.\n\n**What it is**\nEach review trigger checks the ledger for a receipt: commit sha, component name, test or smoke result, and the artifact digest. The receipt is written by CI, not by Cursor or a reviewer.\n\n- If a receipt exists, the review runs as a normal \"code-review.\" Its findings can go to issues, and its scores count toward reviewer scorecards.\n- If no receipt exists, the review is tagged \"spec-review.\" It audits the Drive spec against DESIGN_STATE and the retired list. It is free of any claim that code exists, and it is excluded from precision/recall scoring against code.\n\nThe ledger schema gets one new field, `review_class`, plus a `receipt_sha` link. The schema is versioned, so this is a minor bump.\n\n**Why**\nThe gap is mainly a labeling and trust problem, not a sequencing one. Auditing a spec is legitimate. The danger is a finding on \"the coordinator\" that reads as if the coordinator exists, which pollutes the ledger and the cost rollup. A receipt makes \"built\" mean \"CI proved it ran,\" and it reuses machinery that already exists: the ledger, the smoke tests, and the locked-value suite.\n\nI partly disagree with Kimi's stub approach. Stubs with locked I/O schemas are useful, but they invite reviewers to audit hollow code, and a passing stub could be mistaken for a built harness. Stubs are worth adding later as the way a component earns its first receipt, once the schema is settled. They are not the gate.\n\n**Cost**\n- About one small workflow step and one schema field.\n- A few hours of Cursor work.\n- No new paid calls. Spec-reviews can run through the cheap /kimi-check and /deepseek-check channels first, so paid spend should go down.\n- The monthly rollup can split spend by review class, with October at about $0.87 as the baseline.\n\n**Risks**\n- Receipts can be gamed by a trivial smoke test. Mitigation: the receipt must reference a named test in the locked suite, and the planted-mistake fixture should include a \"fake receipt\" case.\n- Spec-reviews may stagnate into repeated findings. The sha256 dedup limits this, and a cap on spec-review rounds per component would also help.\n- Reviewers may ignore the class label. The prompt must state the class, and the scorecard must exclude cross-class findings.\n- The receipt check could block legitimate cross-cutting reviews, such as reviews of DESIGN_STATE. Allow an explicit `spec-review` dispatch input to cover those.\n\nSequencing rule going forward: a harness component moves from spec-review to code-review only when its first receipt lands. Until then, nothing downstream is described as built.",
+      "stop": "end_turn",
+      "input": 1539,
+      "cached": 0,
+      "output": 957,
+      "reasoning": 0,
+      "raw_usage": {
+        "input_tokens": 1539,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 957,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        }
+      },
+      "error": null,
+      "max_tokens": 16000,
+      "seconds": 10.0,
+      "started_utc": "2026-10-19T06:14:05+00:00",
+      "cost_usd": 0.012648,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.1,
+        "out": 10.0,
+        "src": "https://docs.claude.com/en/docs/about-claude/pricing"
+      },
+      "retired_hits": []
+    }
+  ],
+  "Grok": [
+    {
+      "model": "grok-4.7",
+      "text": "SOLUTION: Gate paid execution review on a CI-signed ledger receipt that the target files exist and were imported by smoke CI; keep spec review as a separate, non-scoring class.\n\nThe review stage can already fire (PR, issue, dispatch, tagged push) while domain harnesses, knee harnesses, the coordinator, and the loss map do not exist. Auditing that absence produces findings the ledger can store and, if major, mirror to issues, with no execution to accept, reject, or fix.\n\nDo not treat a Cursor stub as execution. A locked I/O schema is a spec, not a runner. Require an execution receipt before Claude or Grok run as execution reviewers: Actions signs it only if the named paths are in the commit and a smoke job imports those entrypoints (domain runner, knee, or coordinator) and records pass/fail plus sha256 into the append-only ledger. Dispatch and tag triggers without that receipt do not start paid execution review. The existing MCP smoke path can log the same way; a missing import cannot be signed.\n\nSpec review stays allowed and labelled spec-review: interface contracts, DESIGN_STATE consistency, retired-item bans. Those rounds do not enter precision/recall scorecards, do not open fixable execution issues, and cannot be closed as fixed. The planted-mistake fixture remains dispatch-only and is not a substitute receipt.\n\nCost is a schema bump and one required check on the current Actions/ledger path, not the unbuilt harnesses. October spend is about $0.87; this mainly avoids paid reviews of missing work.\n\nRisk: a thin stub that imports and exits could be signed as execution. Counter that by requiring the smoke job to call the locked entrypoint and fail closed on not-implemented, and by never scoring spec-review as execution. Over-gating is the other risk; the separate class keeps design review available without pretending the loop already runs.",
+      "stop": "completed",
+      "input": 2185,
+      "cached": 1152,
+      "output": 1238,
+      "reasoning": 845,
+      "cost_reported_usd": 0.01007,
+      "raw_usage": {
+        "input_tokens": 2185,
+        "input_tokens_details": {
+          "cached_tokens": 1152
+        },
+        "output_tokens": 1238,
+        "output_tokens_details": {
+          "reasoning_tokens": 845
+        },
+        "total_tokens": 3423,
+        "num_sources_used": 0,
+        "num_server_side_tools_used": 0,
+        "cost_in_usd_ticks": 100700000,
+        "context_details": {
+          "input_tokens": 2185,
+          "output_tokens": 1247
+        }
+      },
+      "error": null,
+      "max_tokens": 4000,
+      "seconds": 20.2,
+      "started_utc": "2026-10-19T06:14:15+00:00",
+      "cost_usd": 0.01007,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.5,
+        "out": 6.0,
+        "src": "https://docs.x.ai/docs/models"
+      },
+      "retired_hits": []
+    }
+  ],
+  "total_usd": 0.043833
+}
