@@ -275,3 +275,10 @@ Danny's intent (2026-10-19), parked; nothing is coded. Some fields expand beyond
 
 - **First two:** electric and magnetic. The electric field extends outward and is always coupled with the magnetic field.
 - **Thermal:** the existing 293 K outer reference stays as it is.
+
+## Note: boundary pairs (2026-10-19)
+Danny's framing (2026-10-19), recorded only; nothing is coded.
+
+- **Two boundaries per layer:** every layer has an inner boundary (the layer before it) and an outer boundary (the layer after it). The stack is therefore a chain of interfaces rather than a pile of materials.
+- **The final boundary:** whatever we decide on, it is where the model is driven and where power is extracted. It is an open question: no suggestions or candidate ideas are recorded. The right topology will be worked out when we get to it, because we will know what we need at that point.
+- **Build direction:** the model is being built from the top down, or in-out.
