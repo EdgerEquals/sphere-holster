@@ -1,0 +1,10 @@
+# Retired items. Reviewers must FLAG any reintroduction (in code, docs, comments, presets or UI).
+# Format: label | python regex (case-insensitive unless noted) | note
+oil bath | \boil[- ]?bath | retired cooling approach
+slotted Cu/Ag shell | slotted\s+(cu|ag|copper|silver)|(cu|ag)\s*/\s*(cu|ag)\s+(slotted\s+)?shell|slotted\s+shell | retired shell design
+ribs / segments | \bribs?\b|\bribbed\b|\bsegment(ed|s)?\s+(shell|layer|sphere)|shell\s+segments? | retired segmented/ribbed construction
+6.75 kHz (history only) | 6[.,]75\s*khz|6750\s*hz | allowed ONLY when explicitly labelled as history
+0.2 T | (?-i:\b0\.2\s*T\b)|0\.2\s*tesla|200\s*mT\b | retired field value
+13 GHz atom-count ceiling | 13\s*ghz | retired atom-count ceiling argument
+cold-regime work | cold[- ]regime | retired line of work
+Backwards_Derived_Spec_from_Ionisation | backwards[_ ]derived[_ ]spec | retired spec document; do not cite or rebuild from it
