@@ -52,7 +52,9 @@ def test_no_power_levels_or_scenario_splits_remain():
     for name in ("POWERS", "F_WALL", "F_OPT"):
         assert not hasattr(S, name)
     import inspect
-    assert list(inspect.signature(S.run_case).parameters) == ["pre", "ref"]   # no power argument
+    sig = inspect.signature(S.run_case)
+    assert list(sig.parameters) == ["pre", "ref", "drive_W"]
+    assert sig.parameters["drive_W"].default == 0.0   # opt-in; default keeps the zero run
 
 
 def test_zero_run_live_all_fields_exactly_zero_and_stack_at_293K(live):

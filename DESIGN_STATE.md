@@ -528,3 +528,15 @@ The previous core design (`base5`) was bubble a = 1.5 mm, quartz wall = 1.0 mm, 
 - quartz OD ≈ **4.015 mm**
 
 Named constants in `solver_v0.py`: `CORE_A_MM`, `CORE_W_MM`, `CORE_T2_UM`, `CORE_P_ATM` / `CORE_P_Pa` / `CORE_P_FACTOR`. `PRESETS` `base5`, `build_stack` default `t_l2`, and `geometry_sweep_v0.BASE` / `P_ATM` all point at this core. The rarefied fill-sweep lattice stays frozen on the **former** centre (1.5 / 1.0 / 5.0) via `LATTICE_BASE` so `idx [0,0,0]` and the ea694ce absolute box are unchanged. Historical `geometry_sweep_v0.json` results (1 atm lattice around the old centre) are left as-is; only the `base5` summary record is re-evaluated at the new core.
+
+## Opt-in 1 W domain drive plumbing (2026-10-19)
+Danny (t380 / t382): wire the solver so thermal, electric, magnetic and acoustic can each take 1 W when a source is enabled. Default stays the zero run.
+
+- **API:** `run_case(pre, ref, drive_W=0.0)`. Default `drive_W=0` keeps every field exactly 0 at 293 K (zero-run acceptance unchanged). `drive_W=1` deposits **1 W into each** of the four domains (4 W total).
+- **Resonance-targeted:** each channel is driven at the geometry's own computed mode frequencies from the mode list — **never a hardcoded 2 MHz or other target**.
+- **1 Hz thermal envelope:** the 1 Hz thermal cycle (`DRIVE_THERMAL_ENVELOPE_Hz`) is a **slow envelope modulating the drives**, not an acoustic mode to march in `l0_modes`.
+- **Acoustic split (`DRIVE_AC_SPLIT`):** equal power across N l=0 bonded shell modes in the solver acoustic window (isolated modes if bare), `P_src,n = drive_W / N`, steady `W_n = P_src,n * Q_n / ω_n`.
+- **Electric:** volumetric `J_src` in the BTO film (quartz if bare), sized so steady ohmic power = `drive_W` [est]. No electrodes.
+- **Thermal:** `drive_W` heat on the inner-wall / gas channel (`P_gas` / `q[0]`). Chemistry/ionisation drive stays 0 (Open item 8).
+- **Magnetic:** spherical symmetry still gives B = 0 from radial E. Until EMF E–B coupling exists, `drive_W` is deposited as heat in the ferrite (quartz if bare) as a fail-closed placeholder [est].
+- **Electrodes:** stay retired. Tests in `tests/test_drive_1W.py`.
