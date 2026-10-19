@@ -1,0 +1,338 @@
+{
+  "kimi": {
+    "model": "kimi-k2.6",
+    "finish_reason": "stop",
+    "tools": [],
+    "tool_calls": [],
+    "usage": {
+      "input_tokens": 100,
+      "cached_input_tokens": 0,
+      "output_tokens": 2480,
+      "reasoning_tokens": 1276,
+      "cost_usd": 0.010015,
+      "cost_in_usd_ticks": 100150000,
+      "price_note": "kimi-k2.6: $0.95/M in, $0.16/M cached, $4.0/M out (reasoning billed as output) \u00b7 https://platform.moonshot.ai/docs/pricing/chat"
+    },
+    "cost_usd": 0.010015
+  },
+  "deepseek": {
+    "model": "deepseek-flash",
+    "finish_reason": "stop",
+    "tools": [],
+    "tool_calls": [],
+    "usage": {
+      "input_tokens": 126,
+      "cached_input_tokens": 0,
+      "output_tokens": 2148,
+      "reasoning_tokens": 1685,
+      "cost_usd": 0.002615,
+      "cost_in_usd_ticks": 26154000,
+      "price_note": "deepseek-flash peak: $0.3/M in, $0.006/M cached, $1.2/M out (reasoning billed as output) \u00b7 https://api-docs.deepseek.com/quick_start/pricing"
+    },
+    "cost_usd": 0.002615
+  },
+  "claude": {
+    "model": "claude-sonnet-5-5",
+    "stop_reason": "end_turn",
+    "tools": [
+      {
+        "type": "web_fetch_20250910",
+        "name": "web_fetch",
+        "max_uses": 6,
+        "max_content_tokens": 10000
+      },
+      {
+        "type": "web_search_20250305",
+        "name": "web_search",
+        "max_uses": 2
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool": "web_fetch",
+        "input": {
+          "url": "https://github.com/EdgerEquals/stratified-sphere-model"
+        }
+      },
+      {
+        "result_for": "https://github.com/EdgerEquals/stratified-sphere-model",
+        "type": "web_fetch_result",
+        "chars": 29145,
+        "error": null
+      },
+      {
+        "tool": "web_fetch",
+        "input": {
+          "url": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/DESIGN_STATE.md"
+        }
+      },
+      {
+        "tool": "web_fetch",
+        "input": {
+          "url": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/AGENTS.md"
+        }
+      },
+      {
+        "tool": "web_fetch",
+        "input": {
+          "url": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/drive_model_output.txt"
+        }
+      },
+      {
+        "tool": "web_fetch",
+        "input": {
+          "url": "https://github.com/EdgerEquals/stratified-sphere-model/issues"
+        }
+      },
+      {
+        "result_for": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/DESIGN_STATE.md",
+        "type": "web_fetch_result",
+        "chars": 27931,
+        "error": null
+      },
+      {
+        "result_for": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/AGENTS.md",
+        "type": "web_fetch_result",
+        "chars": 28121,
+        "error": null
+      },
+      {
+        "result_for": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/drive_model_output.txt",
+        "type": "web_fetch_result",
+        "chars": 16125,
+        "error": null
+      },
+      {
+        "result_for": "https://github.com/EdgerEquals/stratified-sphere-model/issues",
+        "type": "web_fetch_result",
+        "chars": 12539,
+        "error": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 67228,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 9708,
+      "output_tokens_details": {
+        "thinking_tokens": 6579
+      },
+      "service_tier": "standard",
+      "inference_geo": "global",
+      "speed": "standard",
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 5
+      }
+    },
+    "cost_usd": 0.231536,
+    "price_note": "claude-sonnet-5-5 $2/M in, $10/M out (thinking billed as output); web_fetch no extra charge; web_search $10/1k (0 used) - https://docs.claude.com/en/docs/about-claude/pricing (2026-10-19)"
+  },
+  "grok": {
+    "model": "grok-4.7",
+    "status": "completed",
+    "tools": [
+      {
+        "type": "web_search"
+      },
+      "holster Tavily pre-search (1 basic search, 5 results, injected as system context)"
+    ],
+    "max_turns_requested": 3,
+    "tool_calls": [
+      {
+        "type": "search",
+        "query": "github.com/EdgerEquals/stratified-sphere-model",
+        "sources": [
+          "https://www.cell.com/article/S2589004220303114/pdf?__cf_chl_tk=lXG0rBAQI5VrHQCeLHhWhN5Flcgiz5U9Jf_gwLeqvRs-1787025283-1.0.1.1-0BqbArQs_ardxyXLniudv6DjoajZZmV8mQy8LD1lh6U",
+          "https://github.com/EdgerEquals/stratified-sphere-model",
+          "https://github.com/user-attachments/files/15518731/McCaffrey_22kW_50mm.txt",
+          "https://github.com/su2code/su2code.github.io/blob/master/_tutorials/incompressible_flow/Inc_Combustion/Inc_Combustion.md",
+          "https://dspace.mit.edu/bitstream/handle/1721.1/45345/316797990-MIT.pdf?sequence=2&isAllowed=y",
+          "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/docs",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0.py",
+          "https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/TECHNICAL_REPORT.md",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md",
+          "https://github.com/firemodels/fds/issues/8087",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0_output.txt",
+          "https://scholar.googleusercontent.com/scholar?q=cache:_NgaPzqdXBQJ:scholar.google.com/&hl=fa&as_sdt=2005",
+          "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/README.md",
+          "https://arxiv.org/html/2006.06512v1",
+          "https://github.com/dfeen87/Geometry-Limited-Propulsion",
+          "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/reviews",
+          "https://github.com/G-E-O-F/peels",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/DESIGN_STATE.md",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/AGENTS.md"
+        ]
+      },
+      {
+        "type": "open_page",
+        "url": "https://github.com/EdgerEquals/stratified-sphere-model"
+      },
+      {
+        "type": "open_page",
+        "url": "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/README.md"
+      },
+      {
+        "type": "open_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/DESIGN_STATE.md"
+      },
+      {
+        "type": "open_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/AGENTS.md"
+      },
+      {
+        "type": "open_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0.py"
+      },
+      {
+        "type": "open_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0_output.txt"
+      },
+      {
+        "type": "open_page",
+        "url": "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/docs"
+      },
+      {
+        "type": "open_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0.py"
+      },
+      {
+        "type": "open_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md"
+      },
+      {
+        "type": "search",
+        "query": "site:github.com/EdgerEquals/stratified-sphere-model reviews findings thermal autoignition geometry mismatch",
+        "sources": [
+          "https://www.cell.com/article/S2589004220303114/pdf?__cf_chl_tk=lXG0rBAQI5VrHQCeLHhWhN5Flcgiz5U9Jf_gwLeqvRs-1787025283-1.0.1.1-0BqbArQs_ardxyXLniudv6DjoajZZmV8mQy8LD1lh6U",
+          "https://github.com/EdgerEquals/stratified-sphere-model",
+          "https://github.com/user-attachments/files/15518731/McCaffrey_22kW_50mm.txt",
+          "https://github.com/su2code/su2code.github.io/blob/master/_tutorials/incompressible_flow/Inc_Combustion/Inc_Combustion.md",
+          "https://dspace.mit.edu/bitstream/handle/1721.1/45345/316797990-MIT.pdf?sequence=2&isAllowed=y",
+          "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/docs",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0.py",
+          "https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/TECHNICAL_REPORT.md",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md",
+          "https://github.com/firemodels/fds/issues/8087",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0_output.txt",
+          "https://scholar.googleusercontent.com/scholar?q=cache:_NgaPzqdXBQJ:scholar.google.com/&hl=fa&as_sdt=2005",
+          "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/README.md",
+          "https://arxiv.org/html/2006.06512v1",
+          "https://github.com/dfeen87/Geometry-Limited-Propulsion",
+          "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/reviews",
+          "https://github.com/G-E-O-F/peels",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/DESIGN_STATE.md",
+          "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/AGENTS.md"
+        ]
+      },
+      {
+        "type": "find_in_page",
+        "url": "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0.py",
+        "pattern": "293|autoign|F_WALL|outer|convection|3000|energy"
+      },
+      {
+        "type": "open_page",
+        "url": "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/reviews"
+      }
+    ],
+    "citations": [
+      "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/docs",
+      "https://api.github.com/repos/EdgerEquals/stratified-sphere-model/contents/reviews",
+      "https://arxiv.org/html/2006.06512v1",
+      "https://dspace.mit.edu/bitstream/handle/1721.1/45345/316797990-MIT.pdf?sequence=2&isAllowed=y",
+      "https://github.com/EdgerEquals/stratified-sphere-model",
+      "https://github.com/EdgerEquals/stratified-sphere-model/blob/main/README.md",
+      "https://github.com/G-E-O-F/peels",
+      "https://github.com/dfeen87/Geometry-Limited-Propulsion",
+      "https://github.com/firemodels/fds/issues/8087",
+      "https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/TECHNICAL_REPORT.md",
+      "https://github.com/su2code/su2code.github.io/blob/master/_tutorials/incompressible_flow/Inc_Combustion/Inc_Combustion.md",
+      "https://github.com/user-attachments/files/15518731/McCaffrey_22kW_50mm.txt",
+      "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/AGENTS.md",
+      "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/DESIGN_STATE.md",
+      "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md",
+      "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0.py",
+      "https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/solver_v0_output.txt",
+      "https://scholar.googleusercontent.com/scholar?q=cache:_NgaPzqdXBQJ:scholar.google.com/&hl=fa&as_sdt=2005",
+      "https://www.cell.com/article/S2589004220303114/pdf?__cf_chl_tk=lXG0rBAQI5VrHQCeLHhWhN5Flcgiz5U9Jf_gwLeqvRs-1787025283-1.0.1.1-0BqbArQs_ardxyXLniudv6DjoajZZmV8mQy8LD1lh6U"
+    ],
+    "usage": {
+      "input_tokens": 139565,
+      "input_tokens_details": {
+        "cached_tokens": 53120
+      },
+      "output_tokens": 5114,
+      "output_tokens_details": {
+        "reasoning_tokens": 2458
+      },
+      "total_tokens": 144679,
+      "num_sources_used": 0,
+      "num_server_side_tools_used": 13,
+      "cost_in_usd_ticks": 2951340000,
+      "server_side_tool_usage_details": {
+        "web_search_calls": 13,
+        "x_search_calls": 0,
+        "x_posts_fetched": 0,
+        "x_users_fetched": 0,
+        "code_interpreter_calls": 0,
+        "file_search_calls": 0,
+        "mcp_calls": 0,
+        "document_search_calls": 0,
+        "image_generation_calls": 0
+      },
+      "context_details": {
+        "input_tokens": 46941,
+        "output_tokens": 2454
+      }
+    },
+    "cost_usd": 0.295134,
+    "price_note": "xAI-reported cost_in_usd_ticks / 1e10 (grok-4.7 $2/M in, $0.50/M cached, $6/M out, plus web_search calls)"
+  },
+  "tavily_presearch_for_grok": {
+    "tool": "tavily-search",
+    "query": "This is the Stratified Sphere model. Everything we've done lives in the repo at github.com/EdgerEquals/stratified-sphere-model \u2014 fetch it and look at the data yourselves; we're testing that you can reach it. Then tell us what you think we should fix and the best way to go about it. Also tell us what",
+    "max_results": 5,
+    "search_depth": "basic",
+    "generated_utc": "2026-10-19T06:52:24Z",
+    "results": [
+      {
+        "title": "facebookresearch/Sphere: Web-scale retrieval for ...",
+        "url": "https://github.com/facebookresearch/Sphere",
+        "snippet": "In this repository we open source indices of Sphere both for the sparse retrieval baseline, compatible with Pyserini, and our best dense model",
+        "score": 0.19355896
+      },
+      {
+        "title": "PlusLabNLP/SPHERE: ICLR 2026: Energy-Regularized ...",
+        "url": "https://github.com/PlusLabNLP/SPHERE",
+        "snippet": "ICLR 2026: Energy-Regularized Sequential Model Editing on Hyperspheres. Still one line of code. Boom your editing performance! If this project helps",
+        "score": 0.105532944
+      },
+      {
+        "title": "GitHub - AmanPriyanshu/Stratified-LLM-Subsets-100K-1M-Scale: Stratified LLM Subsets delivers diverse training data at 100K-1M scales across pre-training (FineWeb-Edu, Proof-Pile-2), instruction-following (Tulu-3, Orca AgentInstruct), and reasoning distillation (Llama-Nemotron). Embedding-based k-means clustering ensures maximum diversity across 5 high-quality open datasets. \u00b7 GitHub",
+        "url": "https://github.com/AmanPriyanshu/Stratified-LLM-Subsets-100K-1M-Scale",
+        "snippet": "## Repository files navigation # Stratified LLM Subsets: Pre-Training, Instruction-Following, and Reasoning SFT Data at 100K-1M Scale Pre-Training Instruction-Following Reasoning [...] ## Citation ``` @misc priyanshu2025stratifiedllm title{{Stratified LLM Subsets: Pre-Training, Instruction-Following, and Reasoning SFT Data at 100K-1M Scale}}{} author{Priyanshu, Aman and Vijay, Supriti}{} year{2025}{} howpublished{\\url{ note{Available at \\url{ ``` ## License Each subset inherits the license from its source datasets. Please refer to individual dataset cards for complete licensing terms. ## References [...] ### Topics datadatasetdeep-learningdiversityfine-tuningfinetuningfinetuning-llmsinstruct",
+        "score": 0.03852772
+      },
+      {
+        "title": "STRATA",
+        "url": "https://stratified-turbulence.github.io/web",
+        "snippet": "# STRATA Supercomputing for Stratified Turbulence Research Advancing Theory and Application Website is currently being updated, please check back often... Questions may be directed to Miles Couchman or Steve de Bruyn Kops Explore 1,093 TB of available data \u2192 Datasets ### Datasets Explore \u2192 Publications ### Publications Read \u2192 Gallery ### Gallery View \u2192 Demos ### Code+Demos Try \u2192 ## About [...] University of Massachusetts Amherst (US): Steve de Bruyn Kops Duke University (US): Andrew Bragg Oak Ridge National Laboratory (US): Murali Gopalakrishnan Meena, Wes Brewer, Aditya Kashi, Isaac Lyngass, Pei Zhang Imperial College London (UK): Adrien Lefauve York University (Canada): Miles Couchman Grou",
+        "score": 0.029898632
+      },
+      {
+        "title": "SPHERE, DuckDB, and the Modern GIS Stack with Troy Schmidt",
+        "url": "https://www.youtube.com/watch?v=x3HdZzpR2-8",
+        "snippet": "In this episode of the Spatial Stack, Matt sits down with Troy Schmidt, a 20-year GIS developer and the creator of SPHERE, an open-source",
+        "score": 0.021078838
+      }
+    ],
+    "status": "ok",
+    "response_time": 1.73,
+    "credits": 1,
+    "request_id": "06672f02-3b35-471a-9905-9a8465a19166"
+  }
+}
