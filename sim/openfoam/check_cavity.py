@@ -18,7 +18,7 @@ from summary import Report  # noqa: E402
 out = os.path.join(here, "out")
 case = os.path.join(out, "cavity")
 ver = dict(l.strip().split("=", 1) for l in open(os.path.join(out, "version.txt")) if "=" in l)
-rep = Report(f"OpenFOAM v{ver.get('OPENFOAM_VERSION', '?')}", out)
+rep = Report(f"OpenFOAM {ver.get('OPENFOAM_VERSION', '?')}", out)
 log = open(os.path.join(case, "log.icoFoam")).read()
 rep.check("icoFoam finished (End printed)", True, log.rstrip().endswith("End") or "\nEnd" in log, ok=("\nEnd" in log), note="log contains End")
 last = open(os.path.join(out, "last_time.txt")).read().strip()
