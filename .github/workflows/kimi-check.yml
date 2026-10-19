@@ -1,0 +1,68 @@
+# Kimi (kimi-k2.6, Moonshot AI) free-tier rote check of Cursor's latest merge/diff: units, arithmetic,
+# consistency vs DESIGN_STATE.md, retired items (role: harness/KIMI_START.md). On demand only, never on push.
+# Triggers:
+#   - comment "/kimi-check [shallow|deep] [domains=a,b]" on a PR (or issue -> checks default branch);
+#     owner/member/collaborator comments only
+#   - `gh workflow run kimi-check.yml -f depth=shallow -f target_ref=<ref>`
+#   - `gh workflow run kimi-check.yml -f ping='reply with the word pong'`  (just that prompt; reply + tokens in the
+#     job summary, nothing posted)
+name: kimi-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      depth:
+        description: Granularity dial (shallow = scouting, deep = validating)
+        type: choice
+        options: [shallow, deep]
+        default: shallow
+      target_ref:
+        description: Ref to check (branch, tag, SHA, or refs/pull/N/head). Default = default branch.
+        type: string
+        default: ""
+      base_ref:
+        description: Optional base ref; diff is merge-base(base, target)..target. Default = target's first parent.
+        type: string
+        default: ""
+      pr_number:
+        description: Optional PR number to post the verdict on (else an issue is opened)
+        type: string
+        default: ""
+      domains:
+        description: auto | all | comma list of optical,acoustic,electric,magnetic,thermal,chemical
+        type: string
+        default: auto
+      ping:
+        description: If set, ONLY send this prompt and write the reply + token usage to the job summary (no review, nothing posted)
+        type: string
+        default: ""
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: kimi-check-${{ github.event.issue.number || inputs.target_ref || github.sha }}-${{ inputs.ping != '' && github.run_id || 'review' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name != 'issue_comment' || startsWith(github.event.comment.body, '/kimi-check')
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    uses: ./.github/workflows/review-core-rote.yml
+    with:
+      reviewer: kimi
+      trigger_phrase: /kimi-check
+      secret_name: MOONSHOT_API_KEY
+      depth: ${{ inputs.depth }}
+      target_ref: ${{ inputs.target_ref }}
+      base_ref: ${{ inputs.base_ref }}
+      pr_number: ${{ inputs.pr_number }}
+      domains: ${{ inputs.domains }}
+      ping: ${{ inputs.ping }}
+    secrets:
+      API_KEY: ${{ secrets.MOONSHOT_API_KEY }}

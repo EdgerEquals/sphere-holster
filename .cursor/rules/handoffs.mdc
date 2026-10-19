@@ -1,5 +1,5 @@
 ---
-description: Information-layer review handoffs — when Cursor (coordinator) must call Claude audit, Grok check and Claude Code
+description: Information-layer review handoffs — when Cursor (coordinator) must call Claude audit, Grok check, Claude Code, and the optional Kimi/DeepSeek rote checks
 globs:
 alwaysApply: true
 ---
@@ -21,6 +21,9 @@ You are the **coordinator and builder**. Full detail: `AGENTS.md`. Dial and caps
 6. **End of iteration**: `gh pr comment <PR> --body "@claude end-of-iteration review for iteration <K>: file issues for every problem and draft the next change"` or `gh workflow run claude-code-review.yml -f iteration=<K> -f since_ref=iter-<K>-start`.
 7. No PR? Use `gh workflow run claude-audit.yml -f depth=<d> -f target_ref=<ref>` / `gh workflow run grok-check.yml -f target_ref=<ref>`, or put `[audit]` in a main commit message.
 
+8. **Optional cheap rote pass** (units, arithmetic, consistency vs `DESIGN_STATE.md`, retired items) any time, e.g. before spending Claude/Grok: `gh pr comment <PR> --body "/deepseek-check"` and/or `"/kimi-check"`. No PR: `gh workflow run deepseek-check.yml -f target_ref=<ref>`. These never replace Claude or Grok and never count toward locked/validated.
+9. **Just ask Kimi or DeepSeek a prompt** (no review, nothing posted): `gh workflow run kimi-check.yml -f ping='<prompt>'` / `gh workflow run deepseek-check.yml -f ping='<prompt>'`; reply + token usage + cost are in the run's job summary and the `<reviewer>-ping-<run-id>` artifact.
+
 Optional scope: append `domains=thermal,chemical` (or `domains=all`) to `/claude-audit` or `/grok-check`.
 
 ## After a verdict
@@ -30,5 +33,5 @@ Optional scope: append `domains=thermal,chemical` (or `domains=all`) to `/claude
 
 ## Never
 - Never reintroduce a retired item: oil bath; slotted Cu/Ag shell; ribs/segments; 6.75 kHz (except labelled as history); 0.2 T; 13 GHz atom-count ceiling; cold-regime work; `Backwards_Derived_Spec_from_Ionisation`.
-- Never add Perplexity (not in use for now).
+- Never add Perplexity or Qwen (not in use for now).
 - Never let a reviewer edit `.github/workflows/` or merge to main.

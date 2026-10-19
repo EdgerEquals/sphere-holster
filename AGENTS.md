@@ -14,6 +14,8 @@ Reviewers (Claude, Grok, Claude Code) read it too.
 | Claude API | Inner-loop audit of Cursor's merges, every few rounds | `/claude-audit` → `.github/workflows/claude-audit.yml` |
 | Claude Code | End-of-iteration review: files issues, drafts the next change | `@claude` → `.github/workflows/claude-code-review.yml` |
 | Grok (xAI API) | Source / physics-claim cross-check, **open channel** (any time) | `/grok-check` → `.github/workflows/grok-check.yml` |
+| Kimi (Moonshot API) | Free-tier rote checks: units, arithmetic, consistency vs `DESIGN_STATE.md`, retired items (`harness/KIMI_START.md`). On demand | `/kimi-check` → `.github/workflows/kimi-check.yml` |
+| DeepSeek API | Free-tier rote checks, same role as Kimi (cheapest channel). On demand | `/deepseek-check` → `.github/workflows/deepseek-check.yml` |
 | Perplexity | **Not used for now.** Do not add it. | — |
 
 Six domains: optical, acoustic, electric, magnetic, thermal, chemical. Plasma is the source that drives them, not a domain.
@@ -43,6 +45,8 @@ Six domains: optical, acoustic, electric, magnetic, thermal, chemical. Plasma is
 | Claude and Grok disagree, or one FAILs what the other PASSed | `/claude-audit cross` and `/grok-check cross` (each gets the other's latest verdict) |
 | End of an iteration | `@claude` end-of-iteration review (or `gh workflow run claude-code-review.yml`) |
 | Push straight to main without a PR (avoid) | Include `[audit]` in the commit message to force an audit |
+| Cheap rote pass before spending Claude/Grok (numbers, units, DESIGN_STATE consistency, retired items) | `/deepseek-check` (and/or `/kimi-check`) — optional, any time; never replaces Claude or Grok |
+| Need a quick answer from Kimi or DeepSeek on a prompt (not a review) | `gh workflow run kimi-check.yml -f ping='<prompt>'` / `deepseek-check.yml` (reply in the job summary) |
 
 ## Exact commands Cursor uses
 
@@ -67,6 +71,18 @@ gh pr comment <PR> --body "/grok-check cross"
 gh workflow run claude-audit.yml -f depth=deep -f target_ref=<branch-or-sha> [-f base_ref=main] [-f pr_number=<PR>] [-f mode=crosscheck]
 gh workflow run grok-check.yml  -f depth=shallow -f target_ref=<branch-or-sha> [-f pr_number=<PR>] [-f domains=optical]
 
+# Free-tier rote checks (Kimi, DeepSeek): units, arithmetic, DESIGN_STATE.md consistency, retired items
+gh pr comment <PR> --body "/deepseek-check"
+gh pr comment <PR> --body "/kimi-check deep domains=thermal"
+gh workflow run deepseek-check.yml -f depth=shallow -f target_ref=<branch-or-sha> [-f pr_number=<PR>]
+gh workflow run kimi-check.yml     -f depth=shallow -f target_ref=<branch-or-sha> [-f pr_number=<PR>]
+
+# Ping: send one prompt, get reply + token usage + cost in the job summary (no review, nothing posted)
+gh workflow run kimi-check.yml     -f ping='reply with the word pong'
+gh workflow run deepseek-check.yml -f ping='reply with the word pong'
+id=$(gh run list -w deepseek-check.yml -L1 --json databaseId -q '.[0].databaseId'); gh run watch "$id"
+gh run download "$id" -n "deepseek-ping-$id" -D /tmp/ping && cat /tmp/ping/ping.json   # reply, usage, cost
+
 # End-of-iteration review (Claude Code)
 git tag iter-<K>-start <sha> && git push origin iter-<K>-start     # at the START of each iteration
 gh pr comment <PR> --body "@claude end-of-iteration review for iteration <K>: file issues for every problem and draft the next change"
@@ -78,13 +94,15 @@ git commit -m "Fix BTO Curie handling [audit] [deep]"             # force a deep
 ```
 
 Comment syntax: first line must start with the trigger. Words after it, any order: `shallow` | `deep`, `cross`,
-`domains=a,b` (or `domains=all`).
+`domains=a,b` (or `domains=all`). `/kimi-check` and `/deepseek-check` take `shallow|deep` and `domains=` (no `cross`).
 
 ## Reading the results
 
 - Verdicts are posted as a PR comment (or a new issue when there is no PR), headed `Claude review: PASS|FAIL` or
   `Grok review: PASS|FAIL`. The run fails (red check) on FAIL, on an API error, or when the API key secret is missing.
-- Machine-readable JSON: artifact `claude-verdict-<sha>` / `grok-verdict-<sha>` (`gh run download <run-id>`).
+- Kimi / DeepSeek verdicts are headed `Kimi review:` / `DeepSeek review:`; same PASS/FAIL/ERROR rules.
+- Machine-readable JSON: artifact `claude-verdict-<sha>` / `grok-verdict-<sha>` / `kimi-verdict-<sha>` /
+  `deepseek-verdict-<sha>` (`gh run download <run-id>`).
 - Act on every `blocker`/`major` finding before re-requesting review. Copy Claude's `claims_needing_source_check`
   into a `/grok-check` when Grok has not yet seen them.
 
@@ -104,5 +122,6 @@ Reviewers FAIL any reintroduction. A deterministic scan (`harness/retired.txt`) 
 ## Limits for every agent
 
 - Do not edit `.github/workflows/` from an automated reviewer. Do not merge to main from a reviewer.
-- Do not add Perplexity or other paid reviewers without Danny's go-ahead.
+- Do not add Perplexity, Qwen or other reviewers without Danny's go-ahead.
+- A Kimi or DeepSeek PASS never counts toward "locked" / "validated"; that still needs deep Claude + Grok.
 - Physics values carry a tag: [lit] / [rec] / [calc] / [est]. Viewer flags validity limits instead of fabricating results.
