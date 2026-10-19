@@ -233,3 +233,16 @@ Danny's decision (2026-10-19). The model carries all six physical energy domains
 - **Time-domain run (future item):** build it to carry all six domains, so each domain's wave or field is visible as the front expands.
 
 Note: this concerns the six physical domains. The information domain (the 7th, per the 19-holster architecture) is unchanged; it is not a propagating physical wave.
+
+## Future item: electrocaloric term in the BTO film and layer two (2026-10-19)
+Danny's intent (2026-10-19), recorded only; nothing is coded. Add the electrocaloric term to the BTO film and to the tourmaline layer (layer two).
+
+- **What it is:** electrocaloric is the reverse of pyroelectric: an electric field changes the material's entropy and temperature.
+- **Materials:** barium titanate is a classic electrocaloric material, and the sol-gel recipe (MTES:TEOS 80:20 binder, doped grains) may carry it too.
+- **Caveat:** randomly oriented grains largely cancel each other out, so the net effect depends on grain alignment in the recipe.
+- **Field source:** the field is the electric holster's field. It is not applied by electrodes, which remain removed from the model.
+- **Holsters: it straddles three.**
+  - The electric holster owns the field side: the applied field drives the entropy change.
+  - The thermal holster owns the temperature side: the cooling or heating that results.
+  - The chemical holster owns the entropy change itself, since entropy is a thermodynamic state variable in the same family as the HHO reactions and recombination.
+- **Another crossover, like plasma:** the electric field sets the condition, the thermal holster sees the temperature shift, and the chemical holster tracks the entropy. It is a good worked example for the future item on handoff rules between holsters (to be put to Claude and Grok later; not run yet).
