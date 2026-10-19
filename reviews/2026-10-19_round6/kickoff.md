@@ -34,6 +34,25 @@ python -m pytest -q --tb=line
 
 **No-go if:** any failure, collection error, or missing deps. Fix first; do not declare round 6 started.
 
+
+---
+
+## 1b. Launch — fire the four pings as one job
+
+When the caller says **"send it"** or **"launch round 6,"** the coordinator fires **all four model pings as one job** (same brief, round-6 scope override: threshold / sequencing / peer scoring / gates first; **no sweep**).
+
+| Model | Command / pattern |
+|---|---|
+| **Kimi** | `python scripts/review_kimi.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
+| **DeepSeek** | `python scripts/review_deepseek.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
+| **Grok** | `python scripts/review_grok.py` with prompt context (or a round-6 Messages/`/responses` runner that injects `prompt.md` + kickoff scope override) |
+| **Claude** | Holster Claude channel / Messages API pattern from `reviews/2026-10-19_round5/claude_run.py` |
+
+Prepend the round-6 scope override to the shared user text: **threshold / sequencing / peer scoring / gates first; no sweep this round.**
+
+**After fire:** write replies under `reviews/2026-10-19_round6/` as `kimi.md`, `deepseek.md`, `claude.md`, `grok.md` (plus any `ping.json` / raw sidecars in a local out dir). The coordinator **reports back when replies land**. Do not start round 7 / any sweep from this launch.
+
+
 ---
 
 ## 2. Round 7 note — 4 W amplitude sweep (deferred)
@@ -183,8 +202,9 @@ After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **mea
 | 11 | Threshold | Defined by the team (first open question), **approved by the human gate** (Edger_Equals) |
 | 12 | Sequencing | Team recommendations on threshold-first vs alternate order **received** |
 | 13 | Peer scores | Peer scores on threshold proposals **recorded in the ledger** |
-| 14 | Round 7 hold | No 4 W sweep started until threshold is settled |
+| 14 | Four pings fired | Kimi, DeepSeek, Claude, Grok pings launched as one job ("send it" / "launch round 6") |
+| 15 | Round 7 hold | No 4 W sweep started until threshold is settled |
 
 **NO-GO:** suite red, prompt not shared identically, intent to push without caller, or starting the 4 W sweep before threshold approval.
 
-When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 held through the round), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 sweep waits**.
+When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 sweep waits**.
