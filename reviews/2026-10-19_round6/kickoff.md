@@ -123,7 +123,41 @@ Every Claude Code ledger line must include suite **pass/fail + count**.
 
 ---
 
-## 5. Go / no-go checklist (declare “run started” only if all GO)
+## 5. Human gate (prediction check → eyeball → then feedback)
+
+**Loop shape for round 6:**
+
+1. A kickoff command fans out the same brief to all four models (**Kimi, DeepSeek, Claude, Grok**).
+2. Their recommendations come back.
+3. **Claude Code** runs each recommendation against the model **with a prediction**, to see where the run actually comes out.
+4. The **prediction-versus-result gap** is then either fed back to the team or surfaced upward — **only after the human gate below**.
+
+### Human gate (required)
+
+After Claude Code runs the prediction check, the **prediction-versus-result gap** is presented to the user (**Edger_Equals**) for eyeballing **before** any feedback round goes back down to the team.
+
+- **Nothing feeds back automatically.** No auto-reloop, no silent “team, try again” without Danny’s look.
+- Until Edger_Equals signs off (or explicitly chooses “surface only / stop”), the coordinator holds the gap report and does not dispatch a feedback fan-out.
+
+### Why the human gate (second pair of eyes)
+
+Claude Code is treated here as **one of the four models** in the loop (the Claude side that executes and predicts). That means it is **checking recommendations that include its own**. The human gate is the **independent second pair of eyes** so self-check does not close the loop alone.
+
+### Threshold — **TBD**
+
+Gate / escalate criteria are **not locked yet**. Placeholder options to decide later:
+
+| Option (TBD) | Idea |
+|---|---|
+| Deviation from prediction | e.g. relative or absolute gap between predicted and measured lock / amplitude / score exceeds a cut |
+| Confidence score | e.g. model-stated confidence below a floor forces surface-to-user even if the gap is small |
+| Combo | both: large gap **or** low confidence → must eyeball; small gap + high confidence → still eyeball this round until a threshold is chosen |
+
+**Status:** threshold definition = **TBD**. Until then, **every** prediction-versus-result package goes to Edger_Equals.
+
+---
+
+## 6. Go / no-go checklist (declare “run started” only if all GO)
 
 | # | Check | GO if… |
 |---|---|---|
@@ -137,6 +171,7 @@ Every Claude Code ledger line must include suite **pass/fail + count**.
 | 8 | Outputs | Target paths in §4 agreed; no push planned without caller |
 | 9 | Retired | No electrodes / retired items in the planned sweep |
 | 10 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
+| 11 | Human gate | Understood: prediction gaps surface to Edger_Equals; no auto-feedback; threshold TBD |
 
 **NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
 
