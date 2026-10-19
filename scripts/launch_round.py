@@ -17,6 +17,7 @@ Sequence (cannot be skipped):
   (c) cross-review  teamwork: refuses to start unless gate 1 passes; each model gets the other three replies
              (current-run versions, with their run_id) and scores them; lands {model}_teamwork.md. Gate 2 (teamwork
              COMPLETE): all four *_teamwork.md present and stamped with the current teamwork run_id.
+             Round 7+ default (docs): conclusions/scores only — see TODO above / round7 kickoff; live path still full bodies.
   (d) close  the round closes only when gate 1 and gate 2 both pass AND the teamwork run scored the current primary
              run (a primary re-fire after cross-review re-opens the round). Close is recorded in <round-dir>/run.json.
 
@@ -42,6 +43,11 @@ import land_review_reply as lr  # noqa: E402
 HEADER_RE = re.compile(r"\A<!-- landed: .*?-->\n+", re.S)
 NAMES = {"kimi": "Kimi", "deepseek": "DeepSeek", "claude": "Claude", "grok": "Grok"}
 
+# TODO(round7+): default cross-review context should be peer conclusions/scores only
+# (caller folded in from reviews/2026-10-19_round6/handoff.md; see round7 kickoff §4–§5).
+# Today this brief still injects full peer bodies via build_teamwork_prompt → _body(...) so
+# round-6 e2e stays intact. Do not silently switch the live path; add --teamwork-summary
+# (or protocol-specified compilation) when round 7's protocol.md lands.
 TEAMWORK_BRIEF = """# Round cross-review (teamwork)
 
 You are **{name}** on the Stratified Sphere four-model team (Kimi, DeepSeek, Claude, Grok).
