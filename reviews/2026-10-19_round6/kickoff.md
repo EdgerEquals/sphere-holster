@@ -123,37 +123,49 @@ Every Claude Code ledger line must include suite **pass/fail + count**.
 
 ---
 
-## 5. Human gate (prediction check → eyeball → then feedback)
+## 5. Two gates (automated → human → then feedback)
+
+There are **two gates** in the loop. Claude Code’s gate is **automated**; the human gate **sits above it**. **Nothing reaches the team without passing both.**
+
+| Gate | Who | Role |
+|---|---|---|
+| **(1) Automated gate** | **Claude Code** | Runs each recommendation against the model **with a prediction**; holds the **threshold** (deviation from prediction vs confidence score — **TBD**). Packages the prediction-versus-result gap. |
+| **(2) Human gate** | **Edger_Equals** | Eyeballs that gap **before** any feedback feeds back to the team. Independent second pair of eyes. |
+
+Order is fixed: fan-out → recommendations → **automated gate** → **human gate** → only then feedback (or surface/stop). Skipping either gate is a no-go.
 
 **Loop shape for round 6:**
 
 1. A kickoff command fans out the same brief to all four models (**Kimi, DeepSeek, Claude, Grok**).
 2. Their recommendations come back.
-3. **Claude Code** runs each recommendation against the model **with a prediction**, to see where the run actually comes out.
-4. The **prediction-versus-result gap** is then either fed back to the team or surfaced upward — **only after the human gate below**.
+3. **Automated gate — Claude Code:** runs each recommendation against the model **with a prediction**, applies the threshold (**TBD**), and produces the prediction-versus-result package.
+4. **Human gate — Edger_Equals:** eyeballs that package **before** any feedback round goes back down to the team.
+5. Only after **both** gates pass does feedback fan out (or the result is surfaced upward / stopped per Danny).
 
-### Human gate (required)
+### Automated gate (Claude Code)
 
-After Claude Code runs the prediction check, the **prediction-versus-result gap** is presented to the user (**Edger_Equals**) for eyeballing **before** any feedback round goes back down to the team.
+- Runs the prediction check; holds the threshold dial (deviation vs confidence — see TBD below).
+- Claude Code is treated as **one of the four models** in the loop (the Claude side that executes and predicts), so it can be **checking recommendations that include its own**. Passing the automated gate alone is **not** enough to close the loop.
+
+### Human gate (Edger_Equals — required)
+
+After the automated gate, the **prediction-versus-result gap** is presented to **Edger_Equals** for eyeballing **before** any feedback goes back to the team.
 
 - **Nothing feeds back automatically.** No auto-reloop, no silent “team, try again” without Danny’s look.
 - Until Edger_Equals signs off (or explicitly chooses “surface only / stop”), the coordinator holds the gap report and does not dispatch a feedback fan-out.
+- The human gate is the **independent second pair of eyes** above Claude Code’s automated check.
 
-### Why the human gate (second pair of eyes)
+### Threshold (automated gate) — **TBD**
 
-Claude Code is treated here as **one of the four models** in the loop (the Claude side that executes and predicts). That means it is **checking recommendations that include its own**. The human gate is the **independent second pair of eyes** so self-check does not close the loop alone.
-
-### Threshold — **TBD**
-
-Gate / escalate criteria are **not locked yet**. Placeholder options to decide later:
+Automated-gate escalate criteria are **not locked yet**. Placeholder options to decide later:
 
 | Option (TBD) | Idea |
 |---|---|
 | Deviation from prediction | e.g. relative or absolute gap between predicted and measured lock / amplitude / score exceeds a cut |
 | Confidence score | e.g. model-stated confidence below a floor forces surface-to-user even if the gap is small |
-| Combo | both: large gap **or** low confidence → must eyeball; small gap + high confidence → still eyeball this round until a threshold is chosen |
+| Combo | both: large gap **or** low confidence → must escalate; small gap + high confidence → still must clear the human gate this round until a threshold is chosen |
 
-**Status:** threshold definition = **TBD**. Until then, **every** prediction-versus-result package goes to Edger_Equals.
+**Status:** threshold definition = **TBD**. Until then, **every** prediction-versus-result package that clears (or bypasses) the automated dial still goes to Edger_Equals. **Both gates required** before any team feedback.
 
 ---
 
@@ -171,7 +183,7 @@ Gate / escalate criteria are **not locked yet**. Placeholder options to decide l
 | 8 | Outputs | Target paths in §4 agreed; no push planned without caller |
 | 9 | Retired | No electrodes / retired items in the planned sweep |
 | 10 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
-| 11 | Human gate | Understood: prediction gaps surface to Edger_Equals; no auto-feedback; threshold TBD |
+| 11 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
 
 **NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
 
