@@ -47,8 +47,22 @@ UM, MM = 1e-6, 1e-3
 # Geometry presets. core_d = gas (HHO) bubble inner diameter; wall = crystal-quartz layer-one wall.
 # Layer two (elbaite sol-gel) inner diameter = quartz OD.  Edit / add presets freely.
 # ----------------------------------------------------------------------------------------------
+# Core geometry = rarefied HHO-only sweep winner (ea694ce, geometry_rarefied_hho_sweep_v0.json top10_spm[0],
+# stage refine): sharp_per_mode 0.4127 at 0.1044 x ambient. Replaces the previous base5
+# (a=1.5 mm, w=1.0 mm, t2=5.0 um @ 1 atm HHO).
+CORE_A_MM = 0.57295
+CORE_W_MM = 1.43463
+CORE_T2_UM = 9.12441
+CORE_P_Pa = 10577.3                              # 0.1044 x AMBIENT_P_Pa (101325) from the winning run
+CORE_P_ATM = CORE_P_Pa / 101325.0                # ~0.10439
+CORE_P_FACTOR = 0.1044
+CORE_OD_MM = 2 * (CORE_A_MM + CORE_W_MM)         # quartz OD ~4.0152 mm
+
 PRESETS = [
-    dict(id="base5", label="Baseline 5.00 mm OD (core r 1.5 mm, wall 1 mm, 1 atm HHO)", core_d=3.0, wall=1.0, p_atm=1.0, group="lock"),
+    dict(id="base5",
+         label=f"Core {CORE_OD_MM:.2f} mm OD (a {CORE_A_MM} mm, wall {CORE_W_MM} mm, t2 {CORE_T2_UM} um, "
+               f"{CORE_P_ATM:.5f} atm HHO = {CORE_P_FACTOR} x ambient; rarefied-sweep winner ea694ce)",
+         core_d=2 * CORE_A_MM, wall=CORE_W_MM, p_atm=CORE_P_ATM, t_l2_um=CORE_T2_UM, group="lock"),
     dict(id="lock54", label="Layer-1 lock A: 5.4 mm bubble, 1 atm HHO (wall 1 mm assumed)", core_d=5.4 - 2.0, wall=1.0, p_atm=1.0, group="lock",
          note="Read as quartz OD 5.4 mm with the 1 mm wall kept -> gas diameter 3.4 mm. If 5.4 mm is the gas diameter, rerun with --core-d 5.4."),
     dict(id="lock25", label="Layer-1 lock B: 2.5 mm bubble, 100 atm HHO (wall 1 mm assumed)", core_d=2.5 - 2.0, wall=1.0, p_atm=100.0, group="lock",
@@ -383,9 +397,11 @@ class ElectricMarch:
         return Eo, En
 
 # ----------------------------------------------------------------------------------------------
-def build_stack(core_d_mm, wall_mm, bare=False, t_l2=5 * UM):
-    """t_l2: layer-two (tourbillon) thickness [m]; default 5 um (base). Only the opt-in geometry sweep
-    (geometry_sweep_v0.py) passes another value; every default run uses 5 um."""
+def build_stack(core_d_mm, wall_mm, bare=False, t_l2=None):
+    """t_l2: layer-two (tourbillon) thickness [m]; default CORE_T2_UM (rarefied-sweep winner). The opt-in
+    geometry sweep (geometry_sweep_v0.py) passes another value when searching the lattice."""
+    if t_l2 is None:
+        t_l2 = CORE_T2_UM * UM
     r_in = core_d_mm / 2 * MM
     r_q = r_in + wall_mm * MM
     L = []
@@ -835,7 +851,8 @@ def run_case(pre, ref):
     """One no-source run (2026-10-19): nothing is injected into any domain (no drive mechanism defined, J_src = 0, no
     circulating power). Every field is marched from its 293 K seal state; whatever appears comes from the couplings."""
     bare = pre.get("bare", False)
-    st = build_stack(pre["core_d"], pre["wall"], bare)
+    t_l2 = pre.get("t_l2_um", CORE_T2_UM) * UM
+    st = build_stack(pre["core_d"], pre["wall"], bare, t_l2=t_l2)
     GAS["p"] = pre["p_atm"] * 101325.0; GAS["T"] = T_REF   # sealing (initial/ambient) state: p_seal at T_seal = 293 K
     cells, mats = make_grid(st)
     th = Thermal(cells, mats)
@@ -1006,7 +1023,9 @@ def package(pre, runs, ref):
                layers=[dict(key=m, name=(MAT[m]["name"] if m in MAT else "HHO core (plasma when ionised)"), a_mm=r4(a / MM, 6), b_mm=r4(b / MM, 6),
                             da=r4(da), db=r4(db), tags=(MAT[m]["tags"] if m in MAT else "")) for a, b, da, db, m in table],
                r_mm=r4([r / MM for r in rv]), r_disp=r4(rdisp), ncore=len(r_core))
-    ac_ref = ref.get(round(2 * st["r_q"] / MM, 2), {}) if pre["group"] == "phi" else (ref.get(5.0, {}) if pre["id"] == "base5" else {})
+    # l>=1 refs keyed by quartz OD [mm]; phi cases and base5 both look up by OD (no hard-coded 5.0)
+    od_mm = round(2 * st["r_q"] / MM, 2)
+    ac_ref = ref.get(od_mm, {}) if pre["group"] in ("phi", "lock") or pre["id"] == "base5" else {}
     if pre.get("bare"):   # exact general-n bare-shell modes from minimal_test_calc_output.txt [calc]
         ac_ref = {"minA": {"0S2": 1.005e6, "0S1": 1.356e6, "0T2": 1.112e6, },
                   "minB": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }, "scope": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }}.get(pre["id"], {})

@@ -25,11 +25,12 @@ round trips use c from solver_v0.gas_props(T, p, HHO); the bonded stack is gas-l
 solver_v0.gas_Q(f, a, p, T, HHO); the cascade thermal rate of B uses k/(rho cp) at (p, T). gas_props gives HHO c 533.20
 m/s at 293 K vs the solver's c_hho 532.86 m/s (0.06 %); sharp counts are sensitive to that (see DESIGN_STATE).
 
-Geometry axis: the geometry_sweep_v0 box (a 0.573-3.087 mm, w 0.300-2.058 mm, t2 1.91-10.29 um), lattice
-BASE * phi^(i/8), subsampled to 4 x 4 x 3 = 48 points per pressure (lattice indices):
+Geometry axis: absolute box frozen on the FORMER core lattice centre (1.5/1.0/5.0), not the new G.BASE /
+solver CORE (rarefied-sweep winner). LATTICE_BASE * phi^(i/8), subsampled to 4 x 4 x 3 = 48 points per pressure:
   a  i in {-16, -12, 0, 12}  -> 0.573, 0.729, 1.5, 3.087 mm
   w  i in {-16, 0, 4, 12}    -> 0.382, 1.0, 1.272, 2.058 mm
   t2 i in {-12, 0, 12}       -> 2.43, 5.0, 10.29 um
+  idx [0,0,0] = former lattice centre (old base5), not the new CORE.
 Coarse = 48 x 9 = 432. Refine around the top 5 coarse by sharp_per_mode (cascade gate first): each seed's geometry
 +-2 lattice steps (phi^(1/4)) per axis at the seed's pressure (up to 26 new), plus the seed geometry at the neighbouring
 pressure factors (+-1); clipped to the box and the pressure grid, de-duplicated. At most 140 refine points (total <= 572).
@@ -64,7 +65,15 @@ GEO_SUB = dict(a_mm=[-16, -12, 0, 12], w_mm=[-16, 0, 4, 12], t2_um=[-12, 0, 12])
 REFINE_GEO_K = 2                                    # +-2 lattice steps = phi^(1/4)
 AXES = ("a_mm", "w_mm", "t2_um")
 BOX = {k: (lo, hi) for k, (lo, hi, st) in G.COARSE.items()}
+# Lattice centre FROZEN at the former core (1.5/1.0/5.0), not G.BASE. G.BASE is now the rarefied-sweep winner;
+# keeping this fixed preserves the absolute box 0.573-3.087 mm / 0.382-2.058 mm / 1.91-10.29 um and the
+# ea694ce results. idx [0,0,0] = former lattice centre (old base5), not the new CORE.
+LATTICE_BASE = dict(a_mm=1.5, w_mm=1.0, t2_um=5.0)
 AMB = dict(p_Pa=AMBIENT_P_Pa, T_K=AMBIENT_T_K)      # set by run() before the Pool forks
+
+
+def lattice_value(axis, i):
+    return LATTICE_BASE[axis] * G.PHI ** (i / G.LAT)
 
 
 def p_abs_Pa(pi, p_ambient=None):
@@ -74,7 +83,7 @@ def p_abs_Pa(pi, p_ambient=None):
 def _ev(pt):
     gi, pi = pt
     p = p_abs_Pa(pi)
-    r = G.evaluate(*(G.lattice_value(ax, i) for ax, i in zip(AXES, gi)), p_atm=p / 101325.0, comp=COMP, T_K=AMB["T_K"])
+    r = G.evaluate(*(lattice_value(ax, i) for ax, i in zip(AXES, gi)), p_atm=p / 101325.0, comp=COMP, T_K=AMB["T_K"])
     r.pop("golden", None)
     r.update(idx=list(gi), p_idx=pi, p_factor=round(P_FACTORS[pi], 4), p_Pa=round(p, 1), p_atm=round(p / 101325.0, 5),
              T_K=AMB["T_K"], x_H2=round(X_H2, 4))
@@ -136,7 +145,7 @@ def run(workers=8, refine_top=5, p_ambient=AMBIENT_P_Pa, T_ambient=AMBIENT_T_K):
     per_a = {}
     for ai in GEO_SUB["a_mm"]:
         cell = [r for r in allr if r["idx"][0] == ai]
-        per_a[str(round(G.lattice_value("a_mm", ai), 5))] = dict(
+        per_a[str(round(lattice_value("a_mm", ai), 5))] = dict(
             best=_slim(min(cell, key=spm_key)),
             best_per_pressure={str(round(P_FACTORS[pi], 4)): _slim(min([r for r in cell if r["p_idx"] == pi], key=spm_key))
                                for pi in range(len(P_FACTORS))})
@@ -152,8 +161,8 @@ def run(workers=8, refine_top=5, p_ambient=AMBIENT_P_Pa, T_ambient=AMBIENT_T_K):
                           disregarded="0fa5d40 4-mix run (geometry_fill_sweep_v0.json): off-spec mixes, chemistry artifact",
                           p_factors=[round(f, 4) for f in P_FACTORS], p_grid="fully rarefied: 9 points log-even over [0.05, 0.95] x p_ambient, step x1.4449; every factor < 1; none within 1 % of phi or 1/phi; earlier phi grid and 0.382-2.618 log grid disqualified",
                           rationale="rarefaction suspected to bias the gas toward the ionic knee so energy focuses across modes; pressure is the dial, pressure heats while vacuum cools, so the rarefied regime is also the self-cooling regime (user hypothesis; this no-source sweep scores locks only)", p_grid_Pa=[round(p_abs_Pa(i), 1) for i in range(len(P_FACTORS))],
-                          geometry_subsample={k: [round(G.lattice_value(k, i), 5) for i in v] for k, v in GEO_SUB.items()},
-                          geometry_subsample_idx=GEO_SUB, box={k: [round(G.lattice_value(k, lo), 5), round(G.lattice_value(k, hi), 5)] for k, (lo, hi) in BOX.items()},
+                          geometry_subsample={k: [round(lattice_value(k, i), 5) for i in v] for k, v in GEO_SUB.items()},
+                          geometry_subsample_idx=GEO_SUB, box={k: [round(lattice_value(k, lo), 5), round(lattice_value(k, hi), 5)] for k, (lo, hi) in BOX.items()},
                           refine=f"top {refine_top} coarse by sharp_per_mode: geometry +-{REFINE_GEO_K} lattice steps (phi^(1/4)) per axis at the seed pressure, plus seed geometry at neighbouring pressure factors; clipped, de-duplicated",
                           n_coarse=len(coarse), n_refine=len(refine), n_total=len(allr), runtime_s=round(time.time() - t0, 1),
                           workers=workers, qz_sound=S.QZ_SOUND_SEL, gas_Q=G.GAS_Q_SOURCE.replace("1 atm, 293 K", "factor x p_ambient, T_ambient"),

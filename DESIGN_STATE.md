@@ -517,3 +517,14 @@ Supersedes the geometry × fill-state sweep above (0fa5d40). That run is **disre
 - **Top by score:** a 3.087 mm, w 2.058 mm, t2 10.29 µm at 0.05 × (5,066 Pa), score 1,746 (1,589 mode + 157 reflection), but only 39 sharp / 218 modes = 0.179. At low pressure the gas Q falls (first gas mode Q from 22 to 435 across the sweep), so gas linewidths widen and the raw score fills up with locks that are guaranteed by mode density, not geometry. Sharp per mode is the meaningful ranking here.
 - **base5 (1.5 / 1.0 / 5.0):** at 0.95 ×, score 82, 13 sharp / 108 = 0.120. Its best is at 0.0722 ×: 29 sharp / 108 = 0.269.
 - **Caveats:** sharp counts move by a few under a 0.06 % sound-speed change (see the note above), so single-cell differences of about 0.03 are within that sensitivity. Refine points also cluster around the seeds' pressures (0.0722, 0.1044, 0.1508 ×), so those cells had extra evaluations. The continuum form of `gas_Q` still holds at 0.05 × (mean free path ~1.5 µm against a thermal layer of ~24 µm at 1 MHz) [est].
+
+## Core geometry replaced by rarefied-sweep winner (2026-10-19)
+The previous core design (`base5`) was bubble a = 1.5 mm, quartz wall = 1.0 mm, tourbillon t2 = 5.0 µm, fill 1 atm HHO 2:1 at 293 K (quartz OD 5.00 mm). It is **replaced** by the rarefied HHO-only sweep winner from commit `ea694ce` (`geometry_rarefied_hho_sweep_v0.json` `top10_spm[0]`, stage refine):
+
+- bubble a = **0.57295 mm**
+- wall w = **1.43463 mm**
+- tourbillon t2 = **9.12441 µm**
+- fill p = **0.1044 × ambient** = 10,577.3 Pa ≈ **0.10439 atm** HHO 2:1 (sharp per mode **0.4127**)
+- quartz OD ≈ **4.015 mm**
+
+Named constants in `solver_v0.py`: `CORE_A_MM`, `CORE_W_MM`, `CORE_T2_UM`, `CORE_P_ATM` / `CORE_P_Pa` / `CORE_P_FACTOR`. `PRESETS` `base5`, `build_stack` default `t_l2`, and `geometry_sweep_v0.BASE` / `P_ATM` all point at this core. The rarefied fill-sweep lattice stays frozen on the **former** centre (1.5 / 1.0 / 5.0) via `LATTICE_BASE` so `idx [0,0,0]` and the ea694ce absolute box are unchanged. Historical `geometry_sweep_v0.json` results (1 atm lattice around the old centre) are left as-is; only the `base5` summary record is re-evaluated at the new core.

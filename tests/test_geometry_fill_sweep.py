@@ -25,6 +25,9 @@ def vrh():
 
 
 def test_rarefied_pressure_grid_and_fixed_hho_mix():
+    # lattice centre frozen at former core 1.5/1.0/5.0 (not G.BASE / new CORE)
+    assert F.LATTICE_BASE == dict(a_mm=1.5, w_mm=1.0, t2_um=5.0)
+    assert F.lattice_value("a_mm", -16) == pytest.approx(0.57295, abs=5e-4)
     f = F.P_FACTORS
     assert len(f) == 9 and f[0] == pytest.approx(0.05) and f[-1] == pytest.approx(0.95)
     assert all(x < 1.0 for x in f)                                                   # fully rarefied
@@ -41,20 +44,22 @@ def test_rarefied_pressure_grid_and_fixed_hho_mix():
 
 
 def test_ambient_T_and_p_drive_B_modes_and_gas_Q(vrh):
+    # former-core 1.5 mm bubble as a fixed reference geometry (not PRESETS base5)
     p_Pa, T = 0.2179 * 99000.0, 300.0
     r = G.evaluate(1.5, 1.0, 5.0, details=True, p_atm=p_Pa / 101325.0, comp=F.COMP, T_K=T)
     gp = S.gas_props(T, p_Pa, F.COMP)
-    a = S.build_stack(3.0, 1.0)["r_in"]
+    a = 1.5e-3
     assert r["c_gas"] == pytest.approx(gp["c"], rel=1e-5)
     assert r["modes_Hz"]["B"] == pytest.approx([round(x, 1) for x in G.gas_rigid_l0(a, gp["c"])], abs=0.2)
     f0 = r["modes_Hz"]["B"][0]
     assert r["gas_Q_first"] == pytest.approx(S.gas_Q(f0, a, p_Pa, T, F.COMP), rel=1e-3)
-    # the override is temporary: the solver's own gas_Z, 1 atm and 293 K are back afterwards
-    assert S.gas_Z.__module__ == "solver_v0" and S.GAS["p"] == 101325.0 and S.GAS["T"] == S.T_REF
+    # the override is temporary: gas_Z restored; GAS returns to the core fill (P_ATM)
+    assert S.gas_Z.__module__ == "solver_v0" and S.GAS["p"] == pytest.approx(G.P_ATM * 101325.0) and S.GAS["T"] == S.T_REF
 
 
 def test_default_evaluate_unchanged_by_the_fill_option(vrh):
-    a = G.evaluate(1.5, 1.0, 5.0)
+    # CORE evaluate (default P_ATM) matches the patched geometry_sweep_v0.json base5 summary
+    a = G.evaluate(S.CORE_A_MM, S.CORE_W_MM, S.CORE_T2_UM)
     assert a["c_gas"] == pytest.approx(S.c_hho(S.T_REF), abs=1e-3)
     d = json.loads((ROOT / "geometry_sweep_v0.json").read_text(encoding="utf-8"))["base5"]
     for k in ("score", "n_mode_locks", "n_reflection_locks", "n_sharp_locks", "n_modes_window"):

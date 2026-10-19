@@ -75,19 +75,20 @@ def test_golden_column_is_secondary_and_reports_ratio():
 
 
 def test_base5_geometry_reproduces_the_solver_modes_and_stays_zero(vrh):
-    r = G.evaluate(1.5, 1.0, 5.0, details=True)
+    # CORE = rarefied-sweep winner; must match PRESETS base5 / model_data acoustic
+    r = G.evaluate(S.CORE_A_MM, S.CORE_W_MM, S.CORE_T2_UM, details=True)
     data = json.loads((ROOT / "model_data_v0.json").read_text(encoding="utf-8"))
     ac = next(c for c in data["cases"] if c["id"] == "base5")["state"]["acoustic"]
     assert len(r["modes_Hz"]["S"]) == len(ac["l0_bonded"])
     for f, g in zip(r["modes_Hz"]["S"], ac["l0_bonded"]):
         assert f == pytest.approx(g, rel=1e-3)
-    assert r["OD_mm"] == pytest.approx(5.0) and r["cascade_ok"]
+    assert r["OD_mm"] == pytest.approx(S.CORE_OD_MM, abs=1e-3) and r["cascade_ok"]
     assert r["score"] == r["n_mode_locks"] + r["n_reflection_locks"]
 
 
 def test_gas_modes_carry_the_derived_gas_Q(vrh):
-    r = G.evaluate(1.5, 1.0, 5.0, details=True)
-    a = S.build_stack(3.0, 1.0)["r_in"]
+    r = G.evaluate(S.CORE_A_MM, S.CORE_W_MM, S.CORE_T2_UM, details=True)
+    a = S.build_stack(2 * S.CORE_A_MM, S.CORE_W_MM)["r_in"]
     f0 = r["modes_Hz"]["B"][0]
     q = S.gas_Q(f0, a, p=G.P_ATM * 101325.0, T=S.T_REF, comp="HHO")
     assert 0 < q < float("inf")
@@ -97,8 +98,9 @@ def test_gas_modes_carry_the_derived_gas_Q(vrh):
 
 
 def test_build_stack_default_is_base_and_tourbillon_thickness_is_opt_in():
-    assert S.build_stack(3.0, 1.0) == S.build_stack(3.0, 1.0, t_l2=5 * S.UM)
-    l2 = [x for x in S.build_stack(3.0, 1.0, t_l2=8 * S.UM)["layers"] if x[0] == "layer2"][0]
+    assert S.build_stack(2 * S.CORE_A_MM, S.CORE_W_MM) == S.build_stack(
+        2 * S.CORE_A_MM, S.CORE_W_MM, t_l2=S.CORE_T2_UM * S.UM)
+    l2 = [x for x in S.build_stack(2 * S.CORE_A_MM, S.CORE_W_MM, t_l2=8 * S.UM)["layers"] if x[0] == "layer2"][0]
     assert l2[2] - l2[1] == pytest.approx(8e-6)
 
 
@@ -110,7 +112,7 @@ def test_sweep_has_no_source_and_zero_run_stays_exact():
     run = S.run_case(pre, {})
     assert run["W_ac"] == 0.0 and run["ac"]["W"] == 0.0 and all(m["W"] == 0.0 for m in run["ac"]["modes"])
     assert all(float(t) == 293.0 for t in run["Tss"]) and all(float(e) == 0.0 for e in run["E_ss"])
-    assert S.GAS["T"] == S.T_REF and S.GAS["p"] == 101325.0
+    assert S.GAS["T"] == S.T_REF and S.GAS["p"] == pytest.approx(S.CORE_P_Pa, rel=1e-9)
 
 
 def test_sweep_output_file_is_consistent():
@@ -120,7 +122,9 @@ def test_sweep_output_file_is_consistent():
     assert "unscored" in m["knees"] and m["T_K"] == 293.0
     ranks = [r["rank"] for r in d["results"]]
     assert ranks == list(range(1, len(ranks) + 1))
-    assert d["base5"]["a_mm"] == 1.5 and d["base5"]["w_mm"] == 1.0 and d["base5"]["t2_um"] == 5.0
+    # base5 summary patched to the rarefied-sweep winner (CORE); other results remain the historical 1 atm lattice
+    assert d["base5"]["a_mm"] == pytest.approx(S.CORE_A_MM) and d["base5"]["w_mm"] == pytest.approx(S.CORE_W_MM)
+    assert d["base5"]["t2_um"] == pytest.approx(S.CORE_T2_UM)
     for r in d["top10"]:
         assert r["cascade_ok"] and r["score"] == len(r["locks"])
     assert "derived" in m["gas_Q"] and 0 < m["gas_Q_range"][0] <= m["gas_Q_range"][1]

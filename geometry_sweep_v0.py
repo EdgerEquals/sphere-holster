@@ -8,11 +8,13 @@ default outputs (solver_v0_output.txt, model_data_v0.json, index.html, tourmalin
 geometry_sweep_v0.json.
 
 Swept: gas bubble radius a, quartz wall thickness w, tourbillon (layer two) thickness t2. Every other layer is built
-by build_stack exactly as for base5 (BTO 2 um, Gd-Dy 3 um, phi-stepped outer zones), 1 atm HHO at 293 K.
+by build_stack exactly as for the core (BTO 2 um, Gd-Dy 3 um, phi-stepped outer zones). BASE is the rarefied-sweep
+winner (ea694ce): a 0.57295 mm, w 1.43463 mm, t2 9.12441 um at 0.1044 x ambient HHO, 293 K. The sweep lattice is still
+BASE * phi^(i/8); historical geometry_sweep_v0.json results (3b81839) were run around the former base5 (1.5/1.0/5.0 @ 1 atm).
 
 Mode sets per geometry (acoustic, l = 0 only, search window 20 kHz - 12 MHz = the solver's l0_modes window):
   B  bubble gas cavity alone, rigid wall: f = x_n c_HHO / (2 pi a), j1(x_n) = 0. Q from solver_v0.gas_Q(f, a, p, T,
-     'HHO') at the fill state (1 atm, 293 K): wall thermal boundary layer + classical bulk absorption, viscous wall loss
+     'HHO') at the fill state (CORE_P_ATM, 293 K): wall thermal boundary layer + classical bulk absorption, viscous wall loss
      0 for l = 0 [est: modelling assumption, upper bound on Q], so a B mode now has its own linewidth f/Q.
   Q  quartz layer alone (free shell, vacuum both faces): propagate() roots; Q_eff from mode_energy_stats (= 2100).
   T  tourbillon alone (free layer-two shell): propagate() roots in the window plus its first thickness mode
@@ -53,17 +55,18 @@ import solver_v0 as S  # noqa: E402
 
 PHI = S.PHI
 FMIN, FMAX, NGRID = 2e4, 12e6, 4000          # same window and grid as solver l0_modes
-P_ATM = 1.0                                   # base5 fill
-BASE = dict(a_mm=1.5, w_mm=1.0, t2_um=5.0)    # base5
+# Fill and lattice centre = rarefied-sweep winner (ea694ce), replacing former base5 (1.5/1.0/5.0 @ 1 atm).
+P_ATM = S.CORE_P_ATM
+BASE = dict(a_mm=S.CORE_A_MM, w_mm=S.CORE_W_MM, t2_um=S.CORE_T2_UM)
 CAV_PAIRS = {("B", "Q"), ("B", "T"), ("Q", "T"), ("B", "S")}
 REFL_TARGETS = {"B": ("Q", "T", "S"), "Q": ("B", "T"), "T": ("B", "Q")}
 GAS_COMP = "HHO"
-# Gas-cavity Q: derived by solver_v0.gas_Q(f, a, p, T, comp) at the sweep's fill state (1 atm HHO, 293 K; no source,
-# so the gas stays at 293 K). Modelling assumption, not measured physics: isothermal wall, no molecular relaxation,
-# no discharge loss -> an upper bound on Q (lower bound on the gas linewidth).
-GAS_Q_SOURCE = ("derived: solver_v0.gas_Q(f, a, p, T, 'HHO') at 1 atm, 293 K (no source); wall thermal boundary layer "
-                "+ classical bulk absorption, viscous wall loss 0 for l=0; modelling assumption (isothermal wall, no "
-                "relaxation/discharge loss), upper bound on Q, not measured")
+# Gas-cavity Q: derived by solver_v0.gas_Q(f, a, p, T, comp) at the sweep's fill state (CORE_P_ATM HHO, 293 K; no
+# source, so the gas stays at 293 K). Modelling assumption, not measured physics: isothermal wall, no molecular
+# relaxation, no discharge loss -> an upper bound on Q (lower bound on the gas linewidth).
+GAS_Q_SOURCE = ("derived: solver_v0.gas_Q(f, a, p, T, 'HHO') at CORE_P_ATM (~0.1044 x ambient), 293 K (no source); "
+                "wall thermal boundary layer + classical bulk absorption, viscous wall loss 0 for l=0; modelling "
+                "assumption (isothermal wall, no relaxation/discharge loss), upper bound on Q, not measured")
 
 
 # ------------------------------------------------------------------ scoring (pure, testable)
@@ -214,7 +217,7 @@ def _fill_gas_Z(gp):
 
 def evaluate(a_mm, w_mm, t2_um, details=False, em=False, p_atm=None, comp=None, T_K=None):
     """All modes, locks and score for one geometry. No source: every mode energy is 0.
-    Default (p_atm=None, comp=None): the 1 atm HHO path exactly as before (c_hho, solver gas_Z). Opt-in fill state
+    Default (p_atm=None, comp=None): the core fill (P_ATM = CORE_P_ATM HHO, c_hho, solver gas_Z). Opt-in fill state
     (geometry_fill_sweep_v0): p_atm and/or comp (name or {species: x}) set the gas everywhere it enters: the rigid-wall
     B modes and bubble round trips use c from S.gas_props, the bonded-stack gas loading uses that c and K = gamma p,
     gas Q is S.gas_Q at (p, T, comp), and the cascade thermal rate uses the mix's k/(rho cp). T_K (opt-in, with the
@@ -333,7 +336,7 @@ def em_open(a, b, r2):
 # ------------------------------------------------------------------ grid
 # Grid on a phi^(1/8) lattice: point = BASE * phi^(i/8) per axis, i integer (exact de-duplication by index).
 LAT = 8                                                                  # lattice: phi^(1/8)
-COARSE = dict(a_mm=(-16, 12, 4), w_mm=(-20, 12, 4), t2_um=(-16, 12, 4))  # (i_lo, i_hi, step): phi^(1/2) steps around base5
+COARSE = dict(a_mm=(-16, 12, 4), w_mm=(-20, 12, 4), t2_um=(-16, 12, 4))  # (i_lo, i_hi, step): phi^(1/2) steps around BASE (core)
 REFINE_K = 2                                                             # refine: +-2 lattice steps (phi^(1/8)) per axis
 
 
