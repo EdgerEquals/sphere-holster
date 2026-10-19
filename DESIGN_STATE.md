@@ -39,8 +39,9 @@ Every tool working on this project reads this file first, never reintroduces a r
 - **Thickness:** about 5 µm, within a 3–8 µm range.
 - **Binder:** a silica sol-gel (MTES:TEOS 80:20). (The earlier Pt-primer note is moot: electrodes are retired, 2026-10-19.) The tourmaline needs a silica shell formed at pH 8–9.
 
-### Layer 4: downshifting phosphor
-- **Options:** KSF, which saturates at about 8–16 W, or CASN, which saturates at about 80 W.
+### Layer 4: downshifting phosphor — removed pending further work (2026-10-19)
+- **Removed pending further work (2026-10-19):** the inner downshifting phosphor is out of the model for now (solver `phos_in`, Cr3+ garnet, 20 µm, 770 nm, and its constants and 770 nm band). Paused, not retired. Layer two (elbaite) now passes the light on to the BTO film and then the Gd-Dy film, which absorbs it.
+- **Options (kept for when it returns):** KSF, which saturates at about 8–16 W, or CASN, which saturates at about 80 W.
 
 ### Layer 5: outer layer
 - **Nonlinear option:** PPLN or KDP. Either gives real gain only with a coherent pump at the megawatt level.
@@ -59,7 +60,7 @@ Every tool working on this project reads this file first, never reintroduces a r
 2. The heat path. At 1 W in still air, the test shell's inner wall gets past HHO autoignition.
 3. The BTO thickness, and how to keep it below its Curie point.
 4. The tourmaline thickness, traded against scattering at 434 nm. Also the cure temperature and whether it sits inside or outside the BTO.
-5. Which phosphor. (The electrode-placement / Ti/Pt light-blocking question is closed: electrodes are retired, 2026-10-19.)
+5. Which phosphor — inner phosphor removed pending further work (2026-10-19); the choice waits until it returns. (The electrode-placement / Ti/Pt light-blocking question is closed: electrodes are retired, 2026-10-19.)
 6. Which layer 5 option.
 7. The HHO fill amount.
 8. **How the gas is driven with no electrodes.** Open for Danny. The old "central electrode or external field" choice is superseded because electrodes are retired. Since 2026-10-19 the code has **no drive mechanism defined**: `drive_model.js` and `solver_v0.py` carry a fail-closed stub (zero deposited energy, zero discharge, zero electric/magnetic field and loss). The old DBD gap, Paschen V_b and the 10.71–98.95 Torr window were removed with the electrodes. Do not invent a drive to fill the stub.

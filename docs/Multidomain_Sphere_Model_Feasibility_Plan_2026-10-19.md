@@ -94,7 +94,7 @@
 - **Quartz:** isotropic VRH (cL 5.9 km/s scaling). Real crystal quartz has an anisotropic cL of 5.3–7.0 km/s [rec], which splits modes by m.
 - **Optics:**
   - The Balmer spectrum is a placeholder using case-B ratios [est]. A 1–3 mm HHO discharge is not a case-B nebula.
-  - Phosphor kinetics are simplified (ground-state saturation, QY quench).
+  - Phosphor kinetics are simplified (ground-state saturation, QY quench). (Update 2026-10-19: the inner phosphor is removed pending further work, so v0 has no phosphor kinetics now.)
   - Smoky-quartz colour centres are qualitative.
 - **Plasma:**
   - The Paschen knee is a mixture rule [est] anchored to the lit H2/O2 minima.
@@ -180,7 +180,7 @@
 **Domain physics in v0:**
 - **Acoustic:** exact l=0 multilayer spherical elastic transfer matrix with HHO gas loading at the computed gas temperature. Gas-cavity modes are separated from shell modes. Mode-energy Q_eff and peak stress at P.
 - **Thermal:** 1D radial implicit finite volume with k(T), interface resistances and the transient after GO.
-- **Optical:** radial march per band with phosphor down-shift, colour centres and the Ti/Pt cut-off.
+- **Optical:** radial march per band with colour centres. (Update 2026-10-19: the inner phosphor down-shift is removed pending further work, and the Ti/Pt cut-off was removed with the electrodes; light now runs quartz -> layer two -> BTO -> Gd-Dy.)
 - **Electric:** BTO varactor (εr(E, T), Curie-Weiss) with the ferrite-shell LC tank; DBD for the bare presets.
 - **Magnetic:** ferrite toroid L and Q_f.
 

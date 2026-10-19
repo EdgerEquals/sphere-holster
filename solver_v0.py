@@ -7,9 +7,10 @@ ESTIMATED PHYSICS. Paper model, nothing measured. Every material number carries 
   [calc] computed here                                         [est] my estimate (not sourced)
 
 What it does (per geometry preset x circulating power level):
-  OPTICAL   radial 1-D radiative march per band (H-gamma 434, H-beta 486, H-alpha 656 nm + Cr3+ 770 nm
-            downshifted band): absorption + scattering per layer, phosphor ground-state saturation,
-            smoky-quartz colour centres with thermal bleaching, quantum-defect heat.  (No full-wave Maxwell.)
+  OPTICAL   radial 1-D radiative march per band (H-gamma 434, H-beta 486, H-alpha 656 nm): absorption per layer,
+            smoky-quartz colour centres with thermal bleaching.  (No full-wave Maxwell.) The inner downshifting
+            phosphor (and its 770 nm band) is removed pending further work (2026-10-19): layer two passes the light on
+            to the BTO film and then the Gd-Dy film.
   ACOUSTIC  exact l=0 (breathing / radial) multilayer elastic spherical-shell model (spherical Bessel
             transfer matrices), eigenmodes, mode shapes, energy partition -> Q_eff, peak stress at P_circ.
             Two configurations: 'isolated' (quartz + thin films, free at the Gd-Dy surface) and 'bonded'
@@ -22,7 +23,7 @@ What it does (per geometry preset x circulating power level):
             outer surface held at 293 K (reference only - no heat sink is chosen here).
   COUPLING  staggered, timescale-separated: fast domains (optical ps, acoustic/electric/magnetic us-ms)
             are solved quasi-statically and handed to the thermal transient as heat sources; temperature
-            feeds back (phosphor quench, smoky bleaching, BTO eps(T)/Curie, quartz k(T)) at each macro step.
+            feeds back (smoky bleaching, BTO eps(T)/Curie, quartz k(T)) at each macro step.
 Outputs model_data_v0.json and (with --build) index.html (viewer_template.html + embedded JSON).
 """
 import json, math, re, os, sys, argparse
@@ -68,8 +69,6 @@ MAT = {
                   tags="rho,cp,k [rec BTO report]; cL,cT isotropic VRH [rec shell_phi_sweep]; Q 2100 [rec]; n_o 434 [rec]"),
  "layer2":   dict(name="Layer two: 50 nm Fe-poor elbaite 20 vol% in 80:20 MTES:TEOS", rho=2300, cp=800, k=0.91, cL=3600, cT=2200, Q=150, n=1.42,
                   tags="k 0.91 mid (0.52-1.59) [rec Layer2]; cL mid of 2.6-4.7 km/s [rec binder est]; cT=0.6 cL [est]; rho [est]; Q 50-500 -> 150 [est]"),
- "phos_in":  dict(name="Inner phosphor 20 um, Cr3+ garnet (CSSG-type) in sol-gel/PiG", rho=3500, cp=700, k=1.0, cL=5000, cT=3000, Q=100, n=1.8,
-                  tags="k 1.0 [rec est]; rho,cp,cL,cT,Q [est]"),
  "bto":      dict(name="BaTiO3 film 2 um (hydrothermal crystalline)", rho=6020, cp=437, k=1.35, cL=5000, cT=2700, Q=50, n=2.4,
                   tags="rho,cp,k [rec]; E~110 GPa [rec est] -> cL,cT [est]; Q~1/tan d=50 [rec]"),
  "gddy":     dict(name="Gd-Dy film 3 um (MCE ~260 K)", rho=8080, cp=270, k=7.3, cL=2950, cT=1680, Q=500, n=None,
@@ -179,14 +178,12 @@ def pyro_coupling(key, times, T_layer_frames, T_ss):
 # Optical bands. Relative Balmer powers: case-B recombination ratios Ha/Hb 2.86, Hg/Hb 0.47 [lit, Osterbrock & Ferland 2006]
 # used ONLY as a placeholder spectrum (a 1-3 mm HHO discharge is not case B) [est].
 BANDS = [dict(nm=434.0, w=0.47), dict(nm=486.1, w=1.0), dict(nm=656.3, w=2.86)]
-LAM_CR = 770.0                      # CSSG:Cr emission peak [rec ladder]
-QY_CR = 0.778                       # IQE measured [rec ladder]
-I_SAT_CR = 7.6e4 * 1e4              # W/m2; geometric mid of 2.4e4-2.4e5 W/cm2 [rec, cross-section est]
-ALPHA_PHOS = 1.0e5                  # 1/m (1000 /cm) inner phosphor small-signal absorption [est]
+# Inner downshifting phosphor (Cr3+ garnet, 770 nm) removed pending further work (2026-10-19): its constants
+# (emission peak, QY, saturation intensity, absorption) and the 770 nm band are gone with it.
 ALPHA_METAL = 8.8e7                 # 1/m visible absorption of the metallic layers (Gd-Dy, CALORIVAC, ferrite) [est, metal-typical k~3.5]
-L2_MU_EXT = {434.0: 106e2, 486.1: 68e2, 656.3: 22e2, 770.0: 15e2}  # 1/m direct extinction, P0.07 phi0.2 [rec Layer2; 770 est]
+L2_MU_EXT = {434.0: 106e2, 486.1: 68e2, 656.3: 22e2}  # 1/m direct extinction, P0.07 phi0.2 [rec Layer2]
 L2_MU_ABS = 0.9e2 * math.log(10) / 2.3026   # <=0.9 /cm absorption [rec Layer2]
-SMOKY_ALPHA = {434.0: 50.0, 486.1: 50.0, 656.3: 30.0, 770.0: 5.0}   # 1/m (0.5/0.5/0.3 /cm) [est, dose-dependent; bands rec Coloured_Piezo]
+SMOKY_ALPHA = {434.0: 50.0, 486.1: 50.0, 656.3: 30.0}   # 1/m (0.5/0.5/0.3 /cm) [est, dose-dependent; bands rec Coloured_Piezo]
 SMOKY_BLEACH_K = 473.0              # colour bleaches ~200-300 C [rec]
 
 # Electric [rec power scaling / BTO report]
@@ -214,7 +211,7 @@ def build_stack(core_d_mm, wall_mm, bare=False):
     def add(key, t):
         r0 = L[-1][2] if L else r_in
         L.append((key, r0, r0 + t))
-    add("quartz", wall_mm * MM); add("layer2", 5 * UM); add("phos_in", 20 * UM); add("bto", BTO_T)
+    add("quartz", wall_mm * MM); add("layer2", 5 * UM); add("bto", BTO_T)   # inner phosphor removed pending further work (2026-10-19)
     r_B = L[-1][2]                       # first phi step starts at the BTO outer boundary [Danny rule, rec BTO report]
     add("gddy", 3 * UM)
     r1, r2 = r_B * PHI, r_B * PHI ** 2   # phi-stepped thick zones [v0 layout assumption]
@@ -445,16 +442,15 @@ def no_drive_em(stack, T_bto=None):
 def optical(stack, P_opt, Tcell, cells, mats):
     """returns per-cell absorbed heat [W], per-band power profile, termination radius."""
     heat = np.zeros(len(cells))
-    prof = {b["nm"]: [] for b in BANDS}; prof[LAM_CR] = []
+    prof = {b["nm"]: [] for b in BANDS}
     wsum = sum(b["w"] for b in BANDS)
-    P = {b["nm"]: P_opt * b["w"] / wsum for b in BANDS}; P[LAM_CR] = 0.0
-    converted = 0.0; term_r = None; shift_r = None
+    P = {b["nm"]: P_opt * b["w"] / wsum for b in BANDS}
+    term_r = None
     for i, ((ra, rb), m) in enumerate(zip(cells, mats)):
         T = Tcell[i]; t = rb - ra; area = 4 * math.pi * ra ** 2
         for lam in list(P.keys()):
             Pin = P[lam]
             if Pin <= 0: prof[lam].append((ra, 0.0)); continue
-            I = Pin / area
             if m == "quartz":
                 bleach = 1.0 if T < SMOKY_BLEACH_K else math.exp(-(T - SMOKY_BLEACH_K) / 50.0)
                 a_abs = SMOKY_ALPHA.get(lam, 5.0) * bleach; frac_heat = 1.0
@@ -462,15 +458,6 @@ def optical(stack, P_opt, Tcell, cells, mats):
             elif m == "layer2":
                 a_abs = L2_MU_ABS
                 Pout = Pin * math.exp(-a_abs * t); heat[i] += Pin - Pout   # scattered light assumed to continue outward [est]
-            elif m == "phos_in" and lam != LAM_CR:
-                a_eff = ALPHA_PHOS / (1 + I / I_SAT_CR)                     # ground-state saturation (bleaching) [rec knee]
-                Pout = Pin * math.exp(-a_eff * t); Pabs = Pin - Pout
-                qy = QY_CR * (1.0 if T < 423 else max(0.2, 0.974 - (T - 423) * 0.002))  # 97.4 % at 150 C [rec]; slope [est]
-                Pem = Pabs * qy * lam / LAM_CR
-                heat[i] += Pabs - Pem
-                P[LAM_CR] += 0.5 * Pem; converted += Pem       # half outward, half back toward core [est]
-                heat[0] += 0.5 * Pem * 0.0                     # inward half returns to core (not tracked) [v0 limit]
-                if shift_r is None and Pabs > 0.05 * Pin: shift_r = ra
             elif m in ("gddy", "calorivac", "ferrite"):
                 Pout = Pin * math.exp(-ALPHA_METAL * t); heat[i] += Pin - Pout
             elif m == "phos_out":
@@ -481,7 +468,7 @@ def optical(stack, P_opt, Tcell, cells, mats):
             prof[lam].append((ra, Pin / area))
         tot = sum(P[b["nm"]] for b in BANDS)
         if term_r is None and tot < 0.05 * P_opt: term_r = rb
-    return heat, prof, dict(term_r=term_r, shift_r=shift_r, converted_W=converted, escaped_W=sum(P.values()))
+    return heat, prof, dict(term_r=term_r, escaped_W=sum(P.values()), heat=heat.copy())
 
 # ------------------------------------------------- THERMAL -------------------------------------
 class Thermal:
@@ -537,7 +524,7 @@ def run_case(pre, P, ref):
     if bare: th.outer = "natconv"   # still air + radiation; heat sink left to Danny
     T = np.full(th.n, T_REF)
     lay = st["layers"]
-    iso = [x for x in lay if x[0] in ("quartz", "layer2", "phos_in", "bto", "gddy")]
+    iso = [x for x in lay if x[0] in ("quartz", "layer2", "bto", "gddy")]
     # acoustic: l=0 modes, isolated and bonded. Gas-loaded roots are split into shell modes (within 1 % of the
     # vacuum shell modes) and HHO gas-cavity modes (coupled through the wall).
     def vac_modes(L_):
@@ -758,8 +745,8 @@ def package(pre, runs, ref):
             ]
         else:
           vectors = [
-            dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / (LAM_CR * 1e-9), r_start=run["stack"]["r_in"], r_shift=oinfo["shift_r"],
-                 r_end=oinfo["term_r"] or R, what="Balmer 434/486/656 nm downshifted to 770 nm in the inner Cr3+ phosphor; remainder absorbed in the metallic Gd-Dy film [est]"),
+            dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / 656.3e-9, r_start=run["stack"]["r_in"],
+                 r_end=oinfo["term_r"] or R, what="Balmer 434/486/656 nm pass the quartz and layer two, cross the BTO film and are absorbed in the metallic Gd-Dy film [est]; inner phosphor removed pending further work (2026-10-19)"),
             dict(domain="acoustic", f_start=ac["f"], f_end=ac["f"], r_start=run["stack"]["r_in"], r_end=lay["gddy"][1],
                  r_end_bonded=ac_term_bond, what="l=0 shell mode nearest 2 MHz; isolated shell reflects at the Gd-Dy free surface; if the ladder is bonded, 90 % of loss is reached at the marked radius"),
             dict(domain="thermal", f_start=thermal_track(run["stack"], run["stack"]["r_in"] + 1e-6), f_end=thermal_track(run["stack"], R),
@@ -778,7 +765,7 @@ def package(pre, runs, ref):
         def Tof(key, fn=np.mean):
             ii = [i for i, m in enumerate(mats) if m == key]
             return float(fn(Tss[ii])) if ii else 0.0
-        Tq_in = float(Tss[0]); Tbto = Tof("bto"); Tcal = Tof("calorivac", np.max); Tgd = Tof("gddy"); Tph = Tof("phos_in")
+        Tq_in = float(Tss[0]); Tbto = Tof("bto"); Tcal = Tof("calorivac", np.max); Tgd = Tof("gddy")
         Tq_out = float(Tss[[i for i, m in enumerate(mats) if m == "quartz"][-1]])
         qz = [i for i, m in enumerate(mats) if m == "quartz"]
         dT_wall = float(Tss[qz[0]] - Tss[qz[-1]])
@@ -791,7 +778,6 @@ def package(pre, runs, ref):
         fl(not bare and Tbto > T_CURIE, f"BTO {Tbto:.0f} K > Curie ~393 K (piezo off)")
         fl(not bare and Tcal > 473, f"CALORIVAC max {Tcal:.0f} K > 200 C (H loss)")
         fl(not bare and Tgd > 260, f"Gd-Dy {Tgd:.0f} K above its ~260 K Tc (MCE knee missed)")
-        fl(not bare and Tph > 573, f"Inner phosphor {Tph:.0f} K > 300 C (quench)")
         flags.append("Electric/magnetic: " + NO_DRIVE)
         gh = run["gas_hot"]
         for nm, TT in (("Quartz inner wall", Tq_in), ("Gas centre (conduction profile)", gh["T_centre"])):
@@ -824,8 +810,9 @@ def package(pre, runs, ref):
             electric=dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, piezo_on=em["piezo_on"], piezo=piezo_out,
                           piezo_note="acoustic -> electric coupling at the solver's own l=0 eigenmode, in the P_circ scenario; polarization and energy density inside the layer only (no collecting conductors, no circuit)"),
             magnetic=dict(none=True, note=NO_DRIVE),
-            optical=dict(P_opt=F_OPT * P, converted_W=r4(oinfo["converted_W"]), escaped_W=r4(oinfo["escaped_W"])),
-            thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_phos=r4(Tph), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
+            optical=dict(P_opt=F_OPT * P, escaped_W=r4(oinfo["escaped_W"]), heat_W={k: r4(float(sum(h for h, mm in zip(oinfo["heat"], mats) if mm == k))) for k in dict.fromkeys(mats)},
+                         note="inner downshifting phosphor removed pending further work (2026-10-19); no wavelength conversion in the stack"),
+            thermal=dict(T_quartz_in=r4(Tq_in), T_quartz_out=r4(Tq_out), T_bto=r4(Tbto), T_gddy=r4(Tgd), T_calorivac_max=r4(Tcal), dT_wall=r4(dT_wall),
                          heat_W={k: r4(v) for k, v in run["heat_by_layer"].items()}, total_heat_W=r4(float(run["q"].sum())), pyro=pyro_out,
                          pyro_note="thermal -> pyroelectric coupling from dT/dt of the thermal march (frame-interval mean, K/s); quartz is not pyroelectric"),
             gas=dict(T_gas_K=r4(gh["T_gas"]), T_centre_K=r4(gh["T_centre"]), T_wall_K=r4(gh["T_wall"]), T_seal_K=T_REF, p_seal_Pa=r4(gh["p_seal"]), p_hot_Pa=r4(gh["p_hot"]), n_m3=r4(gh["n_m3"]),

@@ -103,7 +103,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const D = window.MODEL;
 const DOMS = ['optical','acoustic','electric','magnetic','thermal','chemical']; const SECT=360/DOMS.length;
 const DCOL = {optical:'#ffd34d',acoustic:'#33d1ff',electric:'#ff4fd8',magnetic:'#59ff7a',thermal:'#ff6a3d',chemical:'#b98cff'};
-const LCOL = {core:'#2b3f73',quartz:'#cfe8ff',layer2:'#e8a6c8',phos_in:'#b6ff7a',bto:'#ffcc66',gddy:'#8888aa',calorivac:'#8a6d4a',phos_out:'#ffe680',ferrite:'#454552'};
+const LCOL = {core:'#2b3f73',quartz:'#cfe8ff',layer2:'#e8a6c8',bto:'#ffcc66',gddy:'#8888aa',calorivac:'#8a6d4a',phos_out:'#ffe680',ferrite:'#454552'};
 const $ = id => document.getElementById(id);
 const fmt = (x,n=3) => (x===null||x===undefined)?'–':(Math.abs(x)>=1e4||Math.abs(x)<1e-2&&x!==0)?x.toExponential(n-1):(+x).toPrecision(n);
 const fmtF = f => f>=1e12?(f/1e12).toPrecision(4)+' THz':f>=1e9?(f/1e9).toPrecision(4)+' GHz':f>=1e6?(f/1e6).toPrecision(4)+' MHz':f>=1e3?(f/1e3).toPrecision(4)+' kHz':(+f).toPrecision(3)+' Hz';
@@ -296,8 +296,8 @@ function legendHTML(){ const sel=[$('f0').value,$('f1').value,$('f2').value];
   return sel.map((d,k)=>`<div class="facekey" style="color:${DCOL[d]}">face ${k+1} → ${d.toUpperCase()}</div>`).join('')+DOMS.map(d=>`<div><span class="sw" style="background:${DCOL[d]}"></span>${d}</div>`).join('')+'<div class="small">faces: inferno colormap (normalised per field; acoustic, optical &amp; chemical log scale)</div>'; }
 
 // ---------------- propagation model (true scale, mm & s) ----------------
-const MATN={quartz:1.554,layer2:1.42,phos_in:1.8,bto:2.4,phos_out:1.41}; // optical index (rec/est); metals absorb
-const EPSRF={quartz:4.5,layer2:3.5,phos_in:8,bto:450,gddy:1e9,calorivac:6,phos_out:3,ferrite:12}; // RF permittivity [est]
+const MATN={quartz:1.554,layer2:1.42,bto:2.4,phos_out:1.41}; // optical index (rec/est); metals absorb
+const EPSRF={quartz:4.5,layer2:3.5,bto:450,gddy:1e9,calorivac:6,phos_out:3,ferrite:12}; // RF permittivity [est]
 function mediaList(){ const L=[{key:'gas',a:0,b:C.propagation.r_in_mm}]; C.layers.forEach(l=>{ if(l.key!=='core') L.push({key:l.key,a:l.a_mm,b:l.b_mm}); }); L.push({key:'air',a:C.R_outer_mm,b:C.R_outer_mm*1.6}); return L;}
 function propForDomain(dom){
   const pr=C.propagation, M=D.meta.materials, segs=[];
@@ -424,8 +424,7 @@ function drawSpec(){
   const hline=(f,d0,d1,col,dash=false,w=2)=>{ g.strokeStyle=col; g.lineWidth=w; g.setLineDash(dash?[5,4]:[]); g.beginPath(); g.moveTo(X(d0),Y(f)); g.lineTo(X(d1),Y(f)); g.stroke(); g.setLineDash([]); g.lineWidth=1; };
   const V={}; PD.vectors.forEach(v=>V[v.domain]=v);
   // optical
-  [434,486.1,656.3].forEach(nm=>hline(2.998e8/(nm*1e-9),V.optical.r_start_mm_disp??mmToDisp(V.optical.r_start_mm),mmToDisp(V.optical.r_shift_mm??V.optical.r_end_mm),DCOL.optical));
-  if(V.optical.r_shift_mm) hline(2.998e8/770e-9,mmToDisp(V.optical.r_shift_mm),mmToDisp(V.optical.r_end_mm),'#ff9a3c');
+  [434,486.1,656.3].forEach(nm=>hline(2.998e8/(nm*1e-9),V.optical.r_start_mm_disp??mmToDisp(V.optical.r_start_mm),mmToDisp(V.optical.r_end_mm),DCOL.optical));
   // acoustic
   PD.acoustic.l0_isolated.forEach(f=>hline(f,mmToDisp(V.acoustic.r_start_mm),mmToDisp(V.acoustic.r_end_mm),DCOL.acoustic));
   (PD.acoustic.gas_cavity_modes||[]).slice(0,4).forEach(f=>hline(f,0,mmToDisp(C.propagation.r_in_mm),'#7fb2ff',false,1));
@@ -453,10 +452,10 @@ function fillSide(){
    <tr><td>Acoustic</td><td>l=0 shell modes ${a.l0_isolated.slice(0,4).map(fmtF).join(', ')}; HHO gas-cavity modes ${(a.gas_cavity_modes||[]).slice(0,3).map(fmtF).join(', ')}; drive ${fmtF(a.f_drive)}; W ${fmt(a.W_mJ)} mJ; peak stress ${fmt(a.peak_stress_MPa)} MPa; Q_eff ${fmt(a.Q_eff)}; loss ${fmt(a.loss_W)} W; fill-pressure hoop ${fmt(a.fill_stress_MPa)} MPa${a.bonded?`; bonded stack: ${fmtF(a.bonded.f)}, Q ${fmt(a.bonded.Q_eff)}, loss ${fmt(a.bonded.loss_W)} W`:''}</td></tr>
    <tr><td>Electric</td><td>${e.none?e.note:'n/a'}</td></tr>
    <tr><td>Magnetic</td><td>${m.none?m.note:`L ${fmt(m.L_nH)} nH (1 turn); Q_f ${fmt(m.Q_f)}; ferrite loss ${fmt(m.P_ferr)} W; B equator ${fmt(m.B_eq_mT)} mT, near feed holes ${fmt(m.B_max_mT)} mT`}</td></tr>
-   <tr><td>Optical</td><td>Balmer out of core ${fmt(o.P_opt)} W; downshifted ${fmt(o.converted_W)} W; escaping ${fmt(o.escaped_W)} W</td></tr>
+   <tr><td>Optical</td><td>Balmer out of core ${fmt(o.P_opt)} W; escaping ${fmt(o.escaped_W)} W (inner phosphor removed pending further work, 2026-10-19: no downshift)</td></tr>
    ${PD.gas?`<tr><td>HHO gas state (computed, coupled)</td><td>T_gas ${fmt(PD.gas.T_gas_K)} K [est = inner wall, lower bound]; sealed ${fmt(PD.gas.p_seal_Pa)} Pa at ${PD.gas.T_seal_K} K → p ${fmt(PD.gas.p_hot_Pa)} Pa (fixed N, V); c ${fmt(PD.gas.c_seal)} → ${fmt(PD.gas.c_hot)} m/s; hot gas-loaded modes ${(PD.gas.gas_modes_hot||[]).slice(0,3).map(fmtF).join(', ')}</td></tr>`:''}
    ${PD.chemical?`<tr><td style="color:${DCOL.chemical}">Chemical</td><td>stored 2H2+O2→2H2O ${fmt(PD.chemical.E_store_J)} J; dissociation ${fmt(PD.chemical.P_diss_W)} W ⇒ ${fmt(PD.chemical.R_diss_per_s)} H2/s; fill converted in ${fmtT(PD.chemical.t_conv_s)} releasing ${fmt(PD.chemical.P_release_W)} W meanwhile (fed to thermal); wall recombination ${fmt(PD.chemical.P_wall_recomb_W)} W; H diffusion τ ${fmtT(PD.chemical.tau_D_s)}; <b>knee: not defined</b>. <span class="small">${PD.chemical.sources}</span></td></tr>`:''}
-   <tr><td>Thermal (steady)</td><td>quartz inner ${fmt(t.T_quartz_in)} K / outer ${fmt(t.T_quartz_out)} K; wall ΔT ${fmt(t.dT_wall)} K${C.propagation.bare?'':`; phosphor ${fmt(t.T_phos)} K; BTO ${fmt(t.T_bto)} K; Gd-Dy ${fmt(t.T_gddy)} K; CALORIVAC max ${fmt(t.T_calorivac_max)} K`}; total heat ${fmt(t.total_heat_W)} W</td></tr></table>`;
+   <tr><td>Thermal (steady)</td><td>quartz inner ${fmt(t.T_quartz_in)} K / outer ${fmt(t.T_quartz_out)} K; wall ΔT ${fmt(t.dT_wall)} K${C.propagation.bare?'':`; BTO ${fmt(t.T_bto)} K; Gd-Dy ${fmt(t.T_gddy)} K; CALORIVAC max ${fmt(t.T_calorivac_max)} K`}; total heat ${fmt(t.total_heat_W)} W</td></tr></table>`;
   $('flags').innerHTML = PD.flags.length? PD.flags.map(f=>`<div class="flag">⚠ ${f}</div>`).join('') : '<div class="ok">No limit crossed at this power (estimated physics).</div>';
   $('vecs').innerHTML = '<table>'+PD.vectors.map(v=>`<tr><td style="color:${DCOL[v.domain]}">${v.domain}</td><td>${fmtF(v.f_start)}${v.f_end!==v.f_start?' → '+fmtF(v.f_end):''}</td><td>${fmt(v.r_start_mm,4)} → ${fmt(v.r_end_mm,4)} mm</td><td class="small">${v.what}</td></tr>`).join('')+'</table>';
   $('layers').innerHTML = '<table>'+C.layers.map(l=>`<tr><td><span class="sw" style="background:${LCOL[l.key]}"></span>${l.name}</td><td>${fmt(l.a_mm,5)}–${fmt(l.b_mm,5)} mm</td><td class="small">${l.tags}</td></tr>`).join('')+'</table>'+(C.note?`<div class="small">${C.note}</div>`:'');

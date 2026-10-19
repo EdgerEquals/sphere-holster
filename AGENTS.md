@@ -145,6 +145,7 @@ Reviewers FAIL any reintroduction. A deterministic scan (`harness/retired.txt`) 
 - **Electrodes are gone from the model**, not just the design: no formula, geometry, preset or code path may reference one. The drive is a fail-closed stub, "no drive mechanism defined". Any electrode reference (outside a labelled retirement note) is an ERROR.
 - **Intended model behaviour** (`DESIGN_STATE.md`, "Intended model behaviour (2026-10-19)"): the system is driven over the knee (the thermal trigger); too hot means it ignites; cascading cooling prevents ignition. Flag designs/outputs that cross autoignition without the cooling cascade; never propose an electrode-based drive.
 - **Knee frequency is emergent** (self-oscillating, from the layers), never an external dial. Flag any change that treats it as an input. `drive_model.js`'s `f` is legacy scaffolding (deferred).
+- **Inner phosphor removed pending further work (2026-10-19):** `phos_in` (Cr3+ garnet, 770 nm) is out of the solver stack; light runs quartz -> layer two -> BTO -> Gd-Dy. Paused, not retired: do not re-add it without Danny.
 - **Three thermal rates + thermal mass, never lumped:** switching frequency, heat-transfer speed, heat-removal rate, plus thermal mass. Flag any single lumped time constant (e.g. `tauLumped`).
 
 ## Limits for every agent
