@@ -1,0 +1,42 @@
+I reviewed only the diff and DESIGN_STATE.md. I did not run the code, the CI or the ledger, so everything below is from reading the text.
+
+**What is still missing to close the loop**
+
+1. **The dispositions are staged, not ingested.** The ledger is CI-written, and `ledger/pending/` is read by no workflow. Until the inner records are appended through the ledger's own path, the ledger, the reviewer scoring and the cost rollup do not know these decisions exist. This is the biggest gap. Ingestion should also be done by CI, not by hand, to keep the "CI writes the ledger" rule.
+
+2. **"Deferred" has no status.** The v1 status enum has no "deferred", so those four findings (rows with `status: null`) stay `open` forever. That makes them look unresolved and will distort scoring. The ledger needs a schema bump (v1.2 or similar) with a deferred status, plus a revisit condition such as "after folds 1–3 pass".
+
+3. **Folds have no tracking.** Seven folds are marked "accepted, to be built later", but the staged status is `accepted` and nothing links a fold to an issue. `issue_number` is null throughout. Each fold needs an issue, and the status should move to `fixed` only when CI shows it landed. Without this, accepted items can sit indefinitely.
+
+4. **Verification of the "fixed" claims is not in the diff.** I cannot see commits d567797 or 21b5fa5, so I cannot confirm them. Two points. The 21b5fa5 fix (the ionisation window) is recorded as `fixed`, yet the code that fix touched has since been deleted. That is better described as `superseded` or `moot`, not `fixed`. And dispositions that rest on a commit should be checked against the receipt gate.
+
+5. **The receipt gate is probably unsatisfied for this change.** `solver_v0.py` and `drive_model.js` are now fail-closed stubs. The anti-stub rule (AST check: return-a-constant, etc.) may stop these components earning a receipt, so paid reviews of them would fall back to spec-review. The diff does not show whether CI passed. Danny should check that before the next paid round, and decide whether a deliberate stub is allowed to be unscored.
+
+6. **No information-domain holster exists.** The diff states the gap itself: no `prompts/information.md` and no `information` entry in `dial.yml`. Seven domain holsters plus 12 knees is 19 on paper, but at most six domain prompts are present, and the knee holster details are listed as open.
+
+7. **The new design intent is not enforceable yet.** The knee, self-oscillation and unlumped-thermal-rates rules are written into prompts, but no automated check exists. For example, `tauLumped` and `p.f` are still in the code, and the retired-scan regex only covers electrodes. A cheap deterministic check for `tauLumped` and for `°C` in solver and data files would close that part.
+
+**Order I would follow**
+
+1. Add the deferred status to the schema, then ingest the staged file via CI.
+2. Open an issue for each fold and each deferral, and link the ledger records to them.
+3. Check CI and receipts on the stub change (point 5) and confirm commits d567797 and 21b5fa5.
+4. Do the cheap, drive-independent folds first: fold 6 (the ring-jump bug), fold 5 (number and label fixes) and fold 7 (K/°C GUI plus the `AUTOIGN_C` → K change). These do not depend on the drive question.
+5. Do folds 1–3 (geometry of record, recomputed frequencies, power budget), because they gate the deferred simulation cases.
+6. Build the information holster prompt and dial entry.
+7. Then a validation round (Danny's own gate: "after Danny's validation").
+8. The drive question (Open item 8) is Danny's alone. Do not let any reviewer fill it.
+
+**Where I disagree, or have concerns about the record**
+
+1. **Fold 6 is largely moot.** The ring-jump bug lived in the discharge-jump code (`maxJump` from the partial-step Ed/dt). The diff deletes that code, and the ring amplitude is now hard-set to 0. Keeping fold 6 as an open fold with an "ncyc-invariance test" tests a path that no longer exists. Either close it as superseded by the stub, or park it as "re-apply when a drive exists". Fold 4 is similar: `P_release` is still in the solver heat sources (`q[0] += chem["P_release"]`), so it is still live, and the fold stays valid.
+
+2. **Outputs now look healthier than they are.** With zero drive, the ring and discharge numbers are exactly 0 and the output file reads like clean results. The flag does appear, but on the drive path only. Some solver outputs (`T_gas`, `T_qz_in` at P_circ) are still produced, with the heat still entering as a prescribed `P_circ` scenario, so there is an implicit drive. This is arguably a gap against "no drive mechanism defined", and Danny should state whether P_circ is an accepted placeholder.
+
+3. **The ~10 Torr knee stays Locked.** The spec keeps "about 10 Torr for a 1 mm gap" as locked, though it is a Paschen figure, which depends on the electrode-free drive that is now undefined. The 22 Torr number was removed, but the 10 Torr one has the same dependency. I would move it to Open or label it provisional.
+
+4. **The Kelvin-canonical rule is not yet met.** The spec and prompts say Kelvin only, but the solver still prints °C in flags (for example the `TT-273.15` autoignition flag in `solver_v0.py`). The spec records this gap only for `drive_model.js`, not for the solver. Fold 7 should cover both.
+
+5. **The "fixed" retirement scan has a loophole.** The new `LABELLED_RETIREMENT` rule skips any added line containing "retired" or "removed". Reintroducing an electrode in a line with the word "removed" in it would pass. It is convenient, but weakens a gatekeeping check. Restrict it to comment or doc lines, or require an exact phrase.
+
+6. **Minor.** The spec's first "supersession chain" line records five reversals in one day. That is fine, but the staged reason strings refer to "Locked above", which is a moving reference. Cite the section heading and date.
