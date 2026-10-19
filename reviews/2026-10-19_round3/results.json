@@ -1,0 +1,176 @@
+{
+  "question": "What is the next best connector to add to the Stratified Sphere holster information layer?",
+  "order": [
+    "Tavily",
+    "Kimi",
+    "DeepSeek",
+    "Claude",
+    "Grok"
+  ],
+  "Tavily": {
+    "searches": 2,
+    "statuses": [
+      "ok",
+      "ok"
+    ],
+    "credits": 2,
+    "cost_usd": 0.0
+  },
+  "Kimi": [
+    {
+      "model": "kimi-k2.6",
+      "text": "TOP: MCP Physics Gateway (dolfinx-mcp + openfoam-mcp-server)\n\n1. Deploy a containerized MCP gateway that exposes the existing open simulation stack—starting with FEniCS (dolfinx-mcp) and OpenFOAM (openfoam-mcp-server)—as callable tool endpoints for the live model keys.\n\n2. The holster currently separates its four active LLMs from its CI-passing physics stack by a manual boundary; models cannot programmatically set a boundary condition, launch a solver, or ingest VTK/XDMF results. This gateway closes the reasoning-to-execution gap, turning the smoke-tested simulators into interactive validation engines whose outputs feed the unbuilt validation ledger. It plugs directly into Cursor/Claude Desktop MCP clients and GitHub Actions runners.\n\n3. $0 setup (open-source). Running cost is near-$0 if containers spin up on-demand inside existing GitHub Actions jobs; otherwise ~$15/month for a small always-on Docker host. Assumes self-hosted infrastructure, not SaaS.\n\n4. Security is the primary risk—simulation containers execute native C++/Python binaries, so they must be sandboxed with `--network none`, read-only volumes, and non-root users per the FEniCS MCP docs. Maintenance risk is high because these servers are nascent (openfoam-mcp-server notes partial OpenFOAM 12 compatibility). Lock-in is low (MCP is an open JSON-RPC standard). Simulation data stays in local workspace mounts.\n\nRunner-up: GitHub-native append-only review-ledger bot that writes scored reviewer findings as machine-readable state to Issues, closing the Round 2 loop gap.",
+      "stop": "stop",
+      "input": 2696,
+      "cached": 0,
+      "output": 5884,
+      "reasoning": 5549,
+      "reasoning_chars": 24782,
+      "raw_usage": {
+        "prompt_tokens": 2696,
+        "completion_tokens": 5884,
+        "total_tokens": 8580,
+        "completion_tokens_details": {
+          "reasoning_tokens": 5549
+        }
+      },
+      "error": null,
+      "max_tokens": 12000,
+      "seconds": 128.4,
+      "started_utc": "2026-10-19T05:24:33+00:00",
+      "cost_usd": 0.0260972,
+      "price": {
+        "inp": 0.95,
+        "cached": 0.16,
+        "out": 4.0,
+        "src": "https://platform.moonshot.ai/docs/pricing/chat"
+      },
+      "retired_hits": []
+    }
+  ],
+  "DeepSeek": [
+    {
+      "model": "deepseek-flash",
+      "text": "TOP: GitHub review-ledger connector\n\n1. Add a GitHub connector that writes every `/kimi-check`, `/deepseek-check`, and paid-review finding as an immutable JSONL record in a protected repo path, mirrors each open item to a GitHub Issue with labels for model, severity, domain, cost, and status, and updates reviewer scorecards when items close.\n\n2. This fills the clearest gap from Round 2: the review loop does not close—findings are not filed or tracked, reviewers are not scored, and coordination still lives in Cursor plus prose. It plugs directly into the existing GitHub Actions / Issues / PRs / Secrets layer and the live cheap-check channels. It also creates the append-only handover ledger and machine-readable state most reviewers asked for, without adding model keys or search spend. It should come before a thermal vertical slice because it captures the validation evidence that slice will need.\n\n3. Cost: assume an existing GitHub repo/plan and under 500 Actions minutes/month. Setup is roughly 1–2 engineer-days, $0 incremental if internal. Running is $0 on a public repo; on private repos it fits included minutes in most months, with Linux overage around $0.008/min, so likely under $5/month. Issues, API, and small JSONL storage are $0. No new paid API.\n\n4. Risk: GitHub Issues are editable/deletable, so they are not append-only by themselves. Enforce JSONL commits on a protected branch, restrict the token to issues/contents for that repo, keep secrets out of findings, version the schema, and treat Issues as a mirror. Main risks are GitHub lock-in, label/schema drift, and accidental disclosure in private/public issues; maintenance is low but needs an owner.\n\nRunner-up: a read-only status connector for the existing FEniCS/OpenFOAM CI smoke harness, so agents can query simulation status without shell access.",
+      "stop": "stop",
+      "input": 2801,
+      "cached": 0,
+      "output": 1829,
+      "reasoning": 1431,
+      "reasoning_chars": 6312,
+      "raw_usage": {
+        "prompt_tokens": 2801,
+        "completion_tokens": 1829,
+        "total_tokens": 4630,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1431
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 2801
+      },
+      "error": null,
+      "max_tokens": 8000,
+      "seconds": 10.5,
+      "started_utc": "2026-10-19T05:26:42+00:00",
+      "cost_usd": 0.0015175499999999997,
+      "price": {
+        "inp": 0.15,
+        "cached": 0.003,
+        "out": 0.6,
+        "src": "https://api-docs.deepseek.com/quick_start/pricing",
+        "period": "off-peak"
+      },
+      "retired_hits": []
+    }
+  ],
+  "budget_check": {
+    "spent_after_cheap": 0.02761,
+    "projected_worst_total": 0.2508,
+    "abort_over": 0.5
+  },
+  "Claude": [
+    {
+      "model": "claude-sonnet-5-5",
+      "text": "TOP: GitHub review-ledger connector (Actions-native findings-to-Issues filer with a machine-readable ledger)\n\n1. Recommendation\nA small GitHub Actions connector that parses the output of /kimi-check, /deepseek-check and the paid reviewers into structured findings (JSON). It files each finding as a labelled Issue, deduplicates by hash, and appends a row to an append-only ledger file (e.g. `ledger/findings.jsonl` on a data branch). Each row records reviewer, model, severity, the PR, and a later status (accepted, rejected, fixed). Reviewer scores are computed from that status.\n\n2. Why\n- It closes the gap all four of us named in round 2: findings are never filed or tracked, and reviewers are never scored. Nothing downstream is trustworthy until this exists.\n- It plugs into pieces that already exist: the two cheap check channels, Issues, PRs, Secrets and Actions. No new vendor or key is needed.\n- It also gives the undefined \"information domain\" a concrete first definition: the ledger is the information layer's state.\n- It supplies the append-only handover ledger and the machine-readable coordination state that most reviewers requested, and it lets coordination move out of Cursor and prose rules into Actions.\n- It makes the cheap-first-filter claim measurable: you can see whether Kimi and DeepSeek findings are accepted at a useful rate before paying for Claude and Grok reviews.\n- The MCP physics gateway is attractive, but the simulation stack is only just passing smoke tests, and the openfoam-mcp-server is a partial, education-oriented project. The FEniCS MCP is newer and unvetted. Wiring an LLM into solvers before the validation ledger exists would produce unscored output faster, not better output.\n\n3. Cost\n- Setup: about 1–2 days of build, or roughly $0–5 in model calls if Cursor drafts the workflow.\n- Running: $0 for the Actions and Issues side. Public-repo minutes are free, and private-repo minutes fit in the free tier at this volume (a few seconds per PR). Parsing is deterministic (JSON schema in the reviewer prompts), so it adds no extra model calls. Assumes under 200 PRs a month. Model spend stays whatever the existing reviews already cost.\n- Tavily is unaffected and stays off by default.\n\n4. Risk\n- Security: it needs a token with `issues:write` and `contents:write` on the data branch only. Use the default GITHUB_TOKEN with minimal permissions. Treat reviewer output as untrusted text, since a prompt injection in a PR could land in Issue bodies. Sanitise it and never execute it.\n- Noise: low-quality cheap-model findings can flood Issues. Mitigate with a severity threshold, dedup and a daily cap.\n- Lock-in: low. The ledger is plain JSONL, and only the filing step depends on GitHub.\n- Maintenance: the schema will drift as reviewers change, so pin and version it.\n- Data: keep no secrets or large simulation outputs in the ledger.\n\nRunner-up: a sandboxed dolfinx-mcp (`--network none`, as in its documented Docker setup), added after the ledger exists and used for one thermal vertical slice.",
+      "stop": "end_turn",
+      "input": 4747,
+      "cached": 0,
+      "output": 1093,
+      "reasoning": 0,
+      "raw_usage": {
+        "input_tokens": 4747,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1093,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        }
+      },
+      "error": null,
+      "max_tokens": 16000,
+      "seconds": 10.6,
+      "started_utc": "2026-10-19T05:26:52+00:00",
+      "cost_usd": 0.020424,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.1,
+        "out": 10.0,
+        "src": "https://docs.claude.com/en/docs/about-claude/pricing"
+      },
+      "retired_hits": []
+    }
+  ],
+  "Grok": [
+    {
+      "model": "grok-4.7",
+      "text": "TOP: GitHub review-ledger connector\n1. Next connector: a machine-readable review ledger on the GitHub surface you already run (Issues + Actions artifacts), not a new model or a simulation MCP. Each `/kimi-check` and `/deepseek-check` run, and each paid reviewer pass, appends one record: finding, file/PR, severity, reviewer id, disposition (open/accepted/rejected), and a cost stamp. Humans close items in Issues; Actions is the writer.\n\n2. Round 2 agreed the spec is ahead of the build and that the review loop does not close: findings are never filed, reviewers are not scored, and coordination still lives in Cursor plus prose. Cheap filters are already on PRs. What is missing is the sink those filters write into. A ledger plugs into Actions, Issues, PRs, and Secrets you already have, and it is the append-only handover the four reviewers asked for. It also gives the undefined seventh (information) domain a first concrete object: tracked claims, not another solver. An OpenFOAM/FEniCS MCP does not fill that gap. Those stacks already have CI smoke tests; the cited OpenFOAM MCP is partial (heat transfer still in development) and is a physics tool, not an information-layer closer.\n\n3. Setup: about $0–50 one-time if you stay inside GitHub (workflow + issue template + JSON artifact). Running: $0 marginal on a free/existing Actions quota for public or low-volume private runs; assume under 2,000 Actions minutes/month already paid for. Model cost does not rise if the ledger only stores outputs the four keys and the two cheap checks already produce. Optional later scoring pass: cap at $20/month on Kimi/DeepSeek. Assumes no new SaaS and no Tavily spend (search stays opt-in).\n\n4. Risks: Issue noise and a ledger nobody trusts if the schema is loose; prompt-injection if PR text is copied into Issues without stripping; token leakage if Secrets or review prompts are echoed into comments (write artifacts, comment only summaries); GitHub lock-in, which you already have; maintenance if the schema drifts from the check commands. Third-party MCP servers add supply-chain and sandbox risk you do not need yet.\n\nRunner-up: dolfinx MCP (stdio, no network) only after the ledger exists; skip openfoam-mcp until its solvers are actually integrated.",
+      "stop": "completed",
+      "input": 4035,
+      "cached": 1152,
+      "output": 1288,
+      "reasoning": 778,
+      "cost_reported_usd": 0.01407,
+      "raw_usage": {
+        "input_tokens": 4035,
+        "input_tokens_details": {
+          "cached_tokens": 1152
+        },
+        "output_tokens": 1288,
+        "output_tokens_details": {
+          "reasoning_tokens": 778
+        },
+        "total_tokens": 5323,
+        "num_sources_used": 0,
+        "num_server_side_tools_used": 0,
+        "cost_in_usd_ticks": 140700000,
+        "context_details": {
+          "input_tokens": 4035,
+          "output_tokens": 1297
+        }
+      },
+      "error": null,
+      "max_tokens": 4000,
+      "seconds": 19.7,
+      "started_utc": "2026-10-19T05:27:03+00:00",
+      "cost_usd": 0.01407,
+      "price": {
+        "inp": 2.0,
+        "cached": 0.5,
+        "out": 6.0,
+        "src": "https://docs.x.ai/docs/models"
+      },
+      "retired_hits": []
+    }
+  ],
+  "total_usd": 0.062109
+}
