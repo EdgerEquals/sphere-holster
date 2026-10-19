@@ -35,19 +35,27 @@ def ping_args(argv, name: str):
     ap.add_argument("--out", default="review-out")
     ap.add_argument("--land-dir", default=os.environ.get("REVIEW_LAND_DIR") or None,
                     help="round review dir, e.g. reviews/2026-10-19_round6; the reply lands there as {model}.md")
+    ap.add_argument("--land-stem", default=None,
+                    help='override land filename stem (default: model). Use e.g. kimi_teamwork for cross-review.')
     a, _ = ap.parse_known_args(argv)
     prompt = Path(a.ping_file).read_text() if a.ping_file else a.ping
     return a, prompt
 
 
-def land_after_ping(rec: dict, model_key: str, land_dir: str | None, out: Path) -> str | None:
-    """Land a successful ping. Returns an error string (and marks rec) if landing failed."""
+def land_after_ping(rec: dict, model_key: str, land_dir: str | None, out: Path,
+                    land_stem: str | None = None) -> str | None:
+    """Land a successful ping. Returns an error string (and marks rec) if landing failed.
+
+    land_stem overrides the filename stem (default model -> {model}.md; pass f"{model}_teamwork" for
+    the cross-review stage).
+    """
     if not land_dir or not rec.get("ok"):
         return None
     try:
         dest = lr.land(land_dir, model_key, rec["reply"],
                        {"model": rec.get("model"), "generated_utc": rec.get("generated_utc"),
-                        "source": str(out / "ping.json")})
+                        "source": str(out / "ping.json")},
+                       name=land_stem)
         rec["landed"] = str(dest)
         return None
     except Exception as e:  # noqa: BLE001
@@ -77,7 +85,7 @@ def ping_main(name: str, model_key: str, secret: str, call, argv=None) -> int:
         rec.update(ok=False, error=_redact(f"{type(e).__name__}: {e}")[:1500])
         print(rec["error"], file=sys.stderr)
         code = hc.EXIT_API_ERROR
-    err = land_after_ping(rec, model_key, a.land_dir, out)
+    err = land_after_ping(rec, model_key, a.land_dir, out, land_stem=a.land_stem)
     if err:
         print(f"{name}: reply NOT landed in {a.land_dir}: {err}", file=sys.stderr)
         code = hc.EXIT_API_ERROR

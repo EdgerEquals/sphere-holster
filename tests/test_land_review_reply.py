@@ -81,3 +81,31 @@ def test_launch_land_only_incomplete(tmp_path):
     (tmp_path / "run" / "kimi").mkdir(parents=True)
     (tmp_path / "run" / "kimi" / "reply.md").write_text("only kimi")
     assert launch_round.main(["--round-dir", str(tmp_path / "r"), "--run-dir", str(tmp_path / "run"), "--land-only"]) == 1
+
+
+def test_teamwork_land_and_check(tmp_path):
+    """Teamwork stage lands {model}_teamwork.md and does not overwrite {model}.md."""
+    rnd = tmp_path / "r"
+    for m in lr.MODELS:
+        lr.land(rnd, m, f"{m} primary")
+    assert lr.check(rnd) == []
+    assert lr.check(rnd, suffix="_teamwork") == list(lr.MODELS)
+    for m in lr.MODELS:
+        lr.land(rnd, m, f"{m} scores peers", name=f"{m}_teamwork")
+    assert lr.check(rnd, suffix="_teamwork") == []
+    assert (rnd / "kimi.md").read_text().endswith("kimi primary\n")
+    assert (rnd / "kimi_teamwork.md").read_text().endswith("kimi scores peers\n")
+    assert lr.main(["--round-dir", str(rnd), "--check", "--suffix", "_teamwork"]) == 0
+
+
+def test_launch_teamwork_builds_prompt(tmp_path):
+    rnd = tmp_path / "reviews" / "r"
+    for m in lr.MODELS:
+        lr.land(rnd, m, f"body of {m}\nmentions round {'7' if m == 'kimi' else '8'}")
+    prompt = launch_round.build_teamwork_prompt(rnd, "grok")
+    assert "You are **Grok**" in prompt
+    assert "round 8" in prompt
+    assert "kimi.md" in prompt and "round 7" in prompt
+    assert "### Kimi" in prompt and "### DeepSeek" in prompt
+    assert "body of grok" in prompt  # own reply included
+    assert "### Grok" not in prompt.split("## Peer replies")[1]  # not in peer section as heading for self

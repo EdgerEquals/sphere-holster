@@ -6,10 +6,14 @@ only to a scratch out dir (ping.json / reply.md under /tmp); copying them into t
 step in the kickoff, so round 6 ended with only deepseek.md landed. Every ping path now calls land() on success, and a
 run is not complete until check() finds all four files.
 
+Teamwork stage: land(..., name=f"{model}_teamwork") writes {model}_teamwork.md (cross-review of peers). check(...,
+suffix="_teamwork") verifies those instead of the primary replies.
+
 Usage:
   python scripts/land_review_reply.py --round-dir reviews/2026-10-19_round6 --model kimi --src /tmp/round6-run/kimi/ping.json
   python scripts/land_review_reply.py --round-dir reviews/2026-10-19_round6 --from-run-dir /tmp/round6-run
   python scripts/land_review_reply.py --round-dir reviews/2026-10-19_round6 --check
+  python scripts/land_review_reply.py --round-dir reviews/2026-10-19_round6 --check --suffix _teamwork
 Sources understood: ping.json ({"reply": ...}), Claude raw.json ({"resp": {"content": [...]}}), Grok raw.json
 ({"final": {"output": [...]}}), or a plain .md/.txt reply. Exit codes: 0 ok, 1 missing/empty replies, 2 bad source.
 """
@@ -38,18 +42,26 @@ def header(model: str, meta: dict) -> str:
     return f"<!-- landed: reviewer={model} · " + " · ".join(bits) + " -->\n\n"
 
 
-def land(round_dir: str | Path, model: str, text: str, meta: dict | None = None) -> Path:
-    """Write {round_dir}/{model}.md (provenance comment + reply body). Refuses an empty reply."""
+def land(round_dir: str | Path, model: str, text: str, meta: dict | None = None,
+         name: str | None = None) -> Path:
+    """Write {round_dir}/{name or model}.md (provenance comment + reply body). Refuses an empty reply.
+
+    name defaults to model (primary reply). Pass f"{model}_teamwork" for the cross-review stage so the primary
+    {model}.md is not overwritten.
+    """
     model = model.lower()
     if model not in MODELS:
         raise ValueError(f"unknown model '{model}' (expected one of {', '.join(MODELS)})")
+    stem = (name or model).strip()
+    if not stem or "/" in stem or "\\" in stem or stem.startswith("."):
+        raise ValueError(f"bad land name {name!r}")
     body = HEADER_RE.sub("", (text or "").strip()).strip()
     if not body:
-        raise ValueError(f"{model}: empty reply; nothing landed")
+        raise ValueError(f"{stem}: empty reply; nothing landed")
     meta = {"channel": CHANNELS[model], **(meta or {})}
     d = Path(round_dir)
     d.mkdir(parents=True, exist_ok=True)
-    dest = d / f"{model}.md"
+    dest = d / f"{stem}.md"
     tmp = dest.with_suffix(".md.tmp")
     tmp.write_text(header(model, meta) + body + "\n")
     os.replace(tmp, dest)
@@ -95,11 +107,14 @@ def find_source(run_dir: Path, model: str) -> Path | None:
     return None
 
 
-def check(round_dir: str | Path, models=MODELS) -> list[str]:
-    """Models whose {model}.md is missing or has no reply body."""
+def check(round_dir: str | Path, models=MODELS, suffix: str = "") -> list[str]:
+    """Models whose {model}{suffix}.md is missing or has no reply body.
+
+    suffix="" -> primary kimi.md etc. suffix="_teamwork" -> kimi_teamwork.md etc.
+    """
     bad = []
     for m in models:
-        f = Path(round_dir) / f"{m}.md"
+        f = Path(round_dir) / f"{m}{suffix}.md"
         if not f.is_file() or not HEADER_RE.sub("", f.read_text()).strip():
             bad.append(m)
     return bad
@@ -112,13 +127,17 @@ def main(argv=None) -> int:
     ap.add_argument("--src", help="reply source for --model (ping.json, raw.json, reply.md)")
     ap.add_argument("--from-run-dir", help="scratch run dir with <model>/{ping.json|reply.md|raw.json}; lands all found")
     ap.add_argument("--check", action="store_true", help="only verify all four replies are present")
+    ap.add_argument("--suffix", default="", help='file suffix after model, e.g. "_teamwork" for {model}_teamwork.md')
+    ap.add_argument("--name", help="override land filename stem (with --model/--src); e.g. kimi_teamwork")
     a = ap.parse_args(argv)
+    suffix = a.suffix or ""
     if a.model or a.src:
         if not (a.model and a.src):
             ap.error("--model and --src go together")
         try:
-            text, meta = extract(a.src)
-            print("landed", land(a.round_dir, a.model, text, meta))
+            reply, meta = extract(a.src)
+            stem = a.name or (f"{a.model}{suffix}" if suffix else None)
+            print("landed", land(a.round_dir, a.model, reply, meta, name=stem))
         except (ValueError, OSError, json.JSONDecodeError) as e:
             print(f"error: {e}", file=sys.stderr)
             return 2
@@ -129,15 +148,18 @@ def main(argv=None) -> int:
                 print(f"{m}: no reply in {a.from_run_dir}/{m}/", file=sys.stderr)
                 continue
             try:
-                text, meta = extract(src)
-                print("landed", land(a.round_dir, m, text, meta))
+                reply, meta = extract(src)
+                stem = f"{m}{suffix}" if suffix else None
+                print("landed", land(a.round_dir, m, reply, meta, name=stem))
             except (ValueError, OSError, json.JSONDecodeError) as e:
                 print(f"{m}: {e}", file=sys.stderr)
-    missing = check(a.round_dir)
+    missing = check(a.round_dir, suffix=suffix)
+    label = f"{{m}}{suffix}.md"
     if missing:
-        print(f"NOT COMPLETE: missing/empty in {a.round_dir}: " + ", ".join(f"{m}.md" for m in missing), file=sys.stderr)
+        print(f"NOT COMPLETE: missing/empty in {a.round_dir}: " + ", ".join(label.format(m=m) for m in missing),
+              file=sys.stderr)
         return 1
-    print(f"all four replies present in {a.round_dir}")
+    print(f"all four {label.replace('{m}', '*')} present in {a.round_dir}")
     return 0
 
 

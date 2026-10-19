@@ -146,7 +146,8 @@ def _summary(md: str) -> None:
             fh.write(md + "\n")
 
 
-def ping(p: Provider, prompt: str, depth: str | None, out: Path, land_dir: str | None = None) -> int:
+def ping(p: Provider, prompt: str, depth: str | None, out: Path, land_dir: str | None = None,
+         land_stem: str | None = None) -> int:
     dial = hc.load_dial()
     depth, cfg = hc.level_cfg(dial, depth)
     out.mkdir(parents=True, exist_ok=True)
@@ -176,7 +177,7 @@ def ping(p: Provider, prompt: str, depth: str | None, out: Path, land_dir: str |
         print(f"::error title={p.name} ping failed::{err[:300]}" if os.environ.get("GITHUB_ACTIONS") else err, file=sys.stderr)
         code = hc.EXIT_API_ERROR
     # Land the reply in the review tree (reviews/<round>/{kimi,deepseek}.md) before the ping counts as done.
-    land_err = pc.land_after_ping(rec, p.key, land_dir, out)
+    land_err = pc.land_after_ping(rec, p.key, land_dir, out, land_stem=land_stem)
     if land_err:
         md += ["", f"**Reply NOT landed in `{land_dir}`:** {land_err}"]
         print(f"{p.name}: reply NOT landed in {land_dir}: {land_err}", file=sys.stderr)
@@ -214,7 +215,7 @@ def main(p: Provider) -> None:
         sys.exit(list_models(p))
     if "--ping" in argv or "--ping-file" in argv:
         a, prompt = pc.ping_args(argv, p.name)
-        sys.exit(ping(p, prompt, a.depth, Path(a.out), a.land_dir))
+        sys.exit(ping(p, prompt, a.depth, Path(a.out), a.land_dir, land_stem=a.land_stem))
     # For the rote checkers an API/parse failure must surface as ERROR (exit 3) even when the free
     # retired-item scan also hit; the hits are still listed in the posted verdict. Local to this process:
     # review_claude.py / review_grok.py keep harness_common.combine unchanged.
