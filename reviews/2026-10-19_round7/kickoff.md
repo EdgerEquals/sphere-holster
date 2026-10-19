@@ -1,7 +1,11 @@
 # Round 7 kickoff — conversation design (inter-model protocol)
 
 **Branch:** `holster-loop-2026-10-19`  
+**Round:** 7  
+**Mission patch:** 4 W sweep — the 4 W (`drive_W=1`) amplitude sweep, deferred from this round to round 8 per `53d4894` (see `docs/vocabulary.md`: mission patch = the round's name).  
 **Do not push** unless the caller says so. This file is documentation only — it does not run tests or a sweep.
+
+Future rounds each get their own mission patch name when drafted.
 
 **Round 7 scope:** design how the four models (**Kimi, DeepSeek, Claude, Grok**) talk to each other — cross-review flow, peer scoring in practice, where the automated gate sits inside the conversation, and how feedback fan-out works. **No amplitude sweep in this round. No solver runs. No Claude Code sweep work.**
 
