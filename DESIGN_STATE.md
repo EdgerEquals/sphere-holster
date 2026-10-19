@@ -356,3 +356,11 @@ Danny's planned experiment (2026-10-19). Not built; recorded so it follows on fr
 - **The drive frequency is not assumed:** it is derived from the geometry of the final layer, which has not been built yet.
 - **The chain:** geometry sets the resonant frequency; the resonant frequency sets the ionisation knee's switching point; the kilowatt drive probes how the system reacts.
 - **Status:** exploratory. An assumption is acceptable here because the goal is to see how the system reacts, not to claim precision.
+
+## Future item: drive triad, EMF, acoustic and thermal (2026-10-19)
+Danny's design (2026-10-19), following the planned kilowatt drive experiment above. Not built.
+
+- **Dual drive:** the system is driven by both an EMF mode and an acoustic mode.
+- **Ordering:** the acoustic mode sits below the electric mode in frequency, but drives it.
+- **Thermal drive channel:** a thermal drive is included as well.
+- **Full design:** a triad of EMF, acoustic and thermal drives.
