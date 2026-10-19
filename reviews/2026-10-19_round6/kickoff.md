@@ -155,9 +155,15 @@ After the automated gate, the **prediction-versus-result gap** is presented to *
 - Until Edger_Equals signs off (or explicitly chooses “surface only / stop”), the coordinator holds the gap report and does not dispatch a feedback fan-out.
 - The human gate is the **independent second pair of eyes** above Claude Code’s automated check.
 
-### Threshold (automated gate) — **TBD**
+### Threshold (automated gate) — **TBD** · **first open question for round 6**
 
-Automated-gate escalate criteria are **not locked yet**. Placeholder options to decide later:
+Automated-gate escalate criteria are **not locked yet**. This is the team’s **first open question** for the round-6 four-model run (**Kimi, DeepSeek, Claude, Grok**):
+
+- The models should **propose and debate** what the threshold should **measure** (e.g. deviation from prediction, confidence score, or a combo) and what **value** it should take.
+- The **human gate (Edger_Equals)** makes the **final call** on any definition the team advances.
+- Until that call, treat the dial as unset: **every** prediction-versus-result package still goes to Edger_Equals. **Both gates required** before any team feedback.
+
+Placeholder options to debate:
 
 | Option (TBD) | Idea |
 |---|---|
@@ -165,7 +171,7 @@ Automated-gate escalate criteria are **not locked yet**. Placeholder options to 
 | Confidence score | e.g. model-stated confidence below a floor forces surface-to-user even if the gap is small |
 | Combo | both: large gap **or** low confidence → must escalate; small gap + high confidence → still must clear the human gate this round until a threshold is chosen |
 
-**Status:** threshold definition = **TBD**. Until then, **every** prediction-versus-result package that clears (or bypasses) the automated dial still goes to Edger_Equals. **Both gates required** before any team feedback.
+**Status:** threshold definition = **TBD** (team proposes → human gate approves).
 
 ---
 
@@ -184,6 +190,7 @@ Automated-gate escalate criteria are **not locked yet**. Placeholder options to 
 | 9 | Retired | No electrodes / retired items in the planned sweep |
 | 10 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
 | 11 | Two gates | Automated (Claude Code + threshold TBD) then human (Edger_Equals); both required before team feedback |
+| 12 | Threshold | Defined by the team (first open question), **approved by the human gate** (Edger_Equals) |
 
 **NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
 
