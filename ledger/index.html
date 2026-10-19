@@ -18,16 +18,16 @@
 </table>
 <h1>Reviewer scorecards</h1><pre># Reviewer scorecards
 
-Ledger as of 2026-10-19T10:06:23Z, from `ledger/findings.jsonl` (issue #8).
+Ledger as of 2026-10-19T10:10:26Z, from `ledger/findings.jsonl` (issue #8).
 
-Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed ledger issues. Planted = the latest planted-mistake run against `planted-v1` (recall = seeded mistakes caught / planted).
+Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed ledger issues and CI-ingested staged decisions; deferred and superseded are not open and not scored. Planted = the latest planted-mistake run against `planted-v1` (recall = seeded mistakes caught / planted).
 
-| Reviewer | findings | open | accepted | fixed | rejected | acceptance | planted recall | planted precision | planted runs |
-|---|---|---|---|---|---|---|---|---|---|
-| Claude | 28 | 28 | 0 | 0 | 0 | n/a | not run | not run | 0 |
-| Grok | 15 | 15 | 0 | 0 | 0 | n/a | not run | not run | 0 |
-| Kimi | 10 | 10 | 0 | 0 | 0 | n/a | not run | not run | 0 |
-| DeepSeek | 16 | 16 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+| Reviewer | findings | open | accepted | fixed | rejected | deferred | superseded | acceptance | planted recall | planted precision | planted runs |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Claude | 32 | 28 | 0 | 1 | 0 | 1 | 2 | 100% | not run | not run | 0 |
+| Grok | 27 | 15 | 5 | 0 | 3 | 4 | 0 | 62% | not run | not run | 0 |
+| Kimi | 10 | 10 | 0 | 0 | 0 | 0 | 0 | n/a | not run | not run | 0 |
+| DeepSeek | 16 | 16 | 0 | 0 | 0 | 0 | 0 | n/a | not run | not run | 0 |
 
 Spec-review findings (no execution receipt) are excluded from every number above; legacy = before the receipt gate. Excluded per reviewer: Claude 0, Grok 0, Kimi 0, DeepSeek 0.
 

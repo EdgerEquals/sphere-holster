@@ -1,17 +1,19 @@
 {
-  "generated_utc": "2026-10-19T10:06:23Z",
+  "generated_utc": "2026-10-19T10:10:26Z",
   "fixture": "planted-v1",
   "reviewers": {
     "Claude": {
-      "findings": 28,
+      "findings": 32,
       "by_status": {
         "open": 28,
         "accepted": 0,
         "rejected": 0,
-        "fixed": 0
+        "fixed": 1,
+        "deferred": 1,
+        "superseded": 2
       },
       "by_severity": {
-        "note": 27,
+        "note": 31,
         "minor": 1,
         "major": 0,
         "blocker": 0
@@ -21,20 +23,22 @@
       "by_class": {
         "code-review": 0,
         "spec-review": 0,
-        "legacy": 28
+        "legacy": 32
       },
-      "acceptance_rate": null
+      "acceptance_rate": 1.0
     },
     "Grok": {
-      "findings": 15,
+      "findings": 27,
       "by_status": {
         "open": 15,
-        "accepted": 0,
-        "rejected": 0,
-        "fixed": 0
+        "accepted": 5,
+        "rejected": 3,
+        "fixed": 0,
+        "deferred": 4,
+        "superseded": 0
       },
       "by_severity": {
-        "note": 13,
+        "note": 25,
         "minor": 2,
         "major": 0,
         "blocker": 0
@@ -44,9 +48,9 @@
       "by_class": {
         "code-review": 0,
         "spec-review": 0,
-        "legacy": 15
+        "legacy": 27
       },
-      "acceptance_rate": null
+      "acceptance_rate": 0.625
     },
     "Kimi": {
       "findings": 10,
@@ -54,7 +58,9 @@
         "open": 10,
         "accepted": 0,
         "rejected": 0,
-        "fixed": 0
+        "fixed": 0,
+        "deferred": 0,
+        "superseded": 0
       },
       "by_severity": {
         "note": 10,
@@ -77,7 +83,9 @@
         "open": 16,
         "accepted": 0,
         "rejected": 0,
-        "fixed": 0
+        "fixed": 0,
+        "deferred": 0,
+        "superseded": 0
       },
       "by_severity": {
         "note": 16,
