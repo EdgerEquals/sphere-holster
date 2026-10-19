@@ -66,6 +66,18 @@
     return den > 0.05 ? B * pd / den : Infinity;
   }
   function kneeFill_Torr(d_m) { return PASCHEN.pdmin / (d_m * 100); }   // fill (at 293 K) that puts the gap at the Paschen minimum
+  /* ionisationWindow(p): the fill range (Torr at T_seal) that ionises in this model, using ONE voltage definition: peak gas
+     voltage Vg = share x V_amp against the static Paschen V_b(n d). Same criterion as run() (gas voltage clamps at V_b) and its
+     "no ionisation" flag. Static knee only: the regime flags (formation time) can still close it at high f. [calc] */
+  function ionisationWindow(p) {
+    const g = geometry(p), Ts = p.T_seal || 293.15, Vg = g.share * p.V_amp;
+    const h = fill => Vg - paschenV(fill * TORR / (kB * Ts), g.gap);   // > 0 inside the window; -Infinity left of the Paschen curve
+    const kf = kneeFill_Torr(g.gap) * Ts / 293;                        // Paschen-minimum fill expressed at T_seal (same n)
+    if (!(h(kf) > 0)) return { Vgas: Vg, lo_Torr: null, hi_Torr: null, empty: true };
+    const bis = (a, b) => { for (let i = 0; i < 200; i++) { const m = Math.sqrt(a * b); if ((h(m) > 0) === (h(a) > 0)) a = m; else b = m; } return Math.sqrt(a * b); };
+    let hi = kf * 2; while (h(hi) > 0 && hi < 1e12) hi *= 2;
+    return { Vgas: Vg, lo_Torr: bis(kf * 1e-6, kf), hi_Torr: bis(kf, hi), empty: false };
+  }
 
   function natconvH(Ts, Ta, D) {           // Churchill sphere + radiation [lit correlation; air props est]
     const Tf = 0.5 * (Ts + Ta), k = 0.0263 * Math.pow(Tf / 300, 0.8), nu = 1.57e-5 * Math.pow(Tf / 300, 1.7), Pr = 0.71;
@@ -126,15 +138,18 @@
     return out;
   }
 
-  /* run(p): p = {ID_mm, OD_mm, fill_Torr (at T_seal) | fill_molecules, T_seal (initial/ambient K), V_amp (V peak), f (Hz), shellModes:[{name,f,tag}]}
+  /* run(p): p = {ID_mm, OD_mm, fill_Torr (at T_seal) | fill_molecules, T_seal (sealing = initial K), T_amb (ambient air K, optional;
+     default T_seal), V_amp (V peak), f (Hz), shellModes:[{name,f,tag}]}. The wall exchanges heat with still air at T_amb.
      returns traces + summary. Missing required inputs -> {error}. */
   function run(p, opts) {
     opts = opts || {};
     for (const k of ["ID_mm", "OD_mm", "T_seal", "V_amp", "f"]) if (!(p[k] > 0)) return { error: "enter " + k };
     if (!(p.fill_Torr > 0) && !(p.fill_molecules > 0)) return { error: "enter fill" };
     if (p.OD_mm <= p.ID_mm) return { error: "OD must exceed ID" };
+    const hasAmb = p.T_amb !== undefined && p.T_amb !== null;
+    if (hasAmb && !(p.T_amb > 0)) return { error: "ambient T must be > 0 K (leave unset for ambient = sealing T)" };
     if (p.ID_mm / 2e3 <= (p.r0_mm || 0.05) / 1e3) return { error: "ID must exceed the 0.1 mm centre-electrode diameter [est]" };
-    const g = geometry(p), Ta = p.T_amb || p.T_seal;
+    const g = geometry(p), Ta = hasAmb ? p.T_amb : p.T_seal;   // ambient defaults to the sealing temperature
     const N = p.fill_molecules > 0 ? p.fill_molecules : p.fill_Torr * TORR * g.V / (kB * p.T_seal);
     const n = N / g.V, mgas = N * HHO.M / NA, rho = mgas / g.V, Cv_g = mgas * HHO.cp / HHO.gamma;
     const Vb0 = paschenV(n, g.gap);
@@ -242,9 +257,9 @@
     }
     reg.flags.forEach(f => flags.push(f));
     if (reg.noForm) { /* already flagged */ } else if (!isFinite(Vb)) flags.push("fill is left of the Paschen curve for this gap: no breakdown at any voltage in this model");
-    else if (g.share * p.V_amp < Vb) flags.push(`no ionisation: peak gas voltage ${(g.share * p.V_amp).toFixed(0)} V < knee ${Vb.toFixed(0)} V`);
+    else if (g.share * p.V_amp < Vb) { const iw = ionisationWindow(p); flags.push(`no ionisation: peak gas voltage ${(g.share * p.V_amp).toFixed(0)} V < knee ${Vb.toFixed(0)} V` + (iw.empty ? ' (no fill ionises at this amplitude)' : ` (ionising fills at this amplitude: ${iw.lo_Torr.toPrecision(4)}–${iw.hi_Torr.toPrecision(4)} Torr)`)); }
     return {
-      inputs: p, geom: g, N, n, rho, p_seal, Vb, Vb_static: Vb0, regime: reg, qz_sound: Object.assign({ key: QZ_SEL }, QZ_SOUND[QZ_SEL]), kneeFill_Torr: kneeFill_Torr(g.gap), cycle_s: T,
+      inputs: p, T_amb: Ta, geom: g, N, n, rho, p_seal, Vb, Vb_static: Vb0, regime: reg, qz_sound: Object.assign({ key: QZ_SEL }, QZ_SOUND[QZ_SEL]), kneeFill_Torr: kneeFill_Torr(g.gap), cycle_s: T,
       E_dis: Edis, E_gas: Egas, E_wall: Ewall, E_opt: Eopt, Q_tr: Qtr, jumps, photons_Ha_equiv: Eopt / (6.62607015e-34 * C0 / 656.3e-9),
       maxTg, maxTw, dTg: maxThG, dTw: maxThW, p_max: N * kB * maxTg / g.V, c_seal: cHHO(p.T_seal), c_max: cHHO(maxTg),
       sigma_fill: sigOverP * p_seal, sigma_peak_static: sigOverP * N * kB * maxTg / g.V, uOverP, tauLumped, modes, ring, flags, tr,
@@ -280,6 +295,6 @@
         E_opt: r.E_opt, Vgas: r.geom.share * r.inputs.V_amp, share: r.geom.share, kneeFill: r.kneeFill_Torr, modes: r.modes.map(m => ({ domain: m.domain, name: m.name, f: m.f })) }; });
   }
   const logspace = (a, b, n) => Array.from({ length: n }, (_, i) => a * Math.pow(b / a, i / (n - 1)));
-  const api = { QZ_SOUND, setQuartzSound, shellRadialModes, regime, BALMER, VIS, FORM, fmtHz, CH, run, sweep, logspace, naturalModes, paschenV, kneeFill_Torr, cHHO, geometry, ETA, HHO, QZ, PASCHEN, AUTOIGN_C, TORR };
+  const api = { QZ_SOUND, setQuartzSound, shellRadialModes, regime, BALMER, VIS, FORM, fmtHz, CH, run, sweep, logspace, naturalModes, paschenV, kneeFill_Torr, ionisationWindow, cHHO, geometry, ETA, HHO, QZ, PASCHEN, AUTOIGN_C, TORR };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.DriveModel = api;
 })(typeof window !== "undefined" ? window : this);

@@ -1,7 +1,7 @@
 // node drive_model_run.js > drive_model_output.txt : example runs of the coupled single-cycle drive model (inputs are EXAMPLES, not design choices)
 const D = require("./drive_model.js");
 const shell = [{ name: "0S0 breathing (l=0)", f: 1.868e6 }, { name: "1S0-type (l=0, n=2)", f: 6.737e6 }, { name: "0S2", f: 1.243e6, tag: "calc minimal_test" }];
-const base = { ID_mm: 1, OD_mm: 2, T_seal: 293.15, shellModes: shell };
+const base = { ID_mm: 1, OD_mm: 2, T_seal: 293.15, shellModes: shell };   // T_amb (ambient air K) unset => ambient = T_seal
 const e = x => x.toExponential(3);
 console.log("v0 coupled single-cycle drive model - ESTIMATED PHYSICS. Geometry 1 mm ID x 2 mm OD bare crystal quartz, HHO 2:1, sealed at 293.15 K (initial/ambient).");
 console.log("Example inputs only (fill, amplitude and frequency are OPEN user inputs; nothing here is a chosen design value).\n");
@@ -15,5 +15,6 @@ for (const [fill, V, f] of [[22, 600, 1000], [22, 600, 20], [22, 600, 20000], [1
 }
 console.log("\nSweep drive f (fill 22 Torr, 600 V):");
 D.sweep(Object.assign({}, base, { fill_Torr: 22, V_amp: 600 }), "f", D.logspace(20, 20000, 7)).forEach(p => console.log(`  f ${p.x.toPrecision(4)} Hz: E ${e(p.E_dis)} J, dT_gas ${e(p.dTg)} K, dT_wall ${e(p.dTw)} K, ring gas ${e(p.ringGas)} Pa, shell ${e(p.ringShell)} Pa`));
-console.log("\nSweep fill (f 1 kHz, 600 V):");
+const iw = D.ionisationWindow(Object.assign({}, base, { V_amp: 600 }));
+console.log(`\nSweep fill (f 1 kHz, 600 V): ionisation window (peak gas V ${iw.Vgas.toFixed(1)} V = share x 600 V vs Paschen V_b, static knee) ${iw.empty ? "empty" : iw.lo_Torr.toPrecision(4) + " - " + iw.hi_Torr.toPrecision(4) + " Torr"}:`);
 D.sweep(Object.assign({}, base, { f: 1000, V_amp: 600 }), "fill_Torr", D.logspace(0.1, 7600, 13)).forEach(p => console.log(`  fill ${p.x.toPrecision(3)} Torr: knee ${isFinite(p.Vb)?p.Vb.toFixed(0):'inf'} V, E ${e(p.E_dis)} J, dT_gas ${e(p.dTg)} K, gas l0 ${(p.fgas/1e3).toFixed(1)} kHz`));

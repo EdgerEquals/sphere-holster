@@ -30,12 +30,14 @@
     const p = { ID_mm: +$('dID').value, OD_mm: +$('dOD').value, T_seal: +$('dTs').value, V_amp: +$('dV').value, f: parseSI($('dF').value),
       shellModes: caseC ? shellModes(caseC, +$('dID').value, +$('dOD').value) : [] };
     const fill = +$('dFill').value; if ($('dFillU').value === 'torr') p.fill_Torr = fill; else p.fill_molecules = fill;
+    if ($('dTa').value !== '') p.T_amb = +$('dTa').value;   // ambient air T; blank => ambient = sealing T
     const miss = [];
     if (!($('dFill').value !== '' && fill > 0)) miss.push('HHO fill amount');
     if (!($('dV').value !== '' && p.V_amp > 0)) miss.push('drive amplitude');
     if (!($('dF').value !== '' && p.f > 0)) miss.push('drive frequency (e.g. 2.5M, 100k, 600T)');
     if (!(p.ID_mm > 0 && p.OD_mm > p.ID_mm)) miss.push('geometry (OD > ID)');
-    if (!(p.T_seal > 0)) miss.push('initial/ambient T');
+    if (!(p.T_seal > 0)) miss.push('initial (sealing) T');
+    if (p.T_amb !== undefined && !(p.T_amb > 0)) miss.push('ambient T > 0 K (or blank = sealing T)');
     return { p, miss };
   }
   function setF(f, fromSlider) {
@@ -219,7 +221,7 @@
     const gm = r.modes.filter(m => m.name.indexOf('gas l=0 n=1') === 0)[0];
     const f293 = 4.4934 * DM.cHHO(r.inputs.T_seal) / (2 * Math.PI * r.geom.a);
     const rows = [
-      ['Fill (input)', `${e3(r.N)} HHO molecules (${e3(r.N * 2 / 3)} H2 + ${e3(r.N / 3)} O2); n ${e3(r.n)} /m³ (fixed); sealed p ${e3(r.p_seal)} Pa = ${e3(r.p_seal / DM.TORR)} Torr at ${r.inputs.T_seal} K (initial/ambient)`],
+      ['Fill (input)', `${e3(r.N)} HHO molecules (${e3(r.N * 2 / 3)} H2 + ${e3(r.N / 3)} O2); n ${e3(r.n)} /m³ (fixed); sealed p ${e3(r.p_seal)} Pa = ${e3(r.p_seal / DM.TORR)} Torr at ${r.inputs.T_seal} K (initial); ambient ${r.T_amb} K`],
       ['Ionisation knee (computed)', isFinite(r.Vb) ? `${r.Vb.toFixed(0)} V across the ${(r.geom.gap * 1e3).toFixed(2)} mm gas gap (HHO Paschen [est, anchored to lit H2/O2 minima]); gas takes ${(r.geom.share * 100).toFixed(1)} % of applied V; Paschen-min fill for this gap ${r.kneeFill_Torr.toPrecision(3)} Torr. Depends on n·d, so heating at fixed N, V leaves it unchanged to first order. O2 is electronegative (attachment raises V_b, makes the discharge filamentary; O⁻+H2 detachment partly offsets) [est, qualitative]` : 'left of the Paschen curve: no breakdown'],
       ['Discharge (computed)', `E/cycle ${e3(r.E_dis)} J (gas ${e3(r.E_gas)}, wall ${e3(r.E_wall)}, light ${e3(r.E_opt)} ≈ ${e3(r.photons_Ha_equiv)} Hα-equivalent photons) [partition est]; charge moved ${e3(r.Q_tr)} C; chemical energy stored in the fill ${e3(r.chem_energy_J)} J [lit ΔH]`],
       ['Gas state (computed)', `T_gas peak ${r.maxTg.toFixed(3)} K (ΔT ${e3(r.dTg)} K); p peak ${e3(r.p_max)} Pa; c ${r.c_seal.toFixed(1)} → ${r.c_max.toFixed(1)} m/s; gas l=0 mode ${fmtF(f293)} → ${fmtF(gm.f)} (Q ${e3(gm.Q)} [est])`],

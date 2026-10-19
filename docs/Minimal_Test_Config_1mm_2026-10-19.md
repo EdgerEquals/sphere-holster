@@ -237,7 +237,7 @@
 - ΔT_gas rises from 0.005 K to 2.2 K, because the deposition gets faster than the gas relaxation.
 - Ring amplitudes rise ∝ f, because breakdown happens at a higher dV/dt.
 
-**Fill sweep at 600 V:** there is breakdown only between ~10 and ~100 Torr in this model.
+**Fill sweep at 600 V:** there is breakdown only between 10.71 and 98.95 Torr in this model [calc]. The criterion is one voltage definition throughout: peak gas voltage (gas share 98.8 % × 600 V = 593 V) against the HHO Paschen breakdown voltage V_b of the 0.45 mm gap (static knee). In the 1 kHz sweep, 10.8, 27.6 and 70.3 Torr ionise; 4.24 Torr (left of the Paschen curve) and 179 Torr (V_b 868 V) do not.
 - **No autoignition flag** is raised for any single cycle tested.
 - The steady-state presets do flag it. For example, scope/minB at 1 W gives a 962 K inner wall, which is in the 500–585 °C range.
 
