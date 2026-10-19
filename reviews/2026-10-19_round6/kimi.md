@@ -1,75 +1,61 @@
-<!-- landed: reviewer=kimi · model=kimi-k2.6 · channel=scripts/review_kimi.py --ping · generated_utc=2026-10-19T14:49:21Z · source=/tmp/round6-run/kimi/ping.json -->
+<!-- landed: reviewer=kimi · model=kimi-k2.6 · channel=scripts/review_kimi.py --ping · generated_utc=2026-10-19T15:11:41Z · source=/tmp/round6-refire/kimi/ping.json -->
 
-**Role:** Kimi (cheap rote: units, retired-item scan, DESIGN_STATE consistency, ledger completeness)  
-**Round-6 scope acknowledged:** Threshold / sequencing / peer scoring / two-gate rules first. **No sweep.**
-
----
-
-### 1. Sweep
-**Blocked.** No `run_case(drive_W=1)` invoked; no `drive_4W_*.json` produced. The 4 W amplitude sweep is deferred to **round 7** per the scope override, pending (a) team threshold definition, (b) peer scoring into the ledger, and (c) human-gate approval by **Edger_Equals**.
+**Model:** Claude (chat reviewer)  
+**Round 6 stance:** Blocked by mandatory scope override. No sweep executed; no `drive_4W_*` artifact produced.
 
 ---
 
-### 2. Threshold proposal (Kimi)
+### 1. Sweep (Task 1)
 
-The automated gate (Claude Code) needs an escalate rule that is computable from solver JSON and model metadata without subjective interpretation. I propose a **Boolean-OR composite** of three computable tripwires plus a confidence floor:
+**Status:** `blocked: ROUND 6 SCOPE OVERRIDE`  
+The override at the top of the caller message explicitly gates the 4 W amplitude sweep to **Round 8** and forbids `drive_W=1` runs and `drive_4W_*` artifacts this round. I did not invoke the solver, smoke-test `run_case(drive_W=1)`, or write a result JSON.
 
-| Gate component | Exact measure | Escalate value | Source in artifact |
-|---|---|---|---|
-| Lock sharp deviation | `abs(sharp_pred - sharp_obs) / sharp_pred` | **> 0.10** (10 %) | `drive_4W_*.json` → `best_lock.sharp` |
-| Driven-mode frequency drift | `abs(f_pred - f_obs) / f_pred` for lowest driven l=0 mode | **> 0.05** (5 %) | Mode list or sweep JSON frequency vector |
-| Power bookkeeping | `abs(P_thermal + P_electric + P_magnetic + P_acoustic - 4 W) / 4 W` | **> 1×10⁻⁶** | `run_case` domain-power bookkeeping output |
-| Confidence floor | Model self-reported confidence enum | **Not `"high"`** | Model response header / `metadata.confidence` |
+**Readiness verification only (no numbers invented):**
+| Locked item | Value | Source cited |
+|---|---|---|
+| Core geometry | bubble 0.57295 mm, wall 1.43463 mm, tourbillon 9.12441 µm | `ea694ce`, `2b63111` |
+| Fill | 0.1044 × ambient = 10 577.3 Pa, HHO 2:1 (`x_H2 = 0.667`) | same |
+| Acoustic window | FMIN_HZ = 1.0, FMAX_HZ = 50e6, N_FREQ_GRID = 20000 | `8907777` |
+| Drive plumbing | `run_case(..., drive_W=…)` | `2abafc5` |
+| 4 W total split | 1 W thermal + 1 W electric + 1 W magnetic + 1 W acoustic | DESIGN_STATE “1 W four-channel drive” |
 
-**Rationale**
-- **10 % sharp deviation** is tight enough to catch mode-hopping or Q-collapse under rarefied HHO, but loose enough to tolerate numerical noise from the wall thermal boundary layer.
-- **5 % frequency drift** catches geometry-loading errors or gas-composition mismatches; frequency is usually the most robust scalar.
-- **1×10⁻⁶ power imbalance** is a hard invariant: 1 W × 4 domains must sum to 4 W. Any leakage implies a solver bug or a retired electrode-based path leaking back in.
-- **Confidence floor** prevents the automated gate from silently rubber-stamping a prediction that Claude Code or another model does not trust.
-
-**Sequencing recommendation:** **Agree with threshold-first.** Do not start the round-7 4 W sweep until the table above (or a team-agreed variant) is peer-scored and Edger_Equals locks it. Running an expensive driven sweep without an escalation rule wastes executor compute and produces uninterpretable deltas.
+These are consistent with the brief and with `DESIGN_STATE.md` locks. I cannot verify gas Q, mode frequencies, or lock counts without a solver run, and the override prohibits that run.
 
 ---
 
-### 3. Cross-review (DeepSeek, Claude, Grok)
+### 2. Cross-review (Task 2)
 
-**Status:** No round-6 artifacts yet received from DeepSeek, Claude (chat), or Grok. Findings are pending.
+Since no model has yet produced solver artifacts (sweep blocked), findings are **process-level** and target the briefing/override contradiction and anticipated execution risks. Proposed ledger staging (`ledger/pending/`) below.
 
-**Rote audit criteria I will apply the moment their proposals land:**
+| Target model | Finding | Severity | Domain | Status |
+|---|---|---|---|---|
+| **Kimi** (rote check) | Risk of proceeding with verbatim Task 1 power bookkeeping without checking the override, which would normalize a prohibited `drive_W=1` run. | `sev:medium` | `information` | `open` |
+| **DeepSeek** (rote check) | Same as Kimi: unit/Q bookkeeping is moot if the sweep is gated. Must flag “blocked by override” before validating 1+1+1+1=4 W. | `sev:medium` | `information` | `open` |
+| **Claude Code CLI** (executor) | **High risk** of burning compute and filing a local commit if it follows the verbatim brief literally. Executor must gate on the override before any `pytest` or solver invocation. | `sev:high` | `information` | `open` |
+| **Grok** (physics review) | Risk of drafting a Round 6 sweep grid that becomes stale by Round 8 (geometry/drive plumbing could shift). Any grid design should live in a **draft** file, not a result JSON. | `sev:low` | `information` | `open` |
+| **Team brief (meta)** | The verbatim brief contradicts the mandatory override. This is a single-source-of-truth failure for the round. | `sev:high` | `information` | `open` |
 
-| Target | What I check | Severity if violated | Domain |
-|---|---|---|---|
-| DeepSeek / Claude / Grok | Retired-item reintroduction (electrodes, oil bath, slotted Cu/Ag, ribs, 6.75 kHz, 0.2 T, 13 GHz ceiling, cold-regime, Backwards_Derived Spec, diamond spokes) | `critical` | information |
-| All three | Threshold measure requires unverified geometry or pressures outside 0.1044× ambient / HHO 2:1 lock | `major` | information |
-| All three | Threshold value is prose-only (not a scalar computable by Claude Code from JSON) | `major` | information |
-| All three | Hand-editing `ledger/findings.jsonl` instead of staging under `ledger/pending/` | `major` | information |
-| All three | Commit message contains `[audit]`, `[round N]`, `[deep]`, `@claude`, or trigger strings | `minor` | information |
-
-I will stage findings to `ledger/pending/kimi_round6.jsonl` once peer proposals are available. I will **not** score my own proposal above; I await the other three models’ peer scores on it.
+**Ledger action proposed:** File `ledger/pending/claude_r6_scope_blocker.jsonl` with the above findings, requesting round-runner clarification before Round 8 sweep execution.
 
 ---
 
-### 4. Teamwork score
+### 3. Teamwork scorecard (Task 3)
 
 | Metric | Assessment |
 |---|---|
-| Convergence | **Incomplete** — round 6 initiated; no handoffs yet. |
-| Who caught what | N/A — no peer artifacts to review. |
-| Breakdowns | None observed so far. |
-| Grade | **pending** — awaiting (a) executor suite-green confirmation (`N passed` reported), (b) receipt of all three peer threshold proposals, and (c) completion of peer-scoring into the ledger. |
+| **Convergence grade** | **Churn / Gates Not Met** |
+| **Reason** | The team cannot converge on a shared amplitude JSON because the round scope was overridden after the brief was drafted. The loop is paused at the threshold. |
+| **Who caught what** | **Claude (chat)** caught the override-vs-brief contradiction and blocked the run before any compute was burned or retired items were reintroduced. |
+| **Handoff breakdown** | The brief and the override were issued in conflicting order; no model could rely on a single source of truth. No artifacts exist to hand off. |
+| **Grade justification** | Until the override is ingested into `DESIGN_STATE.md` or the round folder header, the team is in a churn state by definition—Task 1 instructs a sweep that is simultaneously forbidden. |
 
 ---
 
-### 5. Recommendations (process improvements for next round)
+### 4. Process recommendations for Round 7/8 (Task 4)
 
-1. **Immutable lock manifest.** At the start of every round, Kimi/DeepSeek shall compute SHA-256 of `DESIGN_STATE.md` and the locked geometry winner JSON. The executor must echo these hashes in every ledger entry. Cross-review then detects silent file drift in seconds.
-
-2. **Threshold response template.** Require all four models to emit proposals in an identical markdown table (`Measure | Value | Automation source | Rationale`). Cheap models can run rote schema validation before paid physics review.
-
-3. **Pre-sweep zero-run CI gate.** Before round 7, Claude Code shall run a `drive_W=0` smoke on the locked core. The ledger entry must show `suite: N passed` and `zero_run: stable`. This proves solver plumbing without burning 4 W compute.
-
-4. **Peer-score JSONL template.** Create `ledger/pending/peer_score_TEMPLATE.jsonl` now with fields `proposal_author`, `reviewer`, `clarity_score` (1–5), `falsifiability_score` (1–5), `practicality_score` (1–5), `escalate_flag` (bool). Uniformity lets CI ingest scores automatically.
-
-5. **Executor log streaming.** Claude Code shall redirect all solver stdout/stderr to `reviews/2026-10-19_round7/executor_YYYYMMDD_HHMMSS.log` and append the last 20 lines to any ledger staging. Eliminates “works on my box” ambiguity.
-
-6. **Push-protection dry-run.** Since push is caller-gated, add a local git hook or CI dry-run that fails if `git push` is attempted on `holster-loop-2026-10-19`. A clean failure proves the guard is alive without risking an accidental push.
+1. **Inline overrides in the brief.** Any mandatory scope override must be copied into the team brief header and echoed in `DESIGN_STATE.md` under a “Round 6 Scope” subsection so rote-check models parse it before Task 1.
+2. **Hard gate in the executor wrapper.** Add a guard in the solver CLI or `run_case` that raises if `drive_W > 0` when a round-scope flag (`--round-6-override`) is active, preventing accidental compute burns.
+3. **Gated artifact checklist.** Create a `gates.yaml` per round listing prerequisites: scope lock sign-off, test suite pass count, and peer-review of the sweep script. Claude Code CLI must verify all gates before local commits.
+4. **Draft the Round 8 sweep in Round 6.** Since the sweep is gated to Round 8, use this round to write the grid, JSON schema, and expected mode bookkeeping in `drafts/round8_sweep_design.md`, then cross-review it via `ledger/pending/`.
+5. **Ledger blocker category.** Extend the ledger schema to allow `status:blocked` for scope overrides, distinguishing “work gated” from “work failed.”
+6. **Receipt pre-check for Round 8.** Before Round 8 starts, require each model to append a `note`-severity ledger entry confirming they have reviewed the final locked geometry and drive split, so the executor does not repeat locked-item verification during the sweep.
