@@ -33,6 +33,9 @@ Optional scope: append `domains=thermal,chemical` (or `domains=all`) to `/claude
 - Fix every `blocker`/`major` finding. Forward Claude's `claims_needing_source_check` to `/grok-check`.
 - Report to Danny only when ready (both PASS at deep) or stuck (two FAILs in a row on the same item).
 
+## Locked holster architecture
+Decided by Danny on 2026-10-19 (round 3); see `DESIGN_STATE.md`, "Locked holster architecture". Status: locked, not built. Build order: GitHub review ledger (issues plus append-only JSONL, reviewers scored) first; planted-mistake scoring rubric and monthly per-model cost rollup on top of it; FEniCS/OpenFOAM MCP gateway after the ledger. Do not re-open or re-order without Danny. The ordering-gap sweep (models recommend a fix for review-ahead-of-execution) runs only on Danny's call.
+
 ## Never
 - Never reintroduce a retired item: oil bath; slotted Cu/Ag shell; ribs/segments; 6.75 kHz (except labelled as history); 0.2 T; 13 GHz atom-count ceiling; cold-regime work; `Backwards_Derived_Spec_from_Ionisation`.
 - Never add Perplexity (not in use for now). Qwen is not connected yet: do not wire it without Danny's go-ahead.

@@ -39,3 +39,6 @@ Qwen and Perplexity were not contacted.
 - sandboxing for any solver MCP (`--network none`, non-root)
 
 Note: Claude and Grok saw the cheap models' TOP lines, so their agreement with DeepSeek isn't fully independent.
+
+## Decisions
+On 2026-10-19 Danny locked four items from this round as holster architecture: the GitHub review ledger (first), a planted-mistake scoring rubric and a monthly per-model cost rollup (both on top of the ledger), and the FEniCS/OpenFOAM MCP gateway (after the ledger). Status: locked, not built. He also opened a task for the four models to recommend a fix for the gap where the review layer is ahead of the execution layer; that sweep runs only when Danny calls it. Details: [DESIGN_STATE.md, "Locked holster architecture (2026-10-19, from review round 3)"](../../DESIGN_STATE.md#locked-holster-architecture-2026-10-19-from-review-round-3).
