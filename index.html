@@ -34,7 +34,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head><body>
-<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.4.1 · built 2026-10-19 14:29 AWST</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
+<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.4.1 · built 2026-10-19 16:03 AWST</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
 <div id="wrap">
  <div id="view"><canvas id="gl"></canvas><canvas id="overlay"></canvas>
   <div id="hud"></div>
@@ -240,7 +240,10 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
     for (let i = 0; i <= NW; i++) rr.push(g.a + (g.b - g.a) * i / NW);
     for (let i = 0; i < NW; i++) { const v = 4 / 3 * Math.PI * (rr[i + 1] ** 3 - rr[i] ** 3); Vc.push(v); Cq.push(v * QZ.rho * QZ.cp); }
     const rc = rr.slice(0, NW).map((r, i) => 0.5 * (r + rr[i + 1]));
-    let Tg = p.T_seal, Tw = new Array(NW).fill(p.T_seal);
+    // thermal state is solved as theta = T - T_seal (rise above the seal temperature): with no sources and Ta = T_seal the
+    // right-hand side is exactly zero, so theta stays exactly 0 (no rounding wander on a 293 K baseline) [calc]
+    const Ts = p.T_seal, thAmb = Ta - Ts;   // ambient offset; exactly 0 when T_amb is unset
+    let thG = 0, thW = new Array(NW).fill(0), Tg = Ts, Tw = new Array(NW).fill(Ts);   // Tg/Tw = Ts + theta (coefficient evaluation, traces)
     // lumped time constant at the initial state
     const hA0 = natconvH(p.T_seal + 1, Ta, 2 * g.b) * 4 * Math.PI * g.b ** 2, Ctot = Cq.reduce((s, x) => s + x, 0) + Cv_g;
     const tauLumped = Ctot / hA0;
@@ -255,7 +258,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
     let Vg = 0, Vprev = 0, Edis = 0, Qtr = 0; const jumps = []; let Pprev = 0, conducting = false;
     const tr = { t: [], V: [], Vg: [], P: [], Tg: [], Twin: [], Twout: [], p: [], c: [], fgas0: [], Vb: [] };
     const fx0 = 4.4934 / (2 * Math.PI * g.a);
-    let maxTg = Tg, maxTw = Tw[0], Egas = 0, Ewall = 0, Eopt = 0, nDiss = 0, nWater = 0, Echem = 0, H2left = 2 * N / 3;
+    let maxThG = 0, maxThW = 0, Egas = 0, Ewall = 0, Eopt = 0, nDiss = 0, nWater = 0, Echem = 0, H2left = 2 * N / 3;
     for (let k = 1; k < ts.length; k++) {
       const t = ts[k], dt = t - ts[k - 1];
       const V = t <= T ? p.V_amp * Math.sin(w * t) : 0;
@@ -285,7 +288,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
       const hA = natconvH(Tw[NW - 1], Ta, 2 * g.b) * 4 * Math.PI * g.b ** 2;
       const Gout = 1 / (1 / hA + (1 / rc[NW - 1] - 1 / g.b) / (4 * Math.PI * kQz(Tw[NW - 1])));
       const M = NW + 1, A = new Array(M).fill(0), B = new Array(M).fill(0), Cc = new Array(M).fill(0), D = new Array(M).fill(0);
-      const cap = [Cv_g].concat(Cq), Told = [Tg].concat(Tw), src = new Array(M).fill(0);
+      const cap = [Cv_g].concat(Cq), Told = [thG].concat(thW), src = new Array(M).fill(0);
       src[0] = (ETA.gas * Ed + Ech) / dt; src[1] = ETA.wall * Ed / dt;
       const G = [Gws].concat(Gw);   // G[i] between node i and i+1
       for (let i = 0; i < M; i++) {
@@ -293,16 +296,17 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
         if (i > 0) { A[i] = -G[i - 1]; B[i] += G[i - 1]; }
         if (i < M - 1) { Cc[i] = -G[i]; B[i] += G[i]; }
       }
-      B[M - 1] += Gout; D[M - 1] += Gout * Ta;
+      B[M - 1] += Gout; D[M - 1] += Gout * thAmb;
       for (let i = 1; i < M; i++) { const m = A[i] / B[i - 1]; B[i] -= m * Cc[i - 1]; D[i] -= m * D[i - 1]; }
       const X = new Array(M); X[M - 1] = D[M - 1] / B[M - 1];
       for (let i = M - 2; i >= 0; i--) X[i] = (D[i] - Cc[i] * X[i + 1]) / B[i];
-      Tg = X[0]; Tw = X.slice(1);
-      maxTg = Math.max(maxTg, Tg); maxTw = Math.max(maxTw, Tw[0]);
+      thG = X[0]; thW = X.slice(1); Tg = Ts + thG; Tw = thW.map(x => Ts + x);
+      maxThG = Math.max(maxThG, thG); maxThW = Math.max(maxThW, thW[0]);
       tr.t.push(t); tr.V.push(V); tr.Vg.push(Vg); tr.P.push(Pd); tr.Tg.push(Tg); tr.Twin.push(Tw[0]); tr.Twout.push(Tw[NW - 1]);
       tr.p.push(N * kB * Tg / g.V); tr.c.push(cHHO(Tg)); tr.fgas0.push(fx0 * cHHO(Tg)); tr.Vb.push(Vb);
     }
     // fast-mode ring-down from discharge-power jumps (impulse approximation, valid while f_mode >> f_drive) [est]
+    const maxTg = Ts + maxThG, maxTw = Ts + maxThW;   // peak absolute temperatures; dTg/dTw below are the peak rises themselves
     const sigOverP = (g.b ** 3 + 2 * g.a ** 3) / (2 * (g.b ** 3 - g.a ** 3));  // Lame inner hoop stress / inner pressure [calc]
     const uOverP = g.a / QZ.E * ((1 - 2 * QZ.nu) * g.a ** 3 + (1 + QZ.nu) * g.b ** 3 / 2) / (g.b ** 3 - g.a ** 3);
     const stateHot = { T: maxTg, N, tauLumped, Tseal: p.T_seal };
@@ -337,7 +341,7 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
     return {
       inputs: p, geom: g, N, n, rho, p_seal, Vb, Vb_static: Vb0, regime: reg, qz_sound: Object.assign({ key: QZ_SEL }, QZ_SOUND[QZ_SEL]), kneeFill_Torr: kneeFill_Torr(g.gap), cycle_s: T,
       E_dis: Edis, E_gas: Egas, E_wall: Ewall, E_opt: Eopt, Q_tr: Qtr, jumps, photons_Ha_equiv: Eopt / (6.62607015e-34 * C0 / 656.3e-9),
-      maxTg, maxTw, dTg: maxTg - p.T_seal, dTw: maxTw - p.T_seal, p_max: N * kB * maxTg / g.V, c_seal: cHHO(p.T_seal), c_max: cHHO(maxTg),
+      maxTg, maxTw, dTg: maxThG, dTw: maxThW, p_max: N * kB * maxTg / g.V, c_seal: cHHO(p.T_seal), c_max: cHHO(maxTg),
       sigma_fill: sigOverP * p_seal, sigma_peak_static: sigOverP * N * kB * maxTg / g.V, uOverP, tauLumped, modes, ring, flags, tr,
       chem: { n_diss: nDiss, n_water: nWater, E_release: Echem, frac_converted: nWater / (2 * N / 3), knee: "not defined" },
       chem_energy_J: N / 3 * 2 * 241.8e3 / NA * 1 // 2 H2 + O2 -> 2 H2O(g), 241.8 kJ/mol H2O [lit]; per 3 molecules -> 2 H2O
