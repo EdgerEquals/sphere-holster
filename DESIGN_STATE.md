@@ -333,3 +333,11 @@ Sources:
 - **Magnetic flag:** schorl is iron-bearing and paramagnetic (Fe2+ on the Y site). It adds a magnetic coupling that elbaite lacks. That is a feature if the layer is meant to couple to the magnetic field, and a confound if the electric response (piezo, pyro, electrocaloric) is being isolated. It is not coupled in the solver yet (B = 0).
 - **Sweep:** `python3 solver_v0.py --tourmaline {elbaite,dravite,schorl,all} [--only base5]`. It runs the same recipe (φ 0.20, binder, ε_r, aligned upper bound) once per end-member and writes `tourmaline_sweep_v0.json`. Default runs are unchanged. With no source, every end-member is exactly zero everywhere (the zero-run acceptance rule). The file's synthetic block applies the same stress, temperature step and field change to each end-member.
 - **Discrepancy found, nothing changed:** the default layer-two pyro values (2.03e-6 at 296 K, 2.68e-6 at 383 K C/m²K) are tagged in `solver_v0.py` as the "elbaite end member". In Hawkins 1995 Table 5 they are the ideal **schorl** values (FeO 20.46 wt%). The Fe-free prediction there is 3.95 / 4.79. In the same source, the "1.8-2.2 pC/N" d33 range is Mg-tourmaline 1.8 and Li-tourmaline 2.2, not a range for Li-tourmaline. The default is left as it is, pending Danny's decision.
+
+## Decision: phosphor stays out of the model (2026-10-19)
+Danny's decision (2026-10-19), with his reasoning. This follows the inner-phosphor removal in commit 3965699.
+
+- **The phosphor's knee is linear:** its saturation knee is a soft roll-off. It can only flatten or compress the amplitude. It cannot generate new frequencies or shift them.
+- **Frequency shifting needs a strong non-linearity:** a χ² term, which the phosphor cannot provide.
+- **Light path:** stays quartz → tourmaline → BTO → Gd-Dy.
+- **The non-linear, frequency-shifting knee** is the Layer 5 option (PPLN or KDP). It gives real gain only with a coherent pump at the megawatt level.
