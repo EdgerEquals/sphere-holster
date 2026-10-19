@@ -1,0 +1,66 @@
+# Locked values checked by tests/test_locked_values.py.
+# The test re-reads every `expected` from the cited file using `pattern` (first capture group),
+# so if DESIGN_STATE.md changes, the mismatch shows up as "yml says X, DESIGN_STATE says Y".
+# `line` is the line where the value was found on 2026-10-19; the test reports if it has moved.
+
+values:
+  lock_shell_od_mm:
+    expected: 5.4
+    unit: mm
+    cite: {file: DESIGN_STATE.md, line: 23, pattern: '([\d.]+) mm OD with a [\d.]+ mm wall'}
+  lock_shell_wall_mm:
+    expected: 0.944
+    unit: mm
+    cite: {file: DESIGN_STATE.md, line: 23, pattern: '[\d.]+ mm OD with a ([\d.]+) mm wall'}
+  lock_shell_thickness_mode_MHz:
+    expected: 3.236
+    unit: MHz
+    cite: {file: DESIGN_STATE.md, line: 24, pattern: 'Thickness mode at ([\d.]+) MHz'}
+  test_shell_id_mm:
+    expected: 1
+    unit: mm
+    cite: {file: DESIGN_STATE.md, line: 28, pattern: '([\d.]+) mm ID and [\d.]+ mm OD'}
+  test_shell_od_mm:
+    expected: 2
+    unit: mm
+    cite: {file: DESIGN_STATE.md, line: 28, pattern: '[\d.]+ mm ID and ([\d.]+) mm OD'}
+  test_shell_wall_mm:
+    expected: 0.5
+    unit: mm
+    cite: {file: DESIGN_STATE.md, line: 28, pattern: 'with a ([\d.]+) mm wall'}
+  test_shell_breathing_MHz:
+    expected: 1.87
+    unit: MHz
+    cite: {file: DESIGN_STATE.md, line: 29, pattern: 'Breathing mode at about ([\d.]+) MHz'}
+  hho_sound_speed_293K_mps:
+    expected: 533
+    unit: m/s
+    cite: {file: docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md, line: 369, pattern: 'This gives (\d+) m/s at 293 K'}
+  hho_gamma:
+    expected: 1.40
+    unit: "-"
+    cite: {file: docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md, line: 366, pattern: 'γ = ([\d.]+) \[lit-typical'}
+  dHf_H2O_gas_kJ_per_mol:
+    expected: 241.826
+    unit: kJ/mol
+    cite: {file: docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md, line: 307, pattern: 'ΔHf H2O\(g\) = −([\d.]+) kJ/mol'}
+
+# How each derived check is computed and how tight it is.
+derivations:
+  lock_shell_thickness_mode:
+    model: exact traction-free l=0 elastic sphere shell, 2nd root (1S0 thickness-type), derived in SymPy
+    sound_speed: danny        # key into solver_v0.QZ_SOUND (cL 5900 given by Danny, cT 4090 VRH)
+    tol_rel: 0.005
+    note: >-
+      DESIGN_STATE does not state the formula or sound speed behind 3.236 MHz. This interpretation
+      (exact 1S0 with Danny's cL 5900) reproduces it to ~0.1%. Slab cL/(2t) would need cL ~6110 m/s.
+      Confirm with Danny.
+  test_shell_breathing:
+    model: exact traction-free l=0 elastic sphere shell, 1st root (0S0 breathing), derived in SymPy
+    sound_speed: vrh          # current solver default (cited Schmitt 2015)
+    tol_rel: 0.01             # DESIGN_STATE says "about 1.87"
+  hho_sound_speed:
+    model: c = sqrt(gamma R T / M), M = (2*2.016 + 32.00)/3 g/mol, R CODATA, T 293 K
+    tol_abs: 1.0              # value is stated to the nearest m/s
+  solver_agreement:
+    tol_rel: 0.001            # solver_v0 numerics must match the SymPy derivation
