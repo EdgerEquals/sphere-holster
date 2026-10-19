@@ -212,32 +212,35 @@ def _fill_gas_Z(gp):
     return gz
 
 
-def evaluate(a_mm, w_mm, t2_um, details=False, em=False, p_atm=None, comp=None):
+def evaluate(a_mm, w_mm, t2_um, details=False, em=False, p_atm=None, comp=None, T_K=None):
     """All modes, locks and score for one geometry. No source: every mode energy is 0.
     Default (p_atm=None, comp=None): the 1 atm HHO path exactly as before (c_hho, solver gas_Z). Opt-in fill state
     (geometry_fill_sweep_v0): p_atm and/or comp (name or {species: x}) set the gas everywhere it enters: the rigid-wall
     B modes and bubble round trips use c from S.gas_props, the bonded-stack gas loading uses that c and K = gamma p,
-    gas Q is S.gas_Q at (p, 293 K, comp), and the cascade thermal rate uses the mix's k/(rho cp)."""
-    if comp is None and p_atm is None:
+    gas Q is S.gas_Q at (p, T, comp), and the cascade thermal rate uses the mix's k/(rho cp). T_K (opt-in, with the
+    fill path): gas temperature for gas_props, sound speed, gas loading and gas Q (default 293 K = S.T_REF)."""
+    if comp is None and p_atm is None and T_K is None:
         return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM, None)
     old_gz = S.gas_Z
     try:
-        return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM if p_atm is None else p_atm, comp or GAS_COMP)
+        return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM if p_atm is None else p_atm, comp or GAS_COMP,
+                         S.T_REF if T_K is None else T_K)
     finally:
         S.gas_Z = old_gz; S.GAS["p"] = P_ATM * 101325.0; S.GAS["T"] = S.T_REF
 
 
-def _evaluate(a_mm, w_mm, t2_um, details, em, p_atm, comp):
+def _evaluate(a_mm, w_mm, t2_um, details, em, p_atm, comp, T_K=None):
     t0 = time.time()
     st = S.build_stack(2 * a_mm, w_mm, t_l2=t2_um * S.UM)
-    S.GAS["p"] = p_atm * 101325.0; S.GAS["T"] = S.T_REF
+    Tg = S.T_REF if T_K is None else T_K
+    S.GAS["p"] = p_atm * 101325.0; S.GAS["T"] = Tg
     a, b = st["r_in"], st["r_q"]; t2 = t2_um * S.UM
     lay = st["layers"]
     if comp is None:
         c_g = S.c_hho(S.T_REF); qcomp = GAS_COMP
         rho_g = P_ATM * 101325.0 * 0.012011 / (8.314462618 * S.T_REF); al_B = S.K_HHO0 / (rho_g * S.CP_HHO)
     else:
-        gp = S.gas_props(S.T_REF, S.GAS["p"], comp); c_g = gp["c"]; qcomp = comp
+        gp = S.gas_props(Tg, S.GAS["p"], comp); c_g = gp["c"]; qcomp = comp
         al_B = gp["D_t"]; S.gas_Z = _fill_gas_Z(gp)
     LQ = [("quartz", a, b)]; LT = [("layer2", b, b + t2)]
     B = gas_rigid_l0(a, c_g)
@@ -246,7 +249,7 @@ def _evaluate(a_mm, w_mm, t2_um, details, em, p_atm, comp):
     Tm = free_modes(LT) + free_modes(LT, 0.6 * f_fp, 1.4 * f_fp, 400)
     Sm = split(S.l0_modes(lay), free_modes(lay))
     s_stats = S.all_modes_stats(Sm, lay, 0.0)
-    modes = ([dict(cav="B", f=f, Q=S.gas_Q(f, a, p=p_atm * 101325.0, T=S.T_REF, comp=qcomp)) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
+    modes = ([dict(cav="B", f=f, Q=S.gas_Q(f, a, p=p_atm * 101325.0, T=Tg, comp=qcomp)) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
              + [dict(cav="T", f=f, Q=q_of(f, LT)) for f in Tm] + [dict(cav="S", f=m["f"], Q=m["Q_eff"]) for m in s_stats])
     assert all(m["W"] == 0.0 for m in s_stats)   # no source: zero run
     cLq = S.MAT["quartz"]["cL"]
