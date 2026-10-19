@@ -266,3 +266,12 @@ Danny's decision (2026-10-19). The circulating-power figures are gone from the s
   - Polar grains are reported as the aligned upper bound (random grains ≈ 0) [est].
 - **Thermal march:** solved in θ = T − 293 K, so a zero-heat state stays exactly at 293 K.
 - **Acceptance rule (zero run):** with no drive and no input, every field is exactly zero everywhere: electric, magnetic, optical, acoustic, chemical and every coupling output. The whole stack sits at 293 K. The check uses exact equality; rounding noise is fixed at the source, not hidden by a tolerance. Each coupling is also checked on its own with synthetic inputs (stress for piezo, a temperature change for pyro, a field change for electrocaloric): zero in gives exactly zero out, and non-zero input scales as the physics says. The test is `tests/test_acceptance_zero_run.py`.
+
+## Future item: electric and magnetic fields as one coupled wave (2026-10-19)
+Danny's intent (2026-10-19), recorded only; nothing is coded. The electric and magnetic fields are coupled: they are two halves of one electromagnetic wave. The geometry's spin and rotation (the inhalation/exhalation cycle) is the coupling between them, and they spin and rotate with each other. To be reached eventually. Today the solver marches the electric field on its own, and B = 0 by spherical symmetry.
+
+## Parked future item: outer boundary condition per domain (2026-10-19)
+Danny's intent (2026-10-19), parked; nothing is coded. Some fields expand beyond the shell's outer layer, so each domain needs its own boundary condition at the outer surface: what radiates, what diffuses and what stops there.
+
+- **First two:** electric and magnetic. The electric field extends outward and is always coupled with the magnetic field.
+- **Thermal:** the existing 293 K outer reference stays as it is.
