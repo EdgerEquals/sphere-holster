@@ -43,16 +43,29 @@ python -m pytest -q --tb=line
 
 When the caller says **"send it"** or **"launch round 6,"** the coordinator fires **all four model pings as one job** (same brief, round-6 scope override: threshold / sequencing / peer scoring / gates first; **no sweep**).
 
-| Model | Command / pattern |
+**One command (preferred):**
+
+```bash
+python scripts/launch_round.py --round-dir reviews/2026-10-19_round6 \
+  --prompt reviews/2026-10-19_round6/prompt.md --scope-file <scope-override.txt> --run-dir /tmp/round6-run
+```
+
+It writes the shared user text once, fires the four channels below in parallel, and each channel **lands its own reply** in the round folder. Exit 0 = `COMPLETE` (all four `{model}.md` present); exit 1 = `NOT COMPLETE`.
+
+| Model | Channel (each takes `--ping-file F --out <run-dir>/<model> --land-dir reviews/2026-10-19_round6`) |
 |---|---|
-| **Kimi** | `python scripts/review_kimi.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
-| **DeepSeek** | `python scripts/review_deepseek.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
-| **Grok** | `python scripts/review_grok.py` with prompt context (or a round-6 Messages/`/responses` runner that injects `prompt.md` + kickoff scope override) |
-| **Claude** | Holster Claude channel / Messages API pattern from `reviews/2026-10-19_round5/claude_run.py` |
+| **Kimi** | `python scripts/review_kimi.py --ping-file …` |
+| **DeepSeek** | `python scripts/review_deepseek.py --ping-file …` |
+| **Grok** | `python scripts/review_grok.py --ping-file …` (replaces the ad-hoc `/tmp` `/responses` runner) |
+| **Claude** | `python scripts/review_claude.py --ping-file …` (Messages API; replaces the ad-hoc `/tmp` copy of the round-5 `claude_run.py` pattern) |
 
 Prepend the round-6 scope override to the shared user text: **threshold / sequencing / peer scoring / gates first; no sweep this round.**
 
-**After fire:** write replies under `reviews/2026-10-19_round6/` as `kimi.md`, `deepseek.md`, `claude.md`, `grok.md` (plus any `ping.json` / raw sidecars in a local out dir). The coordinator **reports back when replies land**. Do not start round 7, the round-8 sweep, or any sweep from this launch.
+**Land step (automatic, part of every ping):** with `--land-dir` (or env `REVIEW_LAND_DIR`), each channel writes its reply to `reviews/2026-10-19_round6/{kimi,deepseek,claude,grok}.md` via `scripts/land_review_reply.py` as soon as the ping succeeds (a one-line `<!-- landed: … -->` provenance comment, then the reply verbatim). `ping.json` / stdout / stderr stay in the `/tmp` run dir. A ping whose reply cannot be landed exits non-zero.
+
+**Done = landed.** The run is **not complete** while any reply exists only in `/tmp`. Verify with `python scripts/land_review_reply.py --round-dir reviews/2026-10-19_round6 --check`; to recover an older run without re-firing any API call, use `python scripts/launch_round.py --round-dir reviews/2026-10-19_round6 --run-dir /tmp/round6-run --land-only`. The coordinator **reports back only when all four replies have landed** (checklist item 16).
+
+*Why this step exists:* the first round-6 launch wrote replies only to `/tmp/round6-run/<model>/` (`--ping` wrote just `ping.json` + the job summary; Grok/Claude ran from ad-hoc `/tmp` scripts writing `reply.md`). Copying into this folder was a manual step, so only `deepseek.md` landed; `kimi.md`, `claude.md`, `grok.md` were landed afterwards from those artifacts. Do not start round 7, the round-8 sweep, or any sweep from this launch.
 
 
 ---
@@ -210,7 +223,8 @@ After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **mea
 | 13 | Peer scores | Peer scores on threshold proposals **recorded in the ledger** |
 | 14 | Four pings fired | Kimi, DeepSeek, Claude, Grok pings launched as one job ("send it" / "launch round 6") |
 | 15 | Round 8 hold | No 4 W sweep started until threshold is settled; round 7 purpose TBD |
+| 16 | Replies landed | All four replies present in this folder: `kimi.md`, `deepseek.md`, `claude.md`, `grok.md` (`land_review_reply.py --check` exits 0). A run **cannot** be marked done with replies only in `/tmp` |
 
-**NO-GO:** suite red, prompt not shared identically, intent to push without caller, or starting the round-8 4 W sweep before threshold approval.
+**NO-GO:** suite red, prompt not shared identically, intent to push without caller, starting the round-8 4 W sweep before threshold approval, or declaring the ping run done while any reply is only in `/tmp`.
 
-When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 purpose TBD**; **round 8 sweep waits**.
+When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round; 16 = all four replies landed before the run counts as done), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 purpose TBD**; **round 8 sweep waits**.

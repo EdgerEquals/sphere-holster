@@ -152,6 +152,7 @@ Round 7 must specify how gate (1) is placed so Claude Code is **not** the sole u
 | 10 | Outputs | Round-7 paths in §8 agreed; no push without caller |
 | 11 | Retired | No electrodes / retired items reintroduced in protocol proposals |
 | 12 | Four pings (when launching) | If caller says “send it” / “launch round 7,” all four pings fire as one job |
+| 13 | Replies landed | All four replies present in `reviews/2026-10-19_round7/` (`kimi.md`, `deepseek.md`, `claude.md`, `grok.md`; `scripts/land_review_reply.py --check` exits 0) — not only in `/tmp` |
 
 **NO-GO:** starting the round-8 4 W sweep before protocol approval; treating economics as optional; skipping the human gate on the protocol; inventing process that contradicts round-6 two-gate order.
 

@@ -8,6 +8,7 @@ env TAVILY_CONTEXT_FILE), which is cheaper. xAI's built-in server-side web_searc
 Usage:
   python scripts/review_grok.py --depth shallow --head HEAD
   python scripts/review_grok.py --mode crosscheck --other-verdict claude/verdict.json
+  python scripts/review_grok.py --ping-file brief.txt --out /tmp/roundN-run/grok --land-dir reviews/YYYY-MM-DD_roundN
 Needs env XAI_API_KEY. Exit codes: 0 ok (PASS or FAIL recorded), 2 missing secret, 3 API/parse error.
 """
 import json
@@ -89,4 +90,7 @@ def reformat(review_text: str, cfg: dict, key: str):
 
 
 if __name__ == "__main__":
+    if "--ping" in sys.argv or "--ping-file" in sys.argv:   # round brief, lands reviews/<round>/grok.md
+        import ping_common as pc  # noqa: E402
+        sys.exit(pc.ping_main("Grok", "grok", "XAI_API_KEY", call))
     hc.run_review("Grok", "XAI_API_KEY", call, reformat)

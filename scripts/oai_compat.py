@@ -3,7 +3,8 @@
 
 Each provider script (review_kimi.py, review_deepseek.py) passes a Provider and gets:
   - a normal harness review (same CLI, verdict JSON/markdown, exit codes as review_claude/review_grok)
-  - --ping "<prompt>": send just that prompt, write reply + token usage + cost to the job summary
+  - --ping "<prompt>" | --ping-file F: send just that prompt, write reply + token usage + cost to the job summary;
+    with --land-dir reviews/<round> (or env REVIEW_LAND_DIR) the reply also lands there as {kimi,deepseek}.md
   - --list-models: print the model IDs the key can see (/models)
 Exit codes: 0 ok, 2 missing secret, 3 API/parse error (verdict ERROR is still written and posted).
 Secrets are only ever sent in the Authorization header; they are never printed.
@@ -21,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 import harness_common as hc  # noqa: E402
+import ping_common as pc  # noqa: E402
 
 
 @dataclass
@@ -144,7 +146,7 @@ def _summary(md: str) -> None:
             fh.write(md + "\n")
 
 
-def ping(p: Provider, prompt: str, depth: str | None, out: Path) -> int:
+def ping(p: Provider, prompt: str, depth: str | None, out: Path, land_dir: str | None = None) -> int:
     dial = hc.load_dial()
     depth, cfg = hc.level_cfg(dial, depth)
     out.mkdir(parents=True, exist_ok=True)
@@ -173,6 +175,14 @@ def ping(p: Provider, prompt: str, depth: str | None, out: Path) -> int:
         md = [f"## ⚠️ {p.name} ping: ERROR", "", "```", err, "```"]
         print(f"::error title={p.name} ping failed::{err[:300]}" if os.environ.get("GITHUB_ACTIONS") else err, file=sys.stderr)
         code = hc.EXIT_API_ERROR
+    # Land the reply in the review tree (reviews/<round>/{kimi,deepseek}.md) before the ping counts as done.
+    land_err = pc.land_after_ping(rec, p.key, land_dir, out)
+    if land_err:
+        md += ["", f"**Reply NOT landed in `{land_dir}`:** {land_err}"]
+        print(f"{p.name}: reply NOT landed in {land_dir}: {land_err}", file=sys.stderr)
+        code = hc.EXIT_API_ERROR
+    elif rec.get("landed"):
+        md += ["", f"Landed: `{rec['landed']}`"]
     (out / "ping.json").write_text(json.dumps(rec, indent=2))
     _summary("\n".join(md))
     print("\n".join(md))
@@ -202,14 +212,9 @@ def main(p: Provider) -> None:
     argv = sys.argv[1:]
     if "--list-models" in argv:
         sys.exit(list_models(p))
-    if "--ping" in argv:
-        import argparse
-        ap = argparse.ArgumentParser(description=f"{p.name} ping")
-        ap.add_argument("--ping", required=True)
-        ap.add_argument("--depth", choices=["shallow", "deep"], default=None)
-        ap.add_argument("--out", default="review-out")
-        a, _ = ap.parse_known_args(argv)
-        sys.exit(ping(p, a.ping, a.depth, Path(a.out)))
+    if "--ping" in argv or "--ping-file" in argv:
+        a, prompt = pc.ping_args(argv, p.name)
+        sys.exit(ping(p, prompt, a.depth, Path(a.out), a.land_dir))
     # For the rote checkers an API/parse failure must surface as ERROR (exit 3) even when the free
     # retired-item scan also hit; the hits are still listed in the posted verdict. Local to this process:
     # review_claude.py / review_grok.py keep harness_common.combine unchanged.

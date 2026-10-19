@@ -4,6 +4,7 @@
 Usage:
   python scripts/review_claude.py --depth shallow --head HEAD
   python scripts/review_claude.py --depth deep --base origin/main --head pr-head --mode crosscheck --other-verdict grok/verdict.json
+  python scripts/review_claude.py --ping-file brief.txt --out /tmp/roundN-run/claude --land-dir reviews/YYYY-MM-DD_roundN
 Needs env ANTHROPIC_API_KEY. Exit codes: 0 ok (PASS or FAIL recorded), 2 missing secret, 3 API/parse error.
 """
 import os
@@ -39,4 +40,7 @@ def call(system: str, user: str, cfg: dict, key: str):
 
 
 if __name__ == "__main__":
+    if "--ping" in sys.argv or "--ping-file" in sys.argv:   # round brief, lands reviews/<round>/claude.md
+        import ping_common as pc  # noqa: E402
+        sys.exit(pc.ping_main("Claude", "claude", "ANTHROPIC_API_KEY", call))
     hc.run_review("Claude", "ANTHROPIC_API_KEY", call)
