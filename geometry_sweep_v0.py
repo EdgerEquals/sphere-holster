@@ -11,8 +11,9 @@ Swept: gas bubble radius a, quartz wall thickness w, tourbillon (layer two) thic
 by build_stack exactly as for base5 (BTO 2 um, Gd-Dy 3 um, phi-stepped outer zones), 1 atm HHO at 293 K.
 
 Mode sets per geometry (acoustic, l = 0 only, search window 20 kHz - 12 MHz = the solver's l0_modes window):
-  B  bubble gas cavity alone, rigid wall: f = x_n c_HHO / (2 pi a), j1(x_n) = 0. Q is NOT in the model (the gas has no
-     loss term) -> fallback: linewidth 0 [est], so a B mode locks only inside its partner's own linewidth.
+  B  bubble gas cavity alone, rigid wall: f = x_n c_HHO / (2 pi a), j1(x_n) = 0. Q from solver_v0.gas_Q(f, a, p, T,
+     'HHO') at the fill state (1 atm, 293 K): wall thermal boundary layer + classical bulk absorption, viscous wall loss
+     0 for l = 0 [est: modelling assumption, upper bound on Q], so a B mode now has its own linewidth f/Q.
   Q  quartz layer alone (free shell, vacuum both faces): propagate() roots; Q_eff from mode_energy_stats (= 2100).
   T  tourbillon alone (free layer-two shell): propagate() roots in the window plus its first thickness mode
      (searched near cL/2t2); Q_eff from mode_energy_stats (= 150).
@@ -28,7 +29,8 @@ Boundary-reflection round trips: a round trip inside one cavity (B: across the d
 Q: n cL/(2w); T: n cL2/(2 t2)) lands on a real mode of ANOTHER cavity when |f_rt - f_mode| <= (f_mode/Q_mode)/2
 (a reflection has no Q of its own: width 0). Targets: B -> Q, T, S; Q -> B, T; T -> B, Q.
 Score = number of locks (mode-mode + reflection landings). Also reported: distinct real modes taking part, and
-locks per real mode in the window (density-normalised, because a larger body simply has more modes in the window).
+locks per real mode in the window (density-normalised, because a larger body simply has more modes in the window), and sharp_per_mode = sharp locks /
+modes in the window (third ranking, rank_spm).
 Cascade holding together (gate, reported per geometry): in each cavity thermal < acoustic fundamental < electric.
 Knees crossed at the right thresholds: NOT SCORED. A knee crossing needs a field amplitude, and with no source every
 amplitude is exactly zero; it stays unscored until a source is defined.
@@ -55,7 +57,13 @@ P_ATM = 1.0                                   # base5 fill
 BASE = dict(a_mm=1.5, w_mm=1.0, t2_um=5.0)    # base5
 CAV_PAIRS = {("B", "Q"), ("B", "T"), ("Q", "T"), ("B", "S")}
 REFL_TARGETS = {"B": ("Q", "T", "S"), "Q": ("B", "T"), "T": ("B", "Q")}
-GAS_Q_FALLBACK = "gas-cavity Q not in the model: linewidth 0 [est]"
+GAS_COMP = "HHO"
+# Gas-cavity Q: derived by solver_v0.gas_Q(f, a, p, T, comp) at the sweep's fill state (1 atm HHO, 293 K; no source,
+# so the gas stays at 293 K). Modelling assumption, not measured physics: isothermal wall, no molecular relaxation,
+# no discharge loss -> an upper bound on Q (lower bound on the gas linewidth).
+GAS_Q_SOURCE = ("derived: solver_v0.gas_Q(f, a, p, T, 'HHO') at 1 atm, 293 K (no source); wall thermal boundary layer "
+                "+ classical bulk absorption, viscous wall loss 0 for l=0; modelling assumption (isothermal wall, no "
+                "relaxation/discharge loss), upper bound on Q, not measured")
 
 
 # ------------------------------------------------------------------ scoring (pure, testable)
@@ -209,7 +217,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
     Tm = free_modes(LT) + free_modes(LT, 0.6 * f_fp, 1.4 * f_fp, 400)
     Sm = split(S.l0_modes(lay), free_modes(lay))
     s_stats = S.all_modes_stats(Sm, lay, 0.0)
-    modes = ([dict(cav="B", f=f, Q=None) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
+    modes = ([dict(cav="B", f=f, Q=S.gas_Q(f, a, p=P_ATM * 101325.0, T=S.T_REF, comp=GAS_COMP)) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
              + [dict(cav="T", f=f, Q=q_of(f, LT)) for f in Tm] + [dict(cav="S", f=m["f"], Q=m["Q_eff"]) for m in s_stats])
     assert all(m["W"] == 0.0 for m in s_stats)   # no source: zero run
     cLq = S.MAT["quartz"]["cL"]
@@ -235,9 +243,12 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
              score=len(locks), n_mode_locks=sum(1 for x in locks if x["kind"] == "mode"),
              n_reflection_locks=sum(1 for x in locks if x["kind"] == "reflection"),
              n_sharp_locks=sum(1 for x in locks if not x["density_guaranteed"]),
+             n_B_locks=sum(1 for x in locks if x["a"][0] in ("B", "Brt") or x["b"][0] == "B"),
              by_pair=_by_pair(locks),
              n_distinct_modes=len(part), n_modes_window=n_in,
              locks_per_mode=round(len(locks) / n_in, 4) if n_in else 0.0,
+             sharp_per_mode=round(sum(1 for x in locks if not x["density_guaranteed"]) / n_in, 4) if n_in else 0.0,
+             gas_Q_first=round(modes[0]["Q"], 2) if B else None,
              n_modes=dict(B=len(B), Q=len(Qm), T=len(Tm), S=len(Sm)),
              cascade_ok=all(cascade.values()), cascade=cascade, golden=gold, runtime_s=round(time.time() - t0, 2))
     if details:
@@ -248,7 +259,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
         r["thermal_Hz"] = {k: round(v, 4) for k, v in f_th.items()}
         r["electric_est_Hz"] = {k: float("%.4g" % v) for k, v in f_el.items()}
         r["acoustic_fundamental_Hz"] = {k: (round(v, 1) if v else None) for k, v in f_ac.items()}
-        r["Q_eff"] = dict(Q=q_of(Qm[0], LQ) if Qm else None, T=q_of(Tm[0], LT) if Tm else None, B=GAS_Q_FALLBACK,
+        r["Q_eff"] = dict(Q=q_of(Qm[0], LQ) if Qm else None, T=q_of(Tm[0], LT) if Tm else None, B=dict(source=GAS_Q_SOURCE, Q_first=round(modes[0]["Q"], 2) if B else None),
                           S=[round(m["Q_eff"], 2) for m in s_stats])
         if em:
             r["electric_open_sphere"] = em_open(a, b, b + t2)
@@ -329,10 +340,13 @@ def run(workers=8, refine_top=5):
     for i, r in enumerate(allr): r["rank"] = i + 1
     sk = lambda r: (not r["cascade_ok"], -r["n_sharp_locks"], -r["score"])
     for i, r in enumerate(sorted(allr, key=sk)): r["rank_sharp"] = i + 1
+    pk = lambda r: (not r["cascade_ok"], -r["sharp_per_mode"], -r["n_sharp_locks"])
+    for i, r in enumerate(sorted(allr, key=pk)): r["rank_spm"] = i + 1
     det = lambda r, em: dict(evaluate(r["a_mm"], r["w_mm"], r["t2_um"], details=True, em=em), idx=r["idx"], rank=r["rank"],
-                             rank_sharp=r["rank_sharp"], stage=r["stage"])
+                             rank_sharp=r["rank_sharp"], rank_spm=r["rank_spm"], stage=r["stage"])
     top = [det(r, True) for r in allr[:10]]
     top_sharp = [det(r, False) for r in sorted(allr, key=sk)[:10]]
+    top_spm = [det(r, False) for r in sorted(allr, key=pk)[:10]]
     bd = det(next(r for r in allr if r["idx"] == [0, 0, 0]), True)
     n = len(allr)
     corr = {ax: float(np.corrcoef([r[ax] for r in allr], [r["score"] for r in allr])[0, 1]) for ax in ("a_mm", "w_mm", "t2_um")}
@@ -342,7 +356,7 @@ def run(workers=8, refine_top=5):
                           scoring=__doc__.split("Lock (the scoring definition):")[1].split("Golden ratio:")[0].strip(),
                           golden="secondary non-scoring column: adjacent ratios of sorted distinct sharp-lock frequencies vs 1.618",
                           knees="unscored: knee crossings need a field amplitude; with no source every amplitude is exactly 0",
-                          window_Hz=[FMIN, FMAX], p_atm=P_ATM, T_K=S.T_REF, base5=BASE, gas_Q=GAS_Q_FALLBACK,
+                          window_Hz=[FMIN, FMAX], p_atm=P_ATM, T_K=S.T_REF, base5=BASE, gas_Q=GAS_Q_SOURCE, 
                           coarse_axes={k: [round(lattice_value(k, i), 5) for i in v] for k, v in axes_i.items()},
                           box={k: [round(lattice_value(k, lo), 5), round(lattice_value(k, hi), 5)] for k, (lo, hi) in box.items()},
                           coarse_step="phi^(1/2)", refine=f"top {refine_top} coarse seeds, phi^(1/{LAT}) steps, +-{REFINE_K} per axis, clipped to the box",
@@ -350,8 +364,9 @@ def run(workers=8, refine_top=5):
                           score_correlation=corr,
                           qz_sound=S.QZ_SOUND_SEL,
                           n_cascade_fail=sum(1 for r in allr if not r["cascade_ok"]),
-                          ranking="cascade gate first (thermal < acoustic < electric in every cavity), then primary: score (number of locks), tie-break distinct modes; secondary: sharp locks (not density-guaranteed)"),
-                top10=top, top10_sharp=top_sharp, base5=bd, results=allr)
+                          ranking="cascade gate first (thermal < acoustic < electric in every cavity), then primary: score (number of locks), tie-break distinct modes; secondary: sharp locks (not density-guaranteed); third: sharp_per_mode desc, tie sharp locks (rank_spm)",
+                          gas_Q_range=[min(r["gas_Q_first"] for r in allr if r["gas_Q_first"]), max(r["gas_Q_first"] for r in allr if r["gas_Q_first"])]),
+                top10=top, top10_sharp=top_sharp, top10_spm=top_spm, base5=bd, results=allr)
 
 
 def main():
@@ -367,10 +382,10 @@ def main():
     m = res["meta"]
     print(f"coarse {m['n_coarse']} + refine {m['n_refine']} geometries in {m['runtime_s']} s; base5 rank {res['base5']['rank']} "
           f"(sharp rank {res['base5']['rank_sharp']}) score {res['base5']['score']} sharp {res['base5']['n_sharp_locks']}")
-    for r in res["top10"] + res["top10_sharp"]:
+    for r in res["top10"] + res["top10_spm"]:
         print(f"#{r['rank']:3d} a {r['a_mm']:.4f} mm w {r['w_mm']:.4f} mm t2 {r['t2_um']:.3f} um | score {r['score']} "
               f"(mode {r['n_mode_locks']}, refl {r['n_reflection_locks']}, sharp {r['n_sharp_locks']}) distinct {r['n_distinct_modes']} cascade {r['cascade_ok']} "
-              f"| phi nearest {r['golden']['nearest_phi']}")
+              f"| modes {r['n_modes_window']} spm {r['sharp_per_mode']} (spm rank {r['rank_spm']}) | phi nearest {r['golden']['nearest_phi']}")
     print("wrote", os.path.basename(a.out))
 
 

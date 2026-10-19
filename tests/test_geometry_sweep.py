@@ -2,7 +2,8 @@
 
 A lock is two modes of different cavities whose own model linewidths (f/Q) overlap at half maximum,
 |f_i - f_j| <= (f_i/Q_i + f_j/Q_j)/2, or a boundary-reflection round trip landing inside a real mode's half-width.
-No tolerance is invented; a mode with no Q in the model (gas cavity) has width 0."""
+No tolerance is invented. Since the derived gas Q (solver_v0.gas_Q) the gas-cavity modes carry their own width f/Q;
+a mode passed with Q=None (the pure unit tests below) still has width 0."""
 import json
 import sys
 from pathlib import Path
@@ -84,6 +85,17 @@ def test_base5_geometry_reproduces_the_solver_modes_and_stays_zero(vrh):
     assert r["score"] == r["n_mode_locks"] + r["n_reflection_locks"]
 
 
+def test_gas_modes_carry_the_derived_gas_Q(vrh):
+    r = G.evaluate(1.5, 1.0, 5.0, details=True)
+    a = S.build_stack(3.0, 1.0)["r_in"]
+    f0 = r["modes_Hz"]["B"][0]
+    q = S.gas_Q(f0, a, p=G.P_ATM * 101325.0, T=S.T_REF, comp="HHO")
+    assert 0 < q < float("inf")
+    assert r["gas_Q_first"] == pytest.approx(q, rel=1e-3) and r["Q_eff"]["B"]["Q_first"] == pytest.approx(q, rel=1e-3)
+    assert "derived" in r["Q_eff"]["B"]["source"]
+    assert r["sharp_per_mode"] == pytest.approx(r["n_sharp_locks"] / r["n_modes_window"], abs=1e-4)
+
+
 def test_build_stack_default_is_base_and_tourbillon_thickness_is_opt_in():
     assert S.build_stack(3.0, 1.0) == S.build_stack(3.0, 1.0, t_l2=5 * S.UM)
     l2 = [x for x in S.build_stack(3.0, 1.0, t_l2=8 * S.UM)["layers"] if x[0] == "layer2"][0]
@@ -111,3 +123,7 @@ def test_sweep_output_file_is_consistent():
     assert d["base5"]["a_mm"] == 1.5 and d["base5"]["w_mm"] == 1.0 and d["base5"]["t2_um"] == 5.0
     for r in d["top10"]:
         assert r["cascade_ok"] and r["score"] == len(r["locks"])
+    assert "derived" in m["gas_Q"] and 0 < m["gas_Q_range"][0] <= m["gas_Q_range"][1]
+    assert sorted(r["rank_spm"] for r in d["results"]) == list(range(1, len(ranks) + 1))
+    spm = [r["sharp_per_mode"] for r in d["top10_spm"]]
+    assert spm == sorted(spm, reverse=True) and all(r["cascade_ok"] for r in d["top10_spm"])

@@ -476,3 +476,12 @@ Danny's intent (2026-10-19), recorded only; nothing is coded. Today's solver is 
    - **Initial conditions:** whether to start from the steady-state solution.
    - **The trigger:** how the threshold is detected, and what counts as a lock.
    - **Known defect:** the averaged gas temperature in the current steady run reads 293.023 K with no heating. This is a quadrature artifact and must be fixed at its source before transient runs build on it.
+
+## Geometry sweep re-run with derived gas Q (2026-10-19)
+Method change: the sweep's gas-cavity (B) modes no longer have width 0. Each takes Q = `solver_v0.gas_Q(f, a, p, T, 'HHO')` at the fill state (1 atm HHO, 293 K; no source, so the gas stays at 293 K): wall thermal boundary layer plus classical bulk absorption, viscous wall loss 0 for l = 0. This is a modelling assumption (isothermal wall, no relaxation or discharge loss, so an upper bound on Q), not measured physics. The lock rule is unchanged, |f_i − f_j| ≤ (f_i/Q_i + f_j/Q_j)/2, but the gas mode now contributes its own width. Same grid (coarse 576 on the φ^(1/2) lattice + refine around the top 5); the refine seeds moved, so 769 geometries this time (751 before). New field `sharp_per_mode` = sharp locks / modes in the window, with a third ranking `rank_spm` (cascade gate first, then sharp_per_mode, tie sharp locks) and `top10_spm`.
+
+- **Gas Q:** first B mode 298.5 for base5 (254 kHz); first-mode range 170 (a 0.573 mm) to 447 (a 3.087 mm); high modes near 12 MHz fall to about 43–45.
+- **Top by score:** a 3.087 mm, w 2.058 mm, t2 9.12 µm, score 309 (236 mode + 73 reflection), 30 sharp, 217 modes, sharp per mode 0.138 (rank_spm 353). Top 10 by score are all a 3.087 mm, w 2.058 mm; the edge-of-range bias stays.
+- **Top by sharp per mode:** a 0.573 mm, w 1.272 mm, t2 2.43 µm, 20 sharp / 59 modes = 0.339. The top 5 are all a 0.573 mm; the top 20 include 0.573 and 0.729 mm, now joined by 0.927 and 1.179 mm.
+- **base5:** score 81 (52 + 29), rank 447/769; 15 sharp / 108 modes = 0.139, rank_spm 346.
+- **Against 29dca55 (gas width 0):** the old score #1 (3.087 / 1.938 / 8.59 µm, 215) now scores 295 (rank 28). Total locks across the sweep rose from 71,576 to 104,821 (+46 %) and sharp locks from 10,343 to 13,961. Every lock involves the bubble both before and after (no Q–T lock in either run). The small-bubble winners survive the derived gas width at the top of the sharp-per-mode ranking (0.321 → 0.339).
