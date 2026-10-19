@@ -136,10 +136,20 @@ def test_solver_layer2_peak_comes_from_its_own_samples():
     pre = next(p for p in S.PRESETS if p["id"] == "base5")
     st = S.build_stack(pre["core_d"], pre["wall"])
     iso = [x for x in st["layers"] if x[0] in ("quartz", "layer2", "bto", "gddy")]
-    f = min(S.l0_modes(iso), key=lambda x: abs(np.log(x / 2.0e6)))
+    f = S.run_case(pre, {})["ac"]["f"]   # the solver's own selection: lowest computed l=0 shell mode (fundamental)
     ac = S.mode_energy_stats(f, iso, 1.0e-6)
     lay = {m: (a, b) for m, a, b in iso}
     for key in ("quartz", "layer2"):
         own = max(s for r, m, s in ac["profile_m"] if m == key)
         assert S.piezo_coupling(key, ac["profile_m"], *lay[key], 293.0, f)["sigma_peak_Pa"] == pytest.approx(own, rel=1e-12)
         assert own > 0
+
+
+def test_mode_selection_is_the_lowest_computed_shell_mode_and_never_invented():
+    # 2 MHz selection target removed 2026-10-19: select the fundamental; with no computed mode, no frequency is invented
+    assert S.lowest_shell_mode([3.121e6, 0.694e6, 6.016e6]) == 0.694e6
+    assert S.lowest_shell_mode([]) is None
+    st = S.build_stack(2.0, 0.5)
+    nm = S.no_mode_stats(st["layers"], 0.0)
+    assert nm["f"] is None and nm["peak_stress"] == 0.0 and nm["loss"] == {}
+    assert all(s == 0.0 for _, _, s in nm["profile_m"])

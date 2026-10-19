@@ -564,6 +564,17 @@ def mode_energy_stats(f, layers, W_mode):
     prof_m = [(x[0], x[1], scale * max(abs(x[3]), abs(x[4]))) for x in rows]   # (r, material, |sigma|): per-layer lookups
     return dict(f=f, W=W_mode, peak_stress=smax, Q_eff=1 / invQ, share=share, loss=loss, profile=prof, profile_m=prof_m)
 
+def lowest_shell_mode(modes):
+    """Selected acoustic mode: the lowest computed l=0 shell mode (fundamental). None if the solver found none;
+    no frequency is invented (the former 2 MHz selection target was removed 2026-10-19)."""
+    return min(modes) if modes else None
+
+def no_mode_stats(layers, W_mode):
+    """Stand-in when no l=0 shell mode was computed: no frequency (f = None), zero stress everywhere, no loss."""
+    prof = [(r, 0.0, 0.0) for _, a, b in layers for r in (a, b)]
+    prof_m = [(r, m, 0.0) for m, a, b in layers for r in (a, b)]
+    return dict(f=None, W=W_mode, peak_stress=0.0, Q_eff=None, share={}, loss={}, profile=prof, profile_m=prof_m)
+
 def forced_spectrum(layers, r_probe, fs):
     out = []
     for f in fs:
@@ -734,12 +745,13 @@ def run_case(pre, ref):
         return shell, [f for f in loaded if f not in shell]
     m_iso_all = l0_modes(iso); m_bond_all = l0_modes(lay)
     m_iso, gas_iso = split(m_iso_all, vac_modes(iso)); m_bond, _ = split(m_bond_all, vac_modes(lay))
-    f_target = 2.0e6
-    f_ac = min(m_iso, key=lambda f: abs(math.log(f / f_target))) if m_iso else f_target
+    # selection = lowest computed l=0 shell mode (fundamental), geometry only; all computed modes are still reported.
+    # The former 2 MHz selection target was removed 2026-10-19 (unverified artifact, see DESIGN_STATE).
+    f_ac = lowest_shell_mode(m_iso); f_bond = lowest_shell_mode(m_bond)
     # acoustic mode energy marched from 0: dW/dt = -(w/Q_eff) W + P_src, P_src = 0 (no drive) -> W = 0 at all times
     W_ac = 0.0
-    ac = mode_energy_stats(f_ac, iso, W_ac)
-    ac_bond = mode_energy_stats(min(m_bond, key=lambda f: abs(math.log(f / f_target))), lay, W_ac) if m_bond else None
+    ac = mode_energy_stats(f_ac, iso, W_ac) if f_ac is not None else no_mode_stats(iso, W_ac)
+    ac_bond = mode_energy_stats(f_bond, lay, W_ac) if f_bond is not None else None
     # static fill-pressure stress in the quartz (Lame thick sphere, inner wall hoop) [calc]
     p = pre["p_atm"] * 101325.0; a, b = st["r_in"], st["r_q"]
     s_fill = p * (b ** 3 + 2 * a ** 3) / (2 * (b ** 3 - a ** 3))
@@ -920,7 +932,7 @@ def package(pre, runs, ref):
         # ---- REAL core fields (previously the core got zeros -> black disc) ----
         gh = run["gas_hot"]; a_in = run["stack"]["r_in"]; ch = run["chem"]
         core_T = gas_T_profile(float(Tss[0]), gh["P_cond"], a_in, r_core)
-        u_a = abs(ac["profile"][0][2]); w_ac = 2 * math.pi * ac["f"]
+        u_a = abs(ac["profile"][0][2]); w_ac = 2 * math.pi * ac["f"] if ac["f"] else 0.0
         rho_g = gh["p_seal"] * 0.012011 / (8.314 * T_REF); k_g = w_ac / gh["c_hot"]
         def j0_(x): return 1.0 if x == 0 else math.sin(x) / x
         def j1_(x): return 0.0 if x == 0 else math.sin(x) / x ** 2 - math.cos(x) / x
@@ -931,7 +943,7 @@ def package(pre, runs, ref):
         core_B = [0.0 for r in r_core]
         wall_peak = max(stress) if stress else 0.0
         core_note = dict(
-            acoustic=f"HHO gas pressure in the core p = A j0(kr) (gas-loaded mode at {ac['f']/1e6:.3f} MHz, c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
+            acoustic=f"HHO gas pressure in the core p = A j0(kr) (gas-loaded mode at {f"{ac['f']/1e6:.3f} MHz" if ac['f'] else "none (no l=0 shell mode computed)"}, c(T_gas) {gh['c_hot']:.0f} m/s): max {max(core_p):.3g} Pa = {max(core_p)/max(wall_peak,1e-30):.2g} x the quartz peak stress; continuous with the wall in radial normal stress (sigma_rr = -p), not in hoop stress. Log colour scale.",
             thermal=f"steady gas T profile (uniform heating {gh['P_cond']:.3g} W conducted to the wall, k~T^0.75): centre {core_T[0]:.0f} K, wall {float(Tss[0]):.0f} K, volume mean {gh['T_gas']:.0f} K",
             optical="net radial flux of a uniformly emitting, optically thin plasma: F(r) = P r/(4 pi a^3), zero at the centre by symmetry [est emission profile]. Log colour scale.",
             electric=f"marched radial field E(r,t) from 0 (eps dE/dt + sigma E = -dP/dt, J_src = 0: {NO_DRIVE}); core E = 0 (no free charge, D = 0); max |E| in the stack {max(abs(x) for x in Efield):.3g} V/m",
@@ -944,7 +956,7 @@ def package(pre, runs, ref):
             n_ = MAT[m]["n"] or 1.0
             acc_o += (b - a) * n_ / C0; acc_a += (b - a) / MAT[m]["cL"]
             t_opt.append(acc_o); t_ac.append(acc_a)
-        tau_ac = ac["Q_eff"] / (math.pi * ac["f"])
+        tau_ac = ac["Q_eff"] / (math.pi * ac["f"]) if ac["f"] else None
         # vectors (start/termination radii and frequencies)
         lay = {m: (a, b) for m, a, b in run["stack"]["layers"]}
         f_opt = C0 / (486.1e-9)
@@ -968,7 +980,7 @@ def package(pre, runs, ref):
             dict(domain="optical", f_start=C0 / 434e-9, f_end=C0 / 656.3e-9, r_start=run["stack"]["r_in"],
                  r_end=oinfo["term_r"] or R, what="Balmer 434/486/656 nm pass the quartz and layer two, cross the BTO film and are absorbed in the metallic Gd-Dy film [est]; inner phosphor removed pending further work (2026-10-19)"),
             dict(domain="acoustic", f_start=ac["f"], f_end=ac["f"], r_start=run["stack"]["r_in"], r_end=lay["gddy"][1],
-                 r_end_bonded=ac_term_bond, what="l=0 shell mode nearest 2 MHz; isolated shell reflects at the Gd-Dy free surface; if the ladder is bonded, 90 % of loss is reached at the marked radius"),
+                 r_end_bonded=ac_term_bond, what="lowest l=0 shell mode (fundamental); isolated shell reflects at the Gd-Dy free surface; if the ladder is bonded, 90 % of loss is reached at the marked radius"),
             dict(domain="thermal", f_start=thermal_track(run["stack"], run["stack"]["r_in"] + 1e-6), f_end=thermal_track(run["stack"], R),
                  r_start=run["stack"]["r_in"], r_end=R, what="heat diffuses to the 293 K reference surface (no sink chosen)"),
         ]
@@ -1145,14 +1157,14 @@ def main():
         run = run_case(pre, ref)   # one no-source run (no power levels)
         c = package(pre, [run], ref); find_crossings(c); cases.append(c)
         S_ = c["state"]
-        log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in S_['acoustic']['l0_isolated'][:4]]} MHz | mode nearest 2 MHz {S_["acoustic"]["f_mode"]/1e6:.3f} MHz "
+        log.append(f"{pre['id']:10s} OD {c['OD_quartz_mm']} mm R_out {c['R_outer_mm']} | l0 iso {[round(f/1e6,3) for f in S_['acoustic']['l0_isolated'][:4]]} MHz | lowest l=0 shell mode {f"{S_['acoustic']['f_mode']/1e6:.3f} MHz" if S_['acoustic']['f_mode'] else "none"} "
                    f"W {S_['acoustic']['W_mJ']} mJ stress {S_['acoustic']['peak_stress_MPa']} MPa Qeff {S_['acoustic']['Q_eff']} | E max {S_['electric']['march']['E_max_V_m']} V/m "
                    f"| T_gas {S_['gas']['T_gas_K']} K p {S_['gas']['p_hot_Pa']} Pa | T_qz_in {S_['thermal']['T_quartz_in']} K total heat {S_['thermal']['total_heat_W']} W | crossings {len(S_['crossings'])}")
         print(log[-1], flush=True)
     data = dict(meta=dict(title="Stratified bubble sphere - multi-domain radial model v0", date="2026-10-19",
                           status="v0 PROTOTYPE - ESTIMATED PHYSICS - not validated - paper model, nothing measured",
                           scenario="No source (2026-10-19): the circulating-power scenarios and power levels are removed; nothing is injected. "
-                                   "Electric field marched from 0 (J_src = 0: " + NO_DRIVE + "); acoustic mode energy marched from 0 at the l=0 isolated-shell mode nearest 2 MHz; "
+                                   "Electric field marched from 0 (J_src = 0: " + NO_DRIVE + "); acoustic mode energy marched from 0 at the lowest l=0 isolated-shell mode (fundamental); "
                                    "couplings (piezo, pyro, electrocaloric) run on whatever the fields carry; outer surface held at 293 K (reference only, no sink chosen).",
                           phi=PHI, materials=MAT, ref_file="shell_phi_sweep_calc_output.txt (read-only)" if ref else None),
                 cases=cases)

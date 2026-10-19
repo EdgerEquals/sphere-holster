@@ -410,3 +410,10 @@ Danny's flag (2026-10-19). Recorded only; nothing in the code changes.
 - **Tests:** `tests/test_piezo_pyro_couplings.py` L139 repeats the same nearest-to-2 MHz selection.
 - **What it is:** not a design target and not a source. It only picks the mode nearest 2 MHz.
 - **Status:** a question for the team, not a target, pending a decision on whether to keep, replace or remove it.
+
+## Note: 2 MHz target removed from the solver and tests (2026-10-19)
+Danny's decision (2026-10-19), following the flag above.
+
+- **Removed:** the 2 MHz selection target (`f_target = 2.0e6` and the nearest-to-2 MHz selection) has been removed from `solver_v0.py` and from `tests/test_piezo_pyro_couplings.py`.
+- **New rule:** the solver now selects the lowest computed l=0 shell mode (the fundamental), for the isolated shell and likewise for the bonded stack, from the geometry alone. It still reports all computed modes (`l0_isolated`, `l0_bonded`, gas-cavity modes). If no shell mode is computed, no frequency is invented.
+- **Leftovers:** if the team finds any remaining detection of 2 MHz in outputs, labels or docs, it is a leftover artifact of the removed target, not a design value. Treat it as noise to clean up, not a target to optimize toward.
