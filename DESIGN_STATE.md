@@ -398,3 +398,4 @@ Danny's decisions (2026-10-19), recorded as one piece, following the bidirection
 **Amendment (2026-10-19), Danny's corrections to point 1 above:**
 - **Frequencies come from the geometry already in the model.** The model holds the geometry, so every frequency is derived from it, not supplied from outside. Where point 1 says "derive the geometry from the frequency we already have", read it as: the frequencies we have are the ones the model's geometry gives.
 - **The three cavities are the hydrogen bubble, the quartz layer and the tourmaline alloy layer.** This replaces "the two layers and the hydrogen bubble" in point 1.
+- **Same layer, two names:** the tourmaline alloy layer is the tourbillon, the single mixed shell of tourmaline, BTO and Gd-Dy grains in the MTES:TEOS 80:20 binder (see "Composition and tuning" under the EMF build future item). The record treats them as one layer.
