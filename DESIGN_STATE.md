@@ -213,3 +213,13 @@ Design intent from Danny (2026-10-19), recorded only. Nothing is coded for it. P
    - Keep building out the single-state model first.
    - The time-domain run is the natural bridge: the solver marches in time, keeps history, and records the field at fixed radii, so the wave tail and the oscillation are visible.
    - Then promote to multi-state, with the guided channels, spin/rotation and rotating oscillation as the first multi-state features.
+
+## Decision: ionisation and plasma sit inside the electric holster (2026-10-19)
+Danny's decision (2026-10-19). Ionisation and plasma are not their own energy domains. They sit inside the existing holsters:
+
+- **Electric holster: the field side.** Ionisation threshold, the Paschen curve and electron density. Paschen here means gas-breakdown physics as a field-side quantity of the gas (breakdown field vs pressure × length); it does not refer to electrodes, which remain removed from the model.
+- **Chemical holster: the plasma chemistry.** Recombination, the HHO reactions and the autoignition cascade.
+- **The plasma state straddles both holsters.** The crossover between them is a documented handoff between the electric and chemical holsters, not a gap.
+
+## Future item: handoff rules between holsters (2026-10-19)
+Recorded only; nothing is coded and no reviewer has been run. Many things will sit in more than one holster (the plasma state above is the first example), so the model needs rules for how handoffs between holsters work. This is to be put to the crew (Claude and Grok) with a push, but not yet.
