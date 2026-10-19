@@ -485,3 +485,22 @@ Method change: the sweep's gas-cavity (B) modes no longer have width 0. Each tak
 - **Top by sharp per mode:** a 0.573 mm, w 1.272 mm, t2 2.43 µm, 20 sharp / 59 modes = 0.339. The top 5 are all a 0.573 mm; the top 20 include 0.573 and 0.729 mm, now joined by 0.927 and 1.179 mm.
 - **base5:** score 81 (52 + 29), rank 447/769; 15 sharp / 108 modes = 0.139, rank_spm 346.
 - **Against 29dca55 (gas width 0):** the old score #1 (3.087 / 1.938 / 8.59 µm, 215) now scores 295 (rank 28). Total locks across the sweep rose from 71,576 to 104,821 (+46 %) and sharp locks from 10,343 to 13,961. Every lock involves the bubble both before and after (no Q–T lock in either run). The small-bubble winners survive the derived gas width at the top of the sharp-per-mode ranking (0.321 → 0.339).
+
+## Geometry x fill-state sweep (2026-10-19)
+Opt-in `geometry_fill_sweep_v0.py` → `geometry_fill_sweep_v0.json`. It asks where the lock optimum sits across geometry and fill together instead of assuming 1 atm HHO. The lock rule, sharp definition, cascade gate and scoring are unchanged; there's no source, so T stays 293 K. The solver isn't changed, and `geometry_sweep_v0.json` isn't regenerated.
+
+- **Fill axis (20 states):** p ∈ {0.382, 0.618, 1, 1.618, 2.618} atm (φ⁻² … φ²) × x_H2 ∈ {0.50, 2/3 (HHO), 0.75, 0.80}, with O₂ making up the rest.
+- **Mix consistency:** the gas enters everywhere through `geometry_sweep_v0.evaluate(p_atm=, comp=)`.
+  - B modes and bubble round trips use c from `gas_props(293 K, p, comp)`.
+  - The bonded stack is gas-loaded with that c and K = γp, via a temporary sweep-side override of `gas_Z` that is restored afterwards.
+  - Gas Q per B mode is `gas_Q(f, a, p, 293 K, comp)`.
+  - The B cascade thermal rate uses the mix's k/(ρcₚ).
+  - The default `evaluate()` path is unchanged.
+- **Geometry subsample:** 48 points per fill state on the same φ^(1/8) lattice and box: a {0.573, 0.729, 1.5, 3.087} mm × w {0.382, 1.0, 1.272, 2.058} mm × t2 {2.43, 5.0, 10.29} µm.
+- **Counts:** coarse 960, plus 51 refine points (geometry ±φ^(1/4) per axis at each of the top 5 seeds' fill states, plus each seed geometry at its four fill-grid neighbours; the seeds overlap), so **1,011 in total**, 124.6 s on 8 workers. No geometry failed the cascade check.
+- **Top by sharp per mode:** a 0.573 mm, w 1.825 mm, t2 2.15 µm at 1.618 atm, x_H2 0.80: 26 sharp / 66 modes = 0.394. The top 10 are all x_H2 0.80, with a 0.573 or 0.646 mm.
+- **Top by score:** a 3.087 mm, w 2.058 mm, t2 2.43 µm at 0.382 atm, x_H2 0.50: score 536 (439 mode + 97 reflection), 50 sharp / 244 modes = 0.205. Low pressure and an O₂-rich mix raise raw score; the large-bubble edge still wins on score in every fill state.
+- **Small bubbles:** in every one of the 20 fill states, the best sharp-per-mode geometry has a 0.573 or 0.729 mm bubble. Mix matters more than pressure: the coarse mean of sharp per mode is highest at x_H2 0.80 (0.198–0.214) and lowest at HHO (0.160–0.172).
+- **1 atm HHO:** best 0.573 / 1.0 / 5.0 at 0.315 (rank_spm 69 of 1,011); base5 scores 80, with 12 sharp / 108 = 0.111.
+- **Sensitivity caveat:** HHO through `gas_props` has c 533.20 m/s against c_hho's 532.86 m/s (0.06 %). That alone changes the sharp counts in 41 of 48 1 atm HHO cells relative to 3b81839, for example base5 going from 15 sharp to 12. So differences of about 0.03 in sharp per mode between single cells are within that sensitivity; the mix trend in the means is the firmer result.
+- **Gas Q:** the first B mode's Q ranges from 91 to 800 across the sweep.

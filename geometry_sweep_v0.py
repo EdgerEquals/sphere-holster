@@ -202,14 +202,43 @@ def q_of(f, L):
     return S.mode_energy_stats(f, L, 0.0)["Q_eff"]
 
 
-def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
-    """All modes, locks and score for one geometry. No source: every mode energy is 0."""
+def _fill_gas_Z(gp):
+    """Opt-in (fill sweep only): solver_v0.gas_Z with the mix's own c and gamma from gas_props at the fill state
+    (K = gamma p). Same pole-free form; used only while evaluate(comp=...) runs, then the solver's own is restored."""
+    c, K = gp["c"], gp["gamma"] * S.GAS["p"]
+    def gz(f, r_in):
+        k = 2 * math.pi * f / c; x = k * r_in
+        return -K * k * math.sin(x) / x, (math.sin(x) / x ** 2 - math.cos(x) / x)
+    return gz
+
+
+def evaluate(a_mm, w_mm, t2_um, details=False, em=False, p_atm=None, comp=None):
+    """All modes, locks and score for one geometry. No source: every mode energy is 0.
+    Default (p_atm=None, comp=None): the 1 atm HHO path exactly as before (c_hho, solver gas_Z). Opt-in fill state
+    (geometry_fill_sweep_v0): p_atm and/or comp (name or {species: x}) set the gas everywhere it enters: the rigid-wall
+    B modes and bubble round trips use c from S.gas_props, the bonded-stack gas loading uses that c and K = gamma p,
+    gas Q is S.gas_Q at (p, 293 K, comp), and the cascade thermal rate uses the mix's k/(rho cp)."""
+    if comp is None and p_atm is None:
+        return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM, None)
+    old_gz = S.gas_Z
+    try:
+        return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM if p_atm is None else p_atm, comp or GAS_COMP)
+    finally:
+        S.gas_Z = old_gz; S.GAS["p"] = P_ATM * 101325.0; S.GAS["T"] = S.T_REF
+
+
+def _evaluate(a_mm, w_mm, t2_um, details, em, p_atm, comp):
     t0 = time.time()
     st = S.build_stack(2 * a_mm, w_mm, t_l2=t2_um * S.UM)
-    S.GAS["p"] = P_ATM * 101325.0; S.GAS["T"] = S.T_REF
+    S.GAS["p"] = p_atm * 101325.0; S.GAS["T"] = S.T_REF
     a, b = st["r_in"], st["r_q"]; t2 = t2_um * S.UM
     lay = st["layers"]
-    c_g = S.c_hho(S.T_REF)
+    if comp is None:
+        c_g = S.c_hho(S.T_REF); qcomp = GAS_COMP
+        rho_g = P_ATM * 101325.0 * 0.012011 / (8.314462618 * S.T_REF); al_B = S.K_HHO0 / (rho_g * S.CP_HHO)
+    else:
+        gp = S.gas_props(S.T_REF, S.GAS["p"], comp); c_g = gp["c"]; qcomp = comp
+        al_B = gp["D_t"]; S.gas_Z = _fill_gas_Z(gp)
     LQ = [("quartz", a, b)]; LT = [("layer2", b, b + t2)]
     B = gas_rigid_l0(a, c_g)
     Qm = free_modes(LQ)
@@ -217,7 +246,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
     Tm = free_modes(LT) + free_modes(LT, 0.6 * f_fp, 1.4 * f_fp, 400)
     Sm = split(S.l0_modes(lay), free_modes(lay))
     s_stats = S.all_modes_stats(Sm, lay, 0.0)
-    modes = ([dict(cav="B", f=f, Q=S.gas_Q(f, a, p=P_ATM * 101325.0, T=S.T_REF, comp=GAS_COMP)) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
+    modes = ([dict(cav="B", f=f, Q=S.gas_Q(f, a, p=p_atm * 101325.0, T=S.T_REF, comp=qcomp)) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
              + [dict(cav="T", f=f, Q=q_of(f, LT)) for f in Tm] + [dict(cav="S", f=m["f"], Q=m["Q_eff"]) for m in s_stats])
     assert all(m["W"] == 0.0 for m in s_stats)   # no source: zero run
     cLq = S.MAT["quartz"]["cL"]
@@ -228,8 +257,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
     part = {(lk[k][0], lk[k][1]) for lk in locks for k in ("a", "b") if not lk[k][0].endswith("rt")}
     n_in = sum(1 for m in modes if m["f"] <= FMAX)
     # thermal (model convention tau = L^2/(pi^2 alpha), f = 1/(2 pi tau)) and electric (estimates), per cavity
-    rho_g = P_ATM * 101325.0 * 0.012011 / (8.314462618 * S.T_REF)
-    al = dict(B=S.K_HHO0 / (rho_g * S.CP_HHO), Q=S.MAT["quartz"]["k"] / (S.MAT["quartz"]["rho"] * S.MAT["quartz"]["cp"]),
+    al = dict(B=al_B, Q=S.MAT["quartz"]["k"] / (S.MAT["quartz"]["rho"] * S.MAT["quartz"]["cp"]),
               T=m2["k"] / (m2["rho"] * m2["cp"]))
     Lc = dict(B=a, Q=w_mm * S.MM, T=t2)
     f_th = {k: math.pi * al[k] / (2 * Lc[k] ** 2) for k in al}
@@ -248,7 +276,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
              n_distinct_modes=len(part), n_modes_window=n_in,
              locks_per_mode=round(len(locks) / n_in, 4) if n_in else 0.0,
              sharp_per_mode=round(sum(1 for x in locks if not x["density_guaranteed"]) / n_in, 4) if n_in else 0.0,
-             gas_Q_first=round(modes[0]["Q"], 2) if B else None,
+             gas_Q_first=round(modes[0]["Q"], 2) if B else None, c_gas=round(c_g, 3),
              n_modes=dict(B=len(B), Q=len(Qm), T=len(Tm), S=len(Sm)),
              cascade_ok=all(cascade.values()), cascade=cascade, golden=gold, runtime_s=round(time.time() - t0, 2))
     if details:
