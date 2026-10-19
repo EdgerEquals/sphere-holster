@@ -116,3 +116,25 @@ def test_model_data_routes_couplings_to_electric_and_thermal_domains():
                 seen += 1
     assert seen > 0
     assert d["meta"]["materials"]["quartz"]["p_pyro_C_per_m2K"] == 0.0
+
+
+def test_lookup_excludes_neighbour_boundary_samples():
+    # quartz and BTO samples sit at layer two's edges with much larger hoop stress; they must not leak in
+    rows = [(A, "quartz", 9e6)] + [(r, "layer2", 1e6) for r in np.linspace(A, B, 6)] + [(B, "bto", 8e6)]
+    out = S.piezo_coupling("layer2", rows, A, B, 293.0, 3.0e6)
+    assert out["sigma_peak_Pa"] == pytest.approx(1e6)
+    ref = S.piezo_coupling("layer2", [(r, 1e6) for r in np.linspace(A, B, 6)], A, B, 293.0, 3.0e6)
+    assert out["U_e_layer_J"] == pytest.approx(ref["U_e_layer_J"])
+    q = S.piezo_coupling("quartz", [(A - 1e-4, "quartz", 2e6), (A, "quartz", 2e6), (A, "layer2", 7e6)], A - 1e-4, A,
+                         293.0, 3.0e6)
+    assert q["sigma_peak_Pa"] == pytest.approx(2e6)
+
+
+def test_solver_layer2_peak_comes_from_its_own_samples():
+    pre = next(p for p in S.PRESETS if p["id"] == "base5")
+    run = S.run_case(pre, 10.0, {})
+    out = S.package(pre, [run], {})
+    pd = next(iter(out["powers"].values()))
+    for key in ("quartz", "layer2"):
+        own = max(s for r, m, s in run["ac"]["profile_m"] if m == key)
+        assert pd["electric"]["piezo"][key]["sigma_peak_Pa"] == pytest.approx(own, rel=1e-3)

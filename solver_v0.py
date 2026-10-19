@@ -123,14 +123,17 @@ def pyro_p(key, T):
 
 
 def piezo_coupling(key, stress_rows, a, b, T_mean, f_mode):
-    """Acoustic -> ELECTRIC holster. stress_rows: [(r, |sigma| peak Pa)] inside [a, b] from the acoustic mode solution
-    (mode_energy_stats profile, at the solver's own eigenmode f_mode). Returns polarization / internal field / electrical
+    """Acoustic -> ELECTRIC holster. stress_rows: [(r, material, |sigma| peak Pa)] from the acoustic mode solution
+    (mode_energy_stats profile_m, at the solver's own eigenmode f_mode). Only this layer's own samples are used (material
+    == key, r in [a, b]); the neighbours' samples at the shared boundaries are excluded, because the hoop stress jumps
+    across an interface (2026-10-19 fix). Legacy (r, sigma) rows are accepted only for synthetic tests. Returns polarization / internal field / electrical
     energy density in the layer. No conductors, no circuit, no current through a load."""
     c = PIEZO[key]
     active = c["T_off"] is None or T_mean < c["T_off"]
     d = c["d"] if active else 0.0
     eps = EPS0 * c["eps_r"]
-    rows = [(r, s) for r, s in stress_rows if a - 1e-15 <= r <= b + 1e-15]
+    rows = [(x[0], x[-1]) for x in stress_rows
+            if a - 1e-15 <= x[0] <= b + 1e-15 and (len(x) == 2 or x[1] == key)]
     if not rows:
         rows = [(a, 0.0), (b, 0.0)]
     r = np.array([x[0] for x in rows]); s = np.array([x[1] for x in rows])
@@ -376,7 +379,8 @@ def mode_energy_stats(f, layers, P_circ):
     share = {m: Wi[m] / W1 for m in Wi}
     loss = {m: P_circ * share[m] / MAT[m]["Q"] for m in Wi}
     prof = [(x[0], scale * max(abs(x[3]), abs(x[4])), scale * x[2]) for x in rows]
-    return dict(f=f, W=P_circ / w, peak_stress=smax, Q_eff=1 / invQ, share=share, loss=loss, profile=prof)
+    prof_m = [(x[0], x[1], scale * max(abs(x[3]), abs(x[4]))) for x in rows]   # (r, material, |sigma|): per-layer lookups
+    return dict(f=f, W=P_circ / w, peak_stress=smax, Q_eff=1 / invQ, share=share, loss=loss, profile=prof, profile_m=prof_m)
 
 def forced_spectrum(layers, r_probe, fs):
     out = []
@@ -672,7 +676,7 @@ def package(pre, runs, ref):
         th = run["th"]
         # ---- piezo (-> electric holster) and pyro (-> thermal holster) couplings, quartz + layer2 ----
         lay_ab = {m: (a, b) for m, a, b in run["stack"]["layers"]}
-        prow = [(r_, s_) for r_, s_, u_ in ac["profile"]]
+        prow = ac["profile_m"]   # (r, material, |sigma|): each layer reads only its own samples
         piezo_out, pyro_out = {}, {}
         for key in ("quartz", "layer2"):
             if key not in lay_ab:
