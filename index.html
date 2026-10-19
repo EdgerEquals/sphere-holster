@@ -27,16 +27,19 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
 #snapbar{position:absolute;right:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 #snapbar button{background:rgba(28,35,51,.9);padding:3px 9px}
 #snapbar button.on{background:#2c5d9a;border-color:#6fa8ff}
+#wvLegend{position:absolute;left:8px;bottom:8px;background:rgba(10,14,22,.85);padding:5px 8px;border:1px solid #2a3244;border-radius:4px;pointer-events:none;font-size:12px}
+#wvLegend b{color:#fff}
 #wvFams label{margin-right:6px;white-space:nowrap}
 @media (max-width: 900px){ #side{width:100%!important;flex:none!important;max-width:100vw} #side table{width:100%;table-layout:fixed;word-break:break-word} #side .row{flex-wrap:wrap} }
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head><body>
-<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.4 · built 2026-10-19 13:42 AWST</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
+<div id="banner"><span id="ver" style="background:#ffd27a;color:#111;padding:1px 6px;border-radius:3px;margin-right:8px;font-size:13px">v0.4.1 · built 2026-10-19 14:29 AWST</span>v0 PROTOTYPE &mdash; ESTIMATED PHYSICS, NOT VALIDATED. Radial (1-D, l=0) coupled model; paper calculation, nothing measured. See Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md.</div>
 <div id="wrap">
  <div id="view"><canvas id="gl"></canvas><canvas id="overlay"></canvas>
   <div id="hud"></div>
   <div id="legend"></div>
+  <div id="wvLegend"></div>
   <div id="snapbar"><span id="snapFaces" style="display:flex;gap:4px"><button data-snap="front" title="look along -Z at the XY face">Front</button><button data-snap="side" title="look along -X at the YZ face">Side</button><button data-snap="top" title="look down -Y at the XZ face">Top</button></span><button data-snap="home" title="back to the default free orbit view">Reset / free view</button></div>
  </div>
  <div id="side">
@@ -54,8 +57,9 @@ table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #222a3a;
   <div class="row" id="wfopts"><label><input type="checkbox" id="wf" checked> waveforms (replace arrows; HHO core &rarr; quartz OD only)</label>
    <span class="lab">&phi; shift at HHO&rarr;quartz</span><select id="phimode"><option value="lambda">wavelength &times; &phi; (Danny postulate)</option><option value="phase">phase + 2&pi;/&phi;&sup2; (golden angle)</option><option value="off">off</option></select></div>
   <div class="row" id="snapopts"><span class="lab">View snaps</span><label><input type="checkbox" id="snapShow" checked> show Front / Side / Top buttons</label><span class="small">(square-on to each cut face, centred on the core, same zoom)</span></div>
-  <div class="row" id="waveopts"><label><input type="checkbox" id="wvAll"> <b>3D waves: all</b></label><span id="wvFams"></span></div>
+  <div class="row" id="waveopts"><label><input type="checkbox" id="wvAll"> <b>v0.4 3D waves: all</b></label><span id="wvFams"></span></div>
   <div class="row"><span class="lab">wave speed</span><input type="range" id="wvSpd" min="0.25" max="3" step="0.05" value="1" style="width:90px"><span id="wvSpdV" class="small">1.00&times;</span><span class="lab">wave opacity</span><input type="range" id="wvOp" min="0.05" max="1" step="0.05" value="0.45" style="width:90px"><span id="wvOpV" class="small">0.45</span></div>
+  <div class="row"><label><input type="checkbox" id="oldwf" checked> show v0.3 face waveforms (per-domain &lambda; lines + &lsquo;&lambda; shown &times;&rsquo; labels)</label><span class="small">untick to isolate the v0.4 3D waves</span></div>
   <div id="wvNote" class="small"></div>
   <div class="row"><button id="go">GO &mdash; switch ionisation ON</button><button id="reset">Reset (steady state)</button>
    <span class="lab">t</span><input type="range" id="tslider" min="0" max="1000" value="1000" style="width:170px"><span id="tval" class="small"></span></div>
@@ -759,7 +763,7 @@ function buildCut(){
     const bead=new THREE.Mesh(new THREE.SphereGeometry(0.026,16,10),new THREE.MeshBasicMaterial({color:'#ffffff'})); bead.visible=false; grp.add(bead);
     const labTxt = wf? v.domain+' '+fmtF(domainFreq(v.domain))+' · λ shown ×'+waveSpec(v.domain).S.toExponential(1) : v.domain+' '+fmtF(v.f_start);
     const lab=textSprite(labTxt,DCOL[v.domain],0.045); lab.position.copy(d.clone().multiplyScalar((wf?rq:r1)+0.14)); grp.add(lab);
-    cutGroup.add(grp); vecObjs.push({v,d,r0,r1,bead,arrow,wave,perp:new THREE.Vector3().crossVectors(d,Math.abs(d.y)>0.9?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0)).normalize()});});
+    grp.userData.v03wf=wf; cutGroup.add(grp); vecObjs.push({v,d,r0,r1,bead,arrow,wave,perp:new THREE.Vector3().crossVectors(d,Math.abs(d.y)>0.9?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0)).normalize()});});
   decorateFaces();
   // phi station rings on face 3 floor (arrow mode only; waveform view models the quartz only)
   if(!wf) C.stations_mm.forEach(s=>{ if(s<=C.R_outer_mm){const r=mmToWorld(s);const pts=[];for(let j=0;j<=30;j++){const a=j/30*Math.PI/2;pts.push(new THREE.Vector3(r*Math.cos(a),0.002,r*Math.sin(a)));}
@@ -1056,13 +1060,22 @@ const WAVE_MAX_PER_FAM=14, WAVE_V_DISP=0.12, WAVE_LAM_MIN=0.24, WAVE_LAM_MAX=0.6
 const waveGroup=new THREE.Group(); waveGroup.renderOrder=10; scene.add(waveGroup);
 const wShellGeo=new THREE.SphereGeometry(1,40,20);
 const wArcGeo=(()=>{ const gs=[]; [[1,0,0,0,1,0],[0,1,0,0,0,1],[1,0,0,0,0,1]].forEach(v=>{ const pts=[]; for(let j=0;j<=48;j++){ const a=j/48*Math.PI/2; pts.push(new THREE.Vector3(v[0]*Math.cos(a)+v[3]*Math.sin(a),v[1]*Math.cos(a)+v[4]*Math.sin(a),v[2]*Math.cos(a)+v[5]*Math.sin(a)).multiplyScalar(1.004)); }
-  gs.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),48,0.013,5,false)); }); return gs; })();   // wavefront arcs on the three cut faces (thickness scales with radius)
+  gs.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),48,0.016,5,false)); }); return gs; })();   // wavefront arcs on the three cut faces (thickness scales with radius)
 WAVE_FAM.forEach(F=>{ F.on=false; F.pool=[]; for(let k=0;k<WAVE_MAX_PER_FAM;k++){
   const sm=new THREE.MeshBasicMaterial({color:F.col,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
-  const am=new THREE.MeshBasicMaterial({color:F.col,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false});
+  const am=new THREE.MeshBasicMaterial({color:F.col,transparent:true,opacity:0,blending:THREE.NormalBlending,depthWrite:false,depthTest:false});   // bright arcs drawn after the quartz, not hidden by it; normal blending keeps their colour on bright faces (shells stay additive)
   const g=new THREE.Group(); const sh=new THREE.Mesh(wShellGeo,sm); sh.renderOrder=10; g.add(sh); wArcGeo.forEach(ag=>{ const m=new THREE.Mesh(ag,am); m.renderOrder=11; g.add(m); }); g.visible=false; g.userData={sm,am}; waveGroup.add(g); F.pool.push(g); } });
 $('wvFams').innerHTML=WAVE_FAM.map((F,i)=>`<label title="${F.desc}"><input type="checkbox" class="wvF" data-i="${i}"> <span class="sw" style="background:${F.col}"></span>${F.key} <span class="small">(${F.desc})</span></label>`).join('');
-function syncWaveMaster(){ const n=WAVE_FAM.filter(F=>F.on).length; $('wvAll').checked=n===WAVE_FAM.length; $('wvAll').indeterminate=n>0&&n<WAVE_FAM.length; }
+let qopSaved=null; const QOP_WAVES=0.3;
+function autoQuartz(){ // v0.4.1: drop quartz opacity while any 3D wave is on, restore when all are off (unless the user moved the slider)
+  const any=WAVE_FAM.some(F=>F.on), q=$('qop');
+  if(any && qopSaved===null){ qopSaved=+q.value; if(+q.value>QOP_WAVES){ q.value=QOP_WAVES; q.oninput(); } }
+  else if(!any && qopSaved!==null){ if(Math.abs(+q.value-QOP_WAVES)<1e-6){ q.value=qopSaved; q.oninput(); } qopSaved=null; }
+  const on=WAVE_FAM.filter(F=>F.on);
+  $('wvLegend').style.display=on.length?'block':'none';
+  $('wvLegend').innerHTML='<b>v0.4 3D waves</b> (expanding from core)<br>'+on.map(F=>`<span class="sw" style="background:${F.col}"></span>${F.key}: ${F.desc}`).join('<br>');
+}
+function syncWaveMaster(){ autoQuartz(); const n=WAVE_FAM.filter(F=>F.on).length; $('wvAll').checked=n===WAVE_FAM.length; $('wvAll').indeterminate=n>0&&n<WAVE_FAM.length; }
 document.querySelectorAll('.wvF').forEach(cb=>cb.onchange=()=>{ WAVE_FAM[+cb.dataset.i].on=cb.checked; syncWaveMaster(); });
 $('wvAll').onchange=()=>{ const on=$('wvAll').checked; WAVE_FAM.forEach(F=>F.on=on); document.querySelectorAll('.wvF').forEach(cb=>cb.checked=on); syncWaveMaster(); };
 $('wvSpd').oninput=()=>{ $('wvSpdV').textContent=(+$('wvSpd').value).toFixed(2)+'×'; };
@@ -1095,11 +1108,14 @@ function updateWaves(){
     if(F.on){ const n=Math.floor(wClock/T);
       for(let k=n;k>=0&&used<WAVE_MAX_PER_FAM;k--){ const r=r0+v*(wClock-k*T); if(r>rmax) break;
         const u=(r-r0)/Math.max(rmax-r0,1e-6), fade=Math.min(1,u*12)*Math.pow(1-u,0.8), g=F.pool[used++];
-        const a=op*F.a[k%2]*fade; g.visible=true; g.scale.setScalar(Math.max(r,1e-3)); g.userData.sm.opacity=a*0.22; g.userData.am.opacity=Math.min(1,a*2); } }
+        const a=op*F.a[k%2]*fade; g.visible=true; g.scale.setScalar(Math.max(r,1e-3)); g.userData.sm.opacity=a*0.3; g.userData.am.opacity=Math.min(0.95,a*2.4); } }
     for(let k=used;k<WAVE_MAX_PER_FAM;k++) F.pool[k].visible=false;
   });
 }
 
+function applyOldWf(){ const show=$('oldwf').checked;
+  cutGroup.children.forEach(g=>{ if(g.userData.v03wf) g.visible=show; });
+  orthoWaves.forEach(o=>{ o.wv.line.visible=show; o.wv.mark.visible=show; }); }
 // ---------------- control wiring ----------------
 function loadCase(){ C=D.cases[+$('preset').value]; window.CUR_CASE=C; if(window.drivePresetChanged) window.drivePresetChanged(C); const keys=Object.keys(C.powers).sort((x,y)=>(+x)-(+y)); const cur=$('power').value;
   $('power').innerHTML=keys.map(k=>`<option value="${k}">${(+k)>=1000?(+k/1000)+' kW':k+' W'}</option>`).join(''); $('power').value= keys.includes(cur)?cur:keys[Math.min(1,keys.length-1)];
@@ -1128,10 +1144,11 @@ function frame(){
 }
 function frameBody(){
   if(running){ const el=(performance.now()-t0wall)/1000; dispT=el; tNow=Math.exp(Math.log(T_MIN)+(Math.log(T_MAX)-Math.log(T_MIN))*Math.min(1,el/24)); $('tslider').value=Math.round(1000*Math.min(1,el/24)); if(el>26) running=false; }
-  stepTween(); updateWaves();
+  stepTween(); updateWaves(); applyOldWf();
   if($('viewmode').value==='cut'){ updateCut(tNow); controls.update(); renderer.render(scene,cam); octx.clearRect(0,0,overlay.width,overlay.height); }
   else { ocontrols.update(); updateOrtho(tNow); renderer.render(oscene,ocam); }
   hud(tNow);
 }
-resize(); loadCase(); requestAnimationFrame(frame); window.VIEWER_READY=true;
+resize(); loadCase(); setWaves(true);   // v0.4.1: 3D waves ON by default in the default quarter-cut view
+requestAnimationFrame(frame); window.VIEWER_READY=true;
 </script></body></html>
