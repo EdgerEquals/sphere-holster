@@ -282,3 +282,28 @@ Danny's framing (2026-10-19), recorded only; nothing is coded.
 - **Two boundaries per layer:** every layer has an inner boundary (the layer before it) and an outer boundary (the layer after it). The stack is therefore a chain of interfaces rather than a pile of materials.
 - **The final boundary:** whatever we decide on, it is where the model is driven and where power is extracted. It is an open question: no suggestions or candidate ideas are recorded. The right topology will be worked out when we get to it, because we will know what we need at that point.
 - **Build direction:** the model is being built from the top down, or in-out.
+
+## Future item: EMF build: E-B coupling (next build after drive removal) (2026-10-19)
+Danny's intent (2026-10-19), recorded only; nothing is coded. The electric and magnetic fields are two halves of one electromagnetic wave. The geometry's spin and rotation (the inhalation/exhalation cycle) is the coupling between them, and they spin and rotate with each other.
+
+1. **The missing half:** the magnetic field B is the half that the electric field currently lacks.
+2. **The coupling mechanism:** the spin-rotation cycle is what couples E and B.
+3. **The tourbillon layer:** this is what will let the tourbillon layer be fully modelled for amplitudes and behaviour. Without the magnetic side, its behaviour is only half-specified. Its composition is defined in "Composition and tuning (tourbillon layer)" below.
+4. **A seeded E field first:** a seeded E field, through the piezo coupling, could excite the tourbillon mechanically and show ring behaviour before the magnetic side exists. The EMF would then sustain and shape what the tourbillon started. A seeded E field is a test seed, not a drive.
+
+### Recipe parameters (tourbillon layer)
+- **Continuum model:** the model never tracks individual particle positions; it marches fields through shells with bulk properties. The tourbillon's particle-level detail therefore folds into effective constants rather than positions.
+- **A recipe, not a geometry:** the tourbillon layer is specified by:
+  - powder size (finer powder means more grain boundaries, more scattering and a lower Q);
+  - density;
+  - the chemistry ratio (which shifts the piezo and pyro coefficients).
+- **First-class inputs:** these fold into the layer's effective coupling strengths, damping and Q. This is the same way the gel-tuning note treats the sol-gel recipe.
+- **Caveat:** the model cannot resolve structure inside the layer. If the tourbillon's behaviour depends on particle arrangement rather than composition, that would need a separate discrete model.
+
+### Composition and tuning (tourbillon layer)
+Danny's specification (2026-10-19), recorded only; nothing is coded. The solver still has quartz, layer2, BTO and Gd-Dy as separate shells.
+
+- **One mixed layer, not four separate shells:** tourmaline, BTO (barium titanate, not barium nitrate) and Gd-Dy grains are suspended in the MTES:TEOS 80:20 silicate binder (the same sol-gel family as the gel-tuning note), then dipped and cured into a single shell.
+- **The binder** is the carrier, not a substrate.
+- **A dial per component:** each component gets its own powder size, density and chemistry ratio. These fold into the layer's effective coupling strengths, damping and Q, as in "Recipe parameters (tourbillon layer)" above.
+- **Tuning:** the layer is tuned to two modes at once, an acoustic mode and a radio-wave mode, so all three components operate in both fields at the same time. These tuning modes are fabrication and design targets, not a knee-frequency dial; the knee frequency stays emergent. Electrodes stay removed.
