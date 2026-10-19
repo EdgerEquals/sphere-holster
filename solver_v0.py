@@ -219,6 +219,7 @@ PIEZO["bto"] = dict(d=None, coeff=None, eps_r=EPSR0, phi=1.0, T_off=None, pyro=T
                     tags="p 2.0e-4 C/m2K single crystal [lit Lang 2005]; 0 above Curie ~393 K [est]; film grains: aligned upper bound, "
                          "random grains ~0 [est]; BTO piezo not modelled")
 MAT["bto"]["piezo_tags"] = PIEZO["bto"]["tags"]; MAT["bto"]["p_pyro_C_per_m2K"] = 2.0e-4
+PIEZO_LAYER2_DEFAULT = dict(PIEZO["layer2"])   # default layer two (unchanged by the tourmaline sweep)
 ETA_ALIGN = 1.0   # net c-axis alignment of polar grains: 1 = fully aligned UPPER BOUND [est]; random grains -> 0 [est]
 # Electric material constants for the march. eps_r: quartz 4.5 [lit]; layer two composite 3.5 (20 vol% eps 7 grains in
 # eps ~3 silica binder) [est]; BTO eps(T) as bto_eps [est]; phos_out silicone 3 [est]; ferrite NiZn 12 [est];
@@ -294,6 +295,67 @@ def electrocaloric(key, T, E_old, E_new):
     ds = p * dE
     dq = -T * ds
     return dict(ds_J_m3K=ds, dq_J_m3=dq, dT_adiabatic_K=dq / (MAT[key]["rho"] * MAT[key]["cp"]), p_net=p)
+
+
+# ---- Tourmaline end-members for the layer-two / tourbillon sweep (2026-10-19) ----
+# Backbone X Y3 Z6 (T6O18)(BO3)3 V3 W [lit, Henry et al., Am. Mineral. 96, 895 (2011)]. Substitutions: Y site Mg (dravite)
+# vs Fe2+ (schorl) vs Li+Al (elbaite, 2Fe2+ <-> Li+ + Al3+ [lit Hawkins 1995]); W site OH vs F vs O. Coefficients:
+#   p3: Hawkins, Mackinnon & Schneeberger, Am. Mineral. 80, 491 (1995). Table 5 predictions (from their Eqs. 4-5, linear in
+#       wt% FeO): Fe-free tourmaline (FeO 0 %) 3.95(0.51) @296 K, 4.79(0.52) @383 K; ideal schorl (FeO 20.46 wt%)
+#       2.03(0.57) @296 K, 2.68(0.58) @383 K uC/m2K. Dravite: no end-member value; S19 uvite-dravite (Fe-poor, Mg-rich, Ca > Na)
+#       Table 4 fit -0.8659 + 1.97e-2 T - 1.652e-5 T^2 (+-0.20, 170-500 K) -> 3.52 @296 K, 4.26 @383 K [calc from lit].
+#   d33 (c-parallel cuts): Li-tourmaline 2.2 pC/N, Mg-tourmaline 1.8 pC/N [lit Xue et al., Acta Mineralogica Sinica 44 (2024),
+#       doi 10.3724/j.1000-4734.2024.44.020, Table 2]. Schorl: no number found; ranking elbaite > schorl > dravite is
+#       qualitative only (Adv. Mater. Res. 1015, 259 (2014)), and Lu et al. report dravite > elbaite -> 2.0 [est, UNSURE].
+#   intrinsic dipole moment of the unit cell along c (point-charge calculation): Li-tourmaline 0.652e-29 C m, Mg-tourmaline
+#       0.476e-29 C m [lit calc, Xue et al. 2024 Table 8]. Schorl: not available. Spontaneous polarization: not available.
+#   magnetic: Fe2+-bearing schorl is paramagnetic. Mass susceptibility perpendicular to c: black tourmaline 13.4e-6 cgs
+#       (1.68e-7 m3/kg SI), rose (Li, Fe-poor) 0.58-1.18e-6 cgs [lit Sigamony, Proc. Indian Acad. Sci. A 20, 200 (1944);
+#       specimens identified by colour only, not species -> schorl / elbaite proxies, UNSURE]. Dravite: not available.
+#   grain eps_r 7 [est] for all three (no per-species value adopted).
+TOURMALINE = {
+    "elbaite": dict(formula="Na(Li1.5Al1.5)Al6(Si6O18)(BO3)3(OH)3(OH)", y_site="Li1.5 Al1.5", rich="Li",
+                    d33=2.2e-12, d33_tag="[lit Xue 2024, Li-tourmaline]",
+                    p_T=((296.0, 3.95e-6), (383.0, 4.79e-6)), p_tag="[lit Hawkins 1995 Table 5, Fe-free (FeO 0 %) prediction, +-0.5]",
+                    dipole_Cm=0.652e-29, dipole_tag="[lit calc Xue 2024 Table 8, unit cell along c]",
+                    chi_mass_SI=7.3e-9, chi_tag="[lit Sigamony 1944, rose tourmaline 0.58e-6 cgs; elbaite proxy, UNSURE]",
+                    magnetic=False),
+    "dravite": dict(formula="NaMg3Al6(Si6O18)(BO3)3(OH)3(OH)", y_site="Mg3", rich="Mg",
+                    d33=1.8e-12, d33_tag="[lit Xue 2024, Mg-tourmaline]",
+                    p_T=((296.0, 3.52e-6), (383.0, 4.26e-6)), p_tag="[calc from lit Hawkins 1995 Table 4, sample S19 uvite-dravite; dravite end-member value UNSURE]",
+                    dipole_Cm=0.476e-29, dipole_tag="[lit calc Xue 2024 Table 8, unit cell along c]",
+                    chi_mass_SI=None, chi_tag="not available",
+                    magnetic=False),
+    "schorl":  dict(formula="NaFe3Al6(Si6O18)(BO3)3(OH)3(OH)", y_site="Fe2+3", rich="Fe",
+                    d33=2.0e-12, d33_tag="[est, UNSURE: no number found; qualitative ranking only]",
+                    p_T=((296.0, 2.03e-6), (383.0, 2.68e-6)), p_tag="[lit Hawkins 1995 Table 5, ideal schorl FeO 20.46 wt%, +-0.6]",
+                    dipole_Cm=None, dipole_tag="not available",
+                    chi_mass_SI=1.68e-7, chi_tag="[lit Sigamony 1944, black tourmaline 13.4e-6 cgs; schorl proxy, UNSURE]",
+                    magnetic=True),
+}
+TOURMALINE_MAGNETIC_FLAG = ("schorl is iron-bearing and paramagnetic (Fe2+ on the Y site): it adds a magnetic coupling that "
+                            "elbaite lacks. A feature if the layer is meant to couple to the magnetic field, a confound if the "
+                            "electric (piezo/pyro/electrocaloric) response is being isolated. Not coupled in the solver (B = 0).")
+
+
+def tourmaline_piezo_entry(member):
+    """PIEZO-style layer-two entry for one end-member (same recipe: phi, eps_r, binder unchanged)."""
+    t = TOURMALINE[member]; base = PIEZO_LAYER2_DEFAULT
+    return dict(base, d=t["d33"], p_T=t["p_T"], T_data=(296.0, 383.0),
+                tags=f"{member} {t['formula']}: d33 {t['d33']*1e12:.1f} pC/N {t['d33_tag']}; p3 {t['p_T'][0][1]:.3g} @296 K, "
+                     f"{t['p_T'][1][1]:.3g} @383 K C/m2K {t['p_tag']}; grain eps_r 7 [est]; phi 0.20 [rec]; aligned upper bound [est]")
+
+
+class use_tourmaline:
+    """Context manager: run with layer two's tourmaline set to one end-member, then restore the default entry."""
+    def __init__(self, member):
+        if member not in TOURMALINE:
+            raise ValueError(member)
+        self.member = member
+    def __enter__(self):
+        PIEZO["layer2"] = tourmaline_piezo_entry(self.member); return TOURMALINE[self.member]
+    def __exit__(self, *exc):
+        PIEZO["layer2"] = dict(PIEZO_LAYER2_DEFAULT); return False
 
 
 class ElectricMarch:
@@ -1016,6 +1078,37 @@ def find_crossings(case):
                     break
         pdat["crossings"] = cr
 
+def tourmaline_synthetic(member, sigma=1.0e6, dT=10.0, dE=1.0e5, T_ec=300.0, f=3.0e6):
+    """Same synthetic inputs for every end-member: stress sigma [Pa] (piezo), temperature step dT [K] from 293 K (pyro ->
+    electric march, one 1 us step), field change dE [V/m] at T_ec [K] (electrocaloric). Layer-net, aligned upper bound."""
+    with use_tourmaline(member):
+        T1 = T_REF + dT
+        em = ElectricMarch(["layer2"]); _, En = em.step(np.array([T1]), 1e-6)
+        ec = electrocaloric("layer2", T_ec, 0.0, dE)
+        return dict(member=member, inputs=dict(sigma_Pa=sigma, dT_K=dT, dE_V_m=dE, T_ec_K=T_ec, f_Hz=f),
+                    piezo_P_C_m2=piezo_P_ac("layer2", sigma, T_REF), piezo_E_V_m=piezo_E_ac("layer2", sigma, T_REF, f),
+                    pyro_p_grain_C_m2K=pyro_p("layer2", T1), pyro_P_C_m2=pyro_P("layer2", T1), pyro_E_V_m=float(En[0]),
+                    ec_ds_J_m3K=ec["ds_J_m3K"], ec_dq_J_m3=ec["dq_J_m3"], ec_dT_K=ec["dT_adiabatic_K"])
+
+
+def run_tourmaline_sweep(members, presets, ref):
+    out = dict(meta=dict(title="Tourmaline end-member sweep (layer two / tourbillon tourmaline component)", date="2026-10-19",
+                         note="Same recipe for every end-member (phi 0.20, binder, eps_r 7 [est], aligned upper bound); only the "
+                              "tourmaline coefficients change. No source: every field is zero by design (zero-run acceptance). "
+                              "The synthetic block applies the same stress, dT and field to each end-member.",
+                         magnetic_flag=TOURMALINE_MAGNETIC_FLAG),
+               endmembers={m: TOURMALINE[m] for m in members}, synthetic={m: tourmaline_synthetic(m) for m in members}, runs={})
+    for m in members:
+        with use_tourmaline(m):
+            out["runs"][m] = {}
+            for pre in presets:
+                st = package(pre, [run_case(pre, ref)], ref)["state"]
+                out["runs"][m][pre["id"]] = dict(fields=st["fields"], electric_march=st["electric"]["march"],
+                                                 piezo_layer2=st["electric"]["piezo"].get("layer2"), pyro_layer2=st["thermal"]["pyro"].get("layer2"),
+                                                 entropy_ec_J_K=st["chemical"]["entropy_ec_J_K"], T_max_K=max(st["fields"]["thermal"]), T_min_K=min(st["fields"]["thermal"]))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", action="store_true", help="also write index.html from viewer_template.html")
@@ -1024,6 +1117,8 @@ def main():
     ap.add_argument("--p-atm", type=float, default=1.0, help="custom preset: HHO fill pressure atm")
     ap.add_argument("--only", help="comma list of preset ids")
     ap.add_argument("--qz-sound", default="vrh", choices=sorted(QZ_SOUND), help="crystal-quartz cL/cT set (see QZ_SOUND)")
+    ap.add_argument("--tourmaline", choices=["elbaite", "dravite", "schorl", "all"],
+                    help="run only the tourmaline end-member sweep (layer two) and write tourmaline_sweep_v0.json; default runs unchanged")
     args = ap.parse_args()
     set_qz_sound(args.qz_sound)
     presets = list(PRESETS)
@@ -1033,6 +1128,17 @@ def main():
     if args.only:
         keep = args.only.split(","); presets = [p for p in presets if p["id"] in keep]
     ref = read_sweep_ref()
+    if args.tourmaline:
+        members = list(TOURMALINE) if args.tourmaline == "all" else [args.tourmaline]
+        sw = run_tourmaline_sweep(members, [p for p in presets if not p.get("bare")], ref)
+        with open(os.path.join(HERE, "tourmaline_sweep_v0.json"), "w") as f:
+            json.dump(sw, f, separators=(",", ":"), default=lambda o: list(o) if isinstance(o, tuple) else None)
+        for m in members:
+            y = sw["synthetic"][m]
+            print(f"{m:8s} piezo P {y['piezo_P_C_m2']:.4g} C/m2 E {y['piezo_E_V_m']:.4g} V/m | pyro P {y['pyro_P_C_m2']:.4g} C/m2 "
+                  f"E {y['pyro_E_V_m']:.4g} V/m | EC ds {y['ec_ds_J_m3K']:.4g} J/m3K dT {y['ec_dT_K']:.4g} K", flush=True)
+        print("wrote tourmaline_sweep_v0.json")
+        return
     cases = []
     log = []
     for pre in presets:

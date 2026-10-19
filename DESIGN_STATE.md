@@ -307,3 +307,29 @@ Danny's specification (2026-10-19), recorded only; nothing is coded. The solver 
 - **The binder** is the carrier, not a substrate.
 - **A dial per component:** each component gets its own powder size, density and chemistry ratio. These fold into the layer's effective coupling strengths, damping and Q, as in "Recipe parameters (tourbillon layer)" above.
 - **Tuning:** the layer is tuned to two modes at once, an acoustic mode and a radio-wave mode, so all three components operate in both fields at the same time. These tuning modes are fabrication and design targets, not a knee-frequency dial; the knee frequency stays emergent. Electrodes stay removed.
+
+### Tourmaline end-member sweep (tourbillon layer, tourmaline component) (2026-10-19)
+Danny's request (2026-10-19). Tourmaline is a solid solution, so each end-member is its own composition entry. The backbone is X Y3 Z6 (T6O18)(BO3)3 V3 W.
+
+- **Substitutions:**
+  - Y site: Mg in dravite, Fe2+ in schorl, Li + Al in elbaite (2Fe2+ ⇄ Li+ + Al3+);
+  - W site: OH, F or O.
+
+| End-member | Ideal formula | d33 (∥c) | p3 at 296 K / 383 K (µC/m²K) | Dipole moment (unit cell, along c) | Mass susceptibility (SI) |
+|---|---|---|---|---|---|
+| Elbaite (Li-rich) | Na(Li1.5Al1.5)Al6(Si6O18)(BO3)3(OH)3(OH) | 2.2 pC/N [lit, Xue et al. 2024] | 3.95 / 4.79 [lit, Hawkins 1995 Table 5, Fe-free prediction] | 0.652e-29 C·m [lit calc, Xue et al. 2024 Table 8] | 7.3e-9 m³/kg [lit, Sigamony 1944, rose specimen; elbaite proxy, UNSURE] |
+| Dravite (Mg-rich) | NaMg3Al6(Si6O18)(BO3)3(OH)3(OH) | 1.8 pC/N [lit, Xue et al. 2024] | 3.52 / 4.26 [calc from the Hawkins 1995 Table 4 fit for sample S19, uvite-dravite; end-member value UNSURE] | 0.476e-29 C·m [lit calc, Xue et al. 2024 Table 8] | not available |
+| Schorl (Fe-rich) | NaFe3Al6(Si6O18)(BO3)3(OH)3(OH) | 2.0 pC/N [est, UNSURE: no number found] | 2.03 / 2.68 [lit, Hawkins 1995 Table 5, ideal schorl, FeO 20.46 wt%] | not available | 1.68e-7 m³/kg [lit, Sigamony 1944, black specimen; schorl proxy, UNSURE] |
+
+Spontaneous polarization: not available for any of the three. Grain ε_r is 7 [est] for all three; no per-species value is adopted.
+
+Sources:
+- Hawkins, Mackinnon & Schneeberger, Am. Mineral. 80, 491 (1995).
+- Xue et al., Acta Mineralogica Sinica 44 (2024), doi 10.3724/j.1000-4734.2024.44.020: d33 from Table 2, dipole moment by point-charge calculation from Table 8.
+- Sigamony, Proc. Indian Acad. Sci. A 20, 200 (1944): specimens identified by colour, not by species; cgs values converted to SI.
+- Ideal formulae: Henry et al., Am. Mineral. 96, 895 (2011).
+- Schorl d33 ranking is qualitative only (elbaite > schorl > dravite, Adv. Mater. Res. 1015, 259 (2014)), and another report has dravite above elbaite.
+
+- **Magnetic flag:** schorl is iron-bearing and paramagnetic (Fe2+ on the Y site). It adds a magnetic coupling that elbaite lacks. That is a feature if the layer is meant to couple to the magnetic field, and a confound if the electric response (piezo, pyro, electrocaloric) is being isolated. It is not coupled in the solver yet (B = 0).
+- **Sweep:** `python3 solver_v0.py --tourmaline {elbaite,dravite,schorl,all} [--only base5]`. It runs the same recipe (φ 0.20, binder, ε_r, aligned upper bound) once per end-member and writes `tourmaline_sweep_v0.json`. Default runs are unchanged. With no source, every end-member is exactly zero everywhere (the zero-run acceptance rule). The file's synthetic block applies the same stress, temperature step and field change to each end-member.
+- **Discrepancy found, nothing changed:** the default layer-two pyro values (2.03e-6 at 296 K, 2.68e-6 at 383 K C/m²K) are tagged in `solver_v0.py` as the "elbaite end member". In Hawkins 1995 Table 5 they are the ideal **schorl** values (FeO 20.46 wt%). The Fe-free prediction there is 3.95 / 4.79. In the same source, the "1.8-2.2 pC/N" d33 range is Mg-tourmaline 1.8 and Li-tourmaline 2.2, not a range for Li-tourmaline. The default is left as it is, pending Danny's decision.
