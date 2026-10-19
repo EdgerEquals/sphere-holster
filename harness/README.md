@@ -21,8 +21,8 @@ Exit codes: 0 = verdict recorded (PASS or FAIL), 2 = API key missing (nothing ca
 
 - Claude audit: `claude-sonnet-5-5` (shallow), `claude-opus-5-5` (deep); Claude Code: `claude-opus-5-5`.
   Source: https://docs.claude.com/en/docs/about-claude/models/overview
-- Grok: `grok-4.7` via `https://api.x.ai/v1/responses` with the `web_search` tool (falls back to
-  `/v1/chat/completions` if `grok_web_search: false`). Sources: https://docs.x.ai/docs/models,
+- Grok: `grok-4.7` via `https://api.x.ai/v1/responses` (streamed). Web search comes from one Tavily pre-search
+  (cheaper); xAI's built-in `web_search` tool is off (`grok_web_search: false`; set true to re-enable). Sources: https://docs.x.ai/docs/models,
   https://docs.x.ai/docs/guides/tools/search-tools
 - Kimi: `kimi-k2.6` via `https://api.moonshot.ai/v1/chat/completions` (streamed). It thinks even on trivial prompts,
   so `kimi_max_tokens` stays >= 12000. `kimi-k3` is also listed but pricier; not used. Source:
@@ -54,15 +54,22 @@ One search slot for the whole holster: any model, Cursor or the bot can use it. 
   Results (title, URL, snippet) go to the job summary, stdout and the `tavily-results-<run id>` artifact.
 - Reuse from another workflow: `uses: ./.github/workflows/tavily-search.yml` with `query`; outputs `status`, `count`,
   `results_json`. Locally: `TAVILY_API_KEY=... python3 scripts/tavily_search.py --query '<query>'`.
-- **Order of spend:** Kimi/DeepSeek search and filter **first**; Claude/Grok only spend after that filter
-  (round-2 recommendation, `reviews/2026-10-19_round2/`). On a rote check, turn it on per run with
-  `gh workflow run deepseek-check.yml -f target_ref=<ref> -f web_search=true -f search_query='<query>'`, or add a line
-  `search: <query>` under `/deepseek-check` (or `/kimi-check`) in the comment. The results are added to the cheap
-  model's context as unverified third-party text.
-- **Default off** (`tavily.enabled: false` in `dial.yml`). Without the `TAVILY_API_KEY` secret every Tavily step reports
-  `not configured`, makes no network call, and never fails the job.
-- Claude/Grok are not wired to it; the Claude/Grok files are unchanged. Follow-up (docs only, not built): a later hook
-  could pass the Kimi/DeepSeek search artifact to `/claude-audit` / `/grok-check`. Grok keeps its own xAI web search.
+- **General trigger rule** (canonical: `.cursor/rules/handoffs.mdc` rule 10): whenever a review or check needs current
+  information or external sources, use Tavily. **Order of spend:** Kimi/DeepSeek go through Tavily and filter
+  **first**; Claude/Grok spend only after that filter (round-2 recommendation, `reviews/2026-10-19_round2/`).
+- Kimi/DeepSeek: a run that gives a query searches: `gh workflow run deepseek-check.yml -f target_ref=<ref>
+  -f search_query='<query>'`, or a line `search: <query>` under `/deepseek-check` (or `/kimi-check`). `-f web_search=false`
+  forces it off; with no query it follows `tavily.enabled` (false). Results go into the cheap model's context as
+  unverified third-party text.
+- Grok: **one Tavily pre-search per review, on by default** (`tavily.grok_presearch: true`, max 5 results, basic,
+  1 credit). Query = `search: <query>` comment line or `search_query` input, else derived from the PR title / commit
+  subject + changed file names. xAI's built-in web search is off (`grok_web_search: false`), and Grok is told to cite
+  only URLs from the Tavily results. Opt out per run: `/grok-check nosearch` or `gh workflow run grok-check.yml
+  -f web_search=false`; globally: `tavily.grok_presearch: false`. The step lives in `review-core.yml` but is gated
+  `reviewer == 'grok'`, so Claude runs are unchanged. Results are in the Grok verdict artifact under `tavily/`.
+- Missing `TAVILY_API_KEY` or a Tavily error: every Tavily step skips quietly (`not configured`) and never fails a job.
+- Claude is not wired to Tavily (Claude files unchanged). Follow-up (docs only, not built): pass the Kimi/DeepSeek
+  search artifact to `/claude-audit`.
 - Cost: basic/fast = 1 credit, advanced = 2; free plan 1,000 credits/month, no card
   (https://docs.tavily.com/documentation/quickstart). Key from https://app.tavily.com.
 
@@ -75,7 +82,7 @@ One search slot for the whole holster: any model, Cursor or the bot can use it. 
   List prices at setup (per million tokens, input/output): Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Grok 4.7 $2/$6 (<200k prompt),
   kimi-k2.6 $0.95/$4 (cached in $0.16), deepseek-flash $0.30/$1.20 peak, half off-peak; deepseek-v4-pro $1.32/$3.96 peak,
   half off-peak (peak = 01:00–04:00 and 06:00–10:00 UTC Mon–Fri). Reasoning tokens bill as output.
-  xAI also bills server-side web-search tool calls on top of tokens.
+  xAI also bills server-side web-search tool calls on top of tokens (off by default now; Grok uses Tavily instead).
 - **Caps** (edit `dial.yml`):
   - `claude_max_tokens` is a hard cap on Claude's output **including adaptive thinking**; `claude_effort` (low|medium|high) steers how much it thinks. Too small a cap with high effort returns no verdict (first smoke test hit this at 6000).
   - `grok_max_tokens` caps Grok's visible output (`max_output_tokens`); xAI does not count reasoning tokens against it, so
@@ -88,7 +95,7 @@ One search slot for the whole holster: any model, Cursor or the bot can use it. 
   - Push-to-main audits run only every `audit_every_n_rounds` rounds or on `[audit]`, never on every push.
   - Comment triggers only work for the repo owner/members/collaborators, so strangers cannot spend the keys.
 - **Rough per-run estimates [est]:** shallow Claude ≈ $0.05–0.15; deep Claude (up to 7 Opus calls, diff cached) ≈ $0.50–3;
-  shallow Grok ≈ $0.05–0.20 plus searches; deep Grok ≈ $0.30–1.50 plus searches; shallow Kimi ≈ $0.02–0.06;
+  shallow Grok ≈ $0.05–0.20; deep Grok ≈ $0.30–1.50 (plus 1 Tavily credit; xAI search fees only if grok_web_search is re-enabled); shallow Kimi ≈ $0.02–0.06;
 shallow DeepSeek < $0.01; deep Kimi / DeepSeek (up to 7 calls) ≈ $0.10–0.40; a ping < $0.001; one Claude Code end-of-iteration run
   (Opus, ≤30 turns) ≈ $1–5. Check real spend in the Anthropic and xAI consoles and set monthly spend limits there.
 
@@ -98,6 +105,6 @@ shallow DeepSeek < $0.01; deep Kimi / DeepSeek (up to 7 calls) ≈ $0.10–0.40;
 - `XAI_API_KEY` — grok-check.
 - `DEEPSEEK_API_KEY` — deepseek-check (free/cheap tier).
 - `MOONSHOT_API_KEY` — kimi-check (Moonshot AI developer API, billed separately from the kimi.com membership).
-- `TAVILY_API_KEY` — tavily-search and the optional Kimi/DeepSeek pre-search (not set yet). Unlike the others, a missing
+- `TAVILY_API_KEY` — tavily-search, the Grok pre-search and the optional Kimi/DeepSeek pre-search (set 2026-10-19). Unlike the others, a missing
   Tavily key is not an error: those steps report `not configured` and the job passes.
 If a secret is missing the run stops before any API call, posts/prints a clear "secret not set" message and fails the check.

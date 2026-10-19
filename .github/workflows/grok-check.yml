@@ -1,6 +1,8 @@
-# Grok (xAI API) source / physics-claims cross-check of Cursor's latest merge/diff (web search on).
+# Grok (xAI API) source / physics-claims cross-check of Cursor's latest merge/diff.
+# Web search: one Tavily pre-search per run (default on; xAI built-in search off, see harness/dial.yml).
 # Triggers:
-#   - comment "/grok-check [shallow|deep] [cross] [domains=a,b]" on a PR (or issue -> reviews default branch)
+#   - comment "/grok-check [shallow|deep] [cross] [domains=a,b] [nosearch]" on a PR (or issue -> reviews default
+#     branch); an optional later line "search: <query>" sets the Tavily query (else derived from title + files)
 #   - Actions tab / `gh workflow run grok-check.yml -f depth=deep -f target_ref=<ref>`
 #   Grok is an open channel: run it whenever Cursor or the bot needs a source/physics claim checked.
 name: grok-check
@@ -34,6 +36,14 @@ on:
         description: auto | all | comma list of optical,acoustic,electric,magnetic,thermal,chemical
         type: string
         default: auto
+      web_search:
+        description: "Tavily pre-search: '' = dial default (on), false = opt out for this run"
+        type: string
+        default: ""
+      search_query:
+        description: Tavily query (default = derived from the PR title / commit + changed files)
+        type: string
+        default: ""
   issue_comment:
     types: [created]
 
@@ -63,5 +73,8 @@ jobs:
       mode: ${{ inputs.mode }}
       domains: ${{ inputs.domains }}
       allow_push_gate: false
+      web_search: ${{ inputs.web_search }}
+      search_query: ${{ inputs.search_query }}
     secrets:
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}

@@ -16,7 +16,7 @@ Reviewers (Claude, Grok, Claude Code) read it too.
 | Grok (xAI API) | Source / physics-claim cross-check, **open channel** (any time) | `/grok-check` → `.github/workflows/grok-check.yml` |
 | Kimi (Moonshot API) | Free-tier rote checks: units, arithmetic, consistency vs `DESIGN_STATE.md`, retired items (`harness/KIMI_START.md`). On demand | `/kimi-check` → `.github/workflows/kimi-check.yml` |
 | DeepSeek API | Free-tier rote checks, same role as Kimi (cheapest channel). On demand | `/deepseek-check` → `.github/workflows/deepseek-check.yml` |
-| Tavily (web search) | **Shared web-search slot** for any model/Cursor. Kimi/DeepSeek search + filter first; Claude/Grok spend after. Default off; no key yet (`not configured`) | `/tavily-search <query>` → `.github/workflows/tavily-search.yml` |
+| Tavily (web search) | **Shared web-search slot** for any model/Cursor. Rule: use it whenever a review/check needs current info or external sources. Kimi/DeepSeek search + filter first; Claude/Grok spend after. Grok reviews: 1 pre-search by default (xAI built-in search off) | `/tavily-search <query>` → `.github/workflows/tavily-search.yml` |
 | Perplexity | **Not used for now.** Do not add it. | — |
 
 Six domains: optical, acoustic, electric, magnetic, thermal, chemical. Plasma is the source that drives them, not a domain.
@@ -47,7 +47,7 @@ Six domains: optical, acoustic, electric, magnetic, thermal, chemical. Plasma is
 | End of an iteration | `@claude` end-of-iteration review (or `gh workflow run claude-code-review.yml`) |
 | Push straight to main without a PR (avoid) | Include `[audit]` in the commit message to force an audit |
 | Cheap rote pass before spending Claude/Grok (numbers, units, DESIGN_STATE consistency, retired items) | `/deepseek-check` (and/or `/kimi-check`) — optional, any time; never replaces Claude or Grok |
-| Need web sources for a check | Run the cheap filter with search first: `gh workflow run deepseek-check.yml -f target_ref=<ref> -f web_search=true -f search_query='<query>'` (or a `search: <query>` line under `/deepseek-check`); only then `/grok-check` / `/claude-audit`. Raw search: `gh workflow run tavily-search.yml -f query='<query>'` |
+| A review or check needs current information or external sources (**general trigger rule**, canonical in `.cursor/rules/handoffs.mdc` rule 10) | Tavily. First the cheap filter: `gh workflow run deepseek-check.yml -f target_ref=<ref> -f search_query='<query>'` (or a `search: <query>` line under `/deepseek-check`); only then `/grok-check` (does its own 1 Tavily pre-search; `nosearch` opts out) / `/claude-audit`. Raw search: `gh workflow run tavily-search.yml -f query='<query>'` |
 | Need a quick answer from Kimi or DeepSeek on a prompt (not a review) | `gh workflow run kimi-check.yml -f ping='<prompt>'` / `deepseek-check.yml` (reply in the job summary) |
 
 ## Exact commands Cursor uses
@@ -86,7 +86,9 @@ gh workflow run deepseek-check.yml -f ping='reply with the word pong'
 # Shared web-search slot (Tavily). Without TAVILY_API_KEY: "not configured", no call, job passes.
 gh workflow run tavily-search.yml -f query='<query>' -f max_results=5 -f search_depth=basic
 gh pr comment <PR> --body "/tavily-search <query>"
-gh workflow run deepseek-check.yml -f target_ref=<ref> -f web_search=true -f search_query='<query>'   # search, then filter
+gh workflow run deepseek-check.yml -f target_ref=<ref> -f search_query='<query>'   # search, then filter (query => on)
+gh pr comment <PR> --body $'/grok-check\nsearch: PZT-4 longitudinal sound speed'   # Grok: Tavily query override
+gh pr comment <PR> --body "/grok-check nosearch"                                    # Grok: no pre-search this run
 id=$(gh run list -w deepseek-check.yml -L1 --json databaseId -q '.[0].databaseId'); gh run watch "$id"
 gh run download "$id" -n "deepseek-ping-$id" -D /tmp/ping && cat /tmp/ping/ping.json   # reply, usage, cost
 

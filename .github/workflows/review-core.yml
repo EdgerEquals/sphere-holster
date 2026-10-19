@@ -15,9 +15,13 @@ on:
       mode:            { type: string, required: false, default: "" }
       domains:         { type: string, required: false, default: "" }
       allow_push_gate: { type: boolean, required: false, default: false }
+      # Grok only (ignored for Claude): Tavily pre-search. "" = harness/dial.yml tavily.grok_presearch (on); "false" opts out.
+      web_search:      { type: string, required: false, default: "" }
+      search_query:    { type: string, required: false, default: "" }
     secrets:
       ANTHROPIC_API_KEY: { required: false }
       XAI_API_KEY:       { required: false }
+      TAVILY_API_KEY:    { required: false }   # passed by grok-check.yml only
 
 permissions:
   contents: read
@@ -38,6 +42,8 @@ jobs:
       pr:      ${{ steps.g.outputs.pr }}
       domains: ${{ steps.g.outputs.domains }}
       reason:  ${{ steps.g.outputs.reason }}
+      web_search:   ${{ steps.g.outputs.web_search }}
+      search_query: ${{ steps.g.outputs.search_query }}
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 1 }
@@ -54,6 +60,8 @@ jobs:
           IN_PR: ${{ inputs.pr_number }}
           IN_MODE: ${{ inputs.mode }}
           IN_DOMAINS: ${{ inputs.domains }}
+          IN_WEB_SEARCH: ${{ inputs.web_search }}
+          IN_SEARCH_QUERY: ${{ inputs.search_query }}
           PUSH_GATE: ${{ inputs.allow_push_gate }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ID: ${{ github.event.comment.id }}
@@ -67,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           set -f   # no globbing of comment words
-          run=false; depth=""; mode=review; target=""; base=""; pr=""; domains=auto; reason=""
+          run=false; depth=""; mode=review; target=""; base=""; pr=""; domains=auto; reason=""; web=""; sq=""
           every=$(sed -n 's/^audit_every_n_rounds:[[:space:]]*\([0-9][0-9]*\).*/\1/p' harness/dial.yml); every=${every:-3}
           case "$EVENT" in
             issue_comment)
@@ -88,8 +96,12 @@ jobs:
                     shallow|deep) depth=$w ;;
                     cross|crosscheck) mode=crosscheck ;;
                     domains=*) domains=${w#domains=} ;;
+                    nosearch|no-search) web=false ;;
                   esac
                 done
+                # Optional Tavily query (used by Grok only): a later comment line "search: <query>"
+                sline=$(printf '%s\n' "$COMMENT_BODY" | tr -d '\r' | grep -m1 -i '^search:' || true)
+                if [ -n "$sline" ]; then sq=$(printf '%s' "${sline#*:}" | sed 's/^ *//' | cut -c1-400); fi
                 gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null || true
                 if [ -n "$IS_PR" ]; then
                   pr=$ISSUE_NUMBER
@@ -115,12 +127,14 @@ jobs:
               pr=$(gh api "repos/$REPO/commits/$PUSH_SHA/pulls" --jq '.[0].number // empty' 2>/dev/null || true) ;;
             workflow_dispatch)
               run=true; depth=$IN_DEPTH; mode=${IN_MODE:-review}; target=${IN_TARGET:-$DEFAULT_BRANCH}
-              base=$IN_BASE; pr=$IN_PR; domains=${IN_DOMAINS:-auto} ;;
+              base=$IN_BASE; pr=$IN_PR; domains=${IN_DOMAINS:-auto}
+              web=$IN_WEB_SEARCH; sq=$(printf '%s' "$IN_SEARCH_QUERY" | tr -d '\n' | cut -c1-400) ;;
             *) reason="unsupported event $EVENT" ;;
           esac
           {
             echo "run=$run"; echo "depth=$depth"; echo "mode=$mode"; echo "target=$target"
             echo "base=$base"; echo "pr=$pr"; echo "domains=$domains"; echo "reason=$reason"
+            echo "web_search=$web"; echo "search_query<<SQ_EOF"; echo "$sq"; echo "SQ_EOF"
           } >> "$GITHUB_OUTPUT"
           echo "gate: run=$run depth=${depth:-default} mode=$mode target=$target base=${base:-auto} pr=${pr:-none} :: $reason"
 
@@ -190,9 +204,24 @@ jobs:
           mkdir -p other && gh api "repos/$REPO/actions/artifacts/$id/zip" > other.zip && unzip -o -q other.zip -d other
           echo "Using $OTHER verdict artifact $id ($note)"
 
+      - name: Tavily pre-search (Grok only; 1 search, skips quietly without TAVILY_API_KEY)
+        if: inputs.reviewer == 'grok'
+        continue-on-error: true
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          WEB_SEARCH: ${{ needs.gate.outputs.web_search }}
+          SEARCH_QUERY: ${{ needs.gate.outputs.search_query }}
+          HEAD_SHA: ${{ steps.refs.outputs.head_sha }}
+          BASE_SHA: ${{ steps.refs.outputs.base_sha }}
+        run: |
+          git diff --name-only "${BASE_SHA:-$HEAD_SHA~1}" "$HEAD_SHA" > changed.txt 2>/dev/null || : > changed.txt
+          python scripts/tavily_search.py --grok-context --web-search "$WEB_SEARCH" --query "$SEARCH_QUERY" \
+            --intent-file intent.txt --changed-files changed.txt --out review-out/tavily
+
       - name: Run ${{ inputs.reviewer }} review
         id: run
         env:
+          TAVILY_CONTEXT_FILE: ${{ inputs.reviewer == 'grok' && 'review-out/tavily/context.md' || '' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           HEAD_SHA: ${{ steps.refs.outputs.head_sha }}

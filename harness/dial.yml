@@ -24,7 +24,7 @@ levels:
     grok_model: grok-4.7
     grok_reasoning_effort: low  # reasoning.effort; grok-4.7 default is high (slow); cannot be disabled
     grok_max_tokens: 4000       # visible output cap
-    grok_web_search: true
+    grok_web_search: false      # xAI built-in search off; Grok gets one Tavily pre-search instead (tavily.grok_presearch)
     grok_max_turns: 3           # agentic search turns
     grok_max_diff_chars: 30000  # Grok checks claims, it does not need the whole diff
     grok_idle_timeout_s: 180    # streaming: fail if no bytes for this long
@@ -49,7 +49,7 @@ levels:
     grok_model: grok-4.7
     grok_reasoning_effort: medium
     grok_max_tokens: 10000
-    grok_web_search: true
+    grok_web_search: false      # xAI built-in search off; Grok gets one Tavily pre-search instead (tavily.grok_presearch)
     grok_max_turns: 8
     grok_max_diff_chars: 120000
     grok_idle_timeout_s: 240
@@ -90,7 +90,13 @@ domains:
 # enabled = default for the Kimi/DeepSeek pre-search when a run does not say; per-run web_search=true overrides.
 # Without the TAVILY_API_KEY secret every Tavily step reports "not configured" and makes no call.
 # Cost: basic = 1 credit, advanced = 2; free plan 1,000 credits/month (https://docs.tavily.com/documentation/quickstart).
+# Kimi/DeepSeek: a run that gives a search query (input or "search: <query>" comment line) searches; else `enabled`.
+# Grok: one Tavily pre-search per review, ON by default (replaces xAI's built-in web search, which is pricier).
+#   Query = "search: <query>" line / search_query input, else derived from the PR title/commit + changed files.
+#   Opt out per run: "/grok-check nosearch", or -f web_search=false; globally: grok_presearch: false.
 tavily:
   enabled: false
   max_results: 5
   search_depth: basic
+  grok_presearch: true
+  grok_max_results: 5         # hard cap 5, basic depth, 1 search per Grok run (1 credit)
