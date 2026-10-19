@@ -399,3 +399,14 @@ Danny's decisions (2026-10-19), recorded as one piece, following the bidirection
 - **Frequencies come from the geometry already in the model.** The model holds the geometry, so every frequency is derived from it, not supplied from outside. Where point 1 says "derive the geometry from the frequency we already have", read it as: the frequencies we have are the ones the model's geometry gives.
 - **The three cavities are the hydrogen bubble, the quartz layer and the tourmaline alloy layer.** This replaces "the two layers and the hydrogen bubble" in point 1.
 - **Same layer, two names:** the tourmaline alloy layer is the tourbillon, the single mixed shell of tourmaline, BTO and Gd-Dy grains in the MTES:TEOS 80:20 binder (see "Composition and tuning" under the EMF build future item). The record treats them as one layer.
+
+## Flag: the 2 MHz selection target is an unverified artifact (2026-10-19)
+Danny's flag (2026-10-19). Recorded only; nothing in the code changes.
+
+- **Where:** `solver_v0.py` L737, `f_target = 2.0e6`. L738 (and L742 for the bonded stack) picks the l=0 shell mode nearest 2 MHz in log distance.
+- **No stated reason:** there is no comment or docstring explaining why 2 MHz was chosen. It has been unchanged since the first snapshot commit `c4906c4`.
+- **Feasibility plan:** `docs/Multidomain_Sphere_Model_Feasibility_Plan_2026-10-19.md` calls it "Danny's '2 MHz shell mode'" but gives no reason. The plan itself notes there is no l=0 mode at 2 MHz at 5 mm OD: the l=0 modes there are 0.69 and 3.10 MHz, and 2 MHz matches the n=4 spheroidal mode instead.
+- **Minimal Test Config:** `docs/Minimal_Test_Config_1mm_2026-10-19.md` treats 2 MHz as a drive frequency in its plasma-frequency check, and notes that 1.87 MHz is the closest actual mode.
+- **Tests:** `tests/test_piezo_pyro_couplings.py` L139 repeats the same nearest-to-2 MHz selection.
+- **What it is:** not a design target and not a source. It only picks the mode nearest 2 MHz.
+- **Status:** a question for the team, not a target, pending a decision on whether to keep, replace or remove it.
