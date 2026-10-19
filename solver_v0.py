@@ -496,6 +496,18 @@ def c_hho(T):
     """ideal-gas sound speed of HHO 2H2:O2: c = sqrt(gamma R T / M), M = (2*2.016+32.00)/3 = 12.01 g/mol [calc from lit molar masses],
     gamma 1.40 [est, diatomic mix near room T; falls slowly as vibrational modes open above ~1000 K, not modelled]. 533 m/s at 293 K."""
     return math.sqrt(1.4 * 8.314 * T / 0.012011)
+# HHO gas-cavity acoustic loss [MODELLING ASSUMPTION, not measured physics]: the gas column had no loss term, so its
+#   modes had zero linewidth. GAS_Q = 3000 [est] gives each gas mode a linewidth f/GAS_Q (FWHM). "A few thousand" sits
+#   between quartz (Q_eff 2100 in this model) and an idealised lossless cavity; thermo-viscous wall loss in a mm-scale
+#   gas sphere at MHz is not computed here. Replace with a computed value when a gas loss model exists.
+GAS_Q = 3000.0
+def gas_linewidth(f):
+    """FWHM linewidth [Hz] of an HHO gas-cavity mode at f [Hz]: f / GAS_Q (assumed Q, see GAS_Q)."""
+    return f / GAS_Q
+def modes_lock(f1, lw1, f2, lw2):
+    """Half-width overlap lock rule: |f1 - f2| <= (lw1 + lw2) / 2, all in Hz, lw = FWHM f/Q of each mode's own peak.
+    A gas mode passes its own gas_linewidth(f), so it counts towards the window rather than adding zero."""
+    return abs(f1 - f2) <= 0.5 * (lw1 + lw2)
 def gas_Z(f, r_in):
     """sigma_rr/u_r presented by the HHO gas column (2:1 H2:O2, M 12.01 g/mol, gamma 1.4 [est]) times j1 (pole-free form).
     Gas temperature GAS['T'] is a COMPUTED state (coupled): fixed atom count and volume => p = p_seal * T / T_seal, c = c_hho(T)."""
