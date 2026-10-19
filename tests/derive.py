@@ -31,11 +31,15 @@ def shell_l0_determinant():
     return D, (f, a, b, cL, cT)
 
 
-def shell_l0_modes(a_m: float, b_m: float, cL: float, cT: float, fmax: float = 8e6, n: int = 4000) -> list[float]:
+def shell_l0_modes(a_m: float, b_m: float, cL: float, cT: float, fmin: float = None, fmax: float = None, n: int = None) -> list[float]:
+    import solver_v0 as S
+    fmin = S.FMIN_HZ if fmin is None else fmin
+    fmax = S.FMAX_HZ if fmax is None else fmax
+    n = S.N_FREQ_GRID if n is None else n
     D, syms = shell_l0_determinant()
     g = sp.lambdify(syms, D, "numpy")
     h = lambda x: float(g(x, a_m, b_m, cL, cT))  # noqa: E731
-    fs = np.linspace(2e4, fmax, n)
+    fs = np.linspace(fmin, fmax, n)
     vals = [h(x) for x in fs]
     out = []
     for i in range(n - 1):

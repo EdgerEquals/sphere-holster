@@ -540,3 +540,10 @@ Danny (t380 / t382): wire the solver so thermal, electric, magnetic and acoustic
 - **Thermal:** `drive_W` heat on the inner-wall / gas channel (`P_gas` / `q[0]`). Chemistry/ionisation drive stays 0 (Open item 8).
 - **Magnetic:** spherical symmetry still gives B = 0 from radial E. Until EMF E–B coupling exists, `drive_W` is deposited as heat in the ferrite (quartz if bare) as a fail-closed placeholder [est].
 - **Electrodes:** stay retired. Tests in `tests/test_drive_1W.py`.
+
+## Acoustic window widened to 1 Hz – 50 MHz (2026-10-19)
+Danny (t382). The acoustic l=0 search window is widened from **20 kHz – 12 MHz** to **1 Hz – 50 MHz**.
+
+- **Named constants** in `solver_v0.py`: `FMIN_HZ = 1.0`, `FMAX_HZ = 50e6`, `N_FREQ_GRID = 20000` (linear grid; was 4000 over ~12 MHz, df ~ 3 kHz; scaled for the 50 MHz band → df = 2.5 kHz). `geometry_sweep_v0.py` `FMIN`/`FMAX`/`NGRID` import the same values; `free_modes`, `gas_rigid_l0` and reflection harmonics use them.
+- **No recorded rationale** for the old 20 kHz–12 MHz band; 12 MHz was clipping overtones for the rarefied-winner core.
+- **1 Hz:** floor of the acoustic search band. The **1 Hz thermal cycle** remains a slow envelope modulating the drives (`DRIVE_THERMAL_ENVELOPE_Hz`), not an acoustic mode marched in `l0_modes`.

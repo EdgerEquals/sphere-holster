@@ -12,7 +12,7 @@ by build_stack exactly as for the core (BTO 2 um, Gd-Dy 3 um, phi-stepped outer 
 winner (ea694ce): a 0.57295 mm, w 1.43463 mm, t2 9.12441 um at 0.1044 x ambient HHO, 293 K. The sweep lattice is still
 BASE * phi^(i/8); historical geometry_sweep_v0.json results (3b81839) were run around the former base5 (1.5/1.0/5.0 @ 1 atm).
 
-Mode sets per geometry (acoustic, l = 0 only, search window 20 kHz - 12 MHz = the solver's l0_modes window):
+Mode sets per geometry (acoustic, l = 0 only, search window FMIN_HZ–FMAX_HZ = the solver's l0_modes window):
   B  bubble gas cavity alone, rigid wall: f = x_n c_HHO / (2 pi a), j1(x_n) = 0. Q from solver_v0.gas_Q(f, a, p, T,
      'HHO') at the fill state (CORE_P_ATM, 293 K): wall thermal boundary layer + classical bulk absorption, viscous wall loss
      0 for l = 0 [est: modelling assumption, upper bound on Q], so a B mode now has its own linewidth f/Q.
@@ -54,7 +54,7 @@ sys.path.insert(0, HERE)
 import solver_v0 as S  # noqa: E402
 
 PHI = S.PHI
-FMIN, FMAX, NGRID = 2e4, 12e6, 4000          # same window and grid as solver l0_modes
+FMIN, FMAX, NGRID = S.FMIN_HZ, S.FMAX_HZ, S.N_FREQ_GRID  # same window and grid as solver l0_modes
 # Fill and lattice centre = rarefied-sweep winner (ea694ce), replacing former base5 (1.5/1.0/5.0 @ 1 atm).
 P_ATM = S.CORE_P_ATM
 BASE = dict(a_mm=S.CORE_A_MM, w_mm=S.CORE_W_MM, t2_um=S.CORE_T2_UM)

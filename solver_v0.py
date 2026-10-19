@@ -42,6 +42,15 @@ PHI = (1 + 5 ** 0.5) / 2
 EPS0, MU0, C0 = 8.8541878128e-12, 4e-7 * math.pi, 299792458.0
 T_REF = 293.0
 UM, MM = 1e-6, 1e-3
+# Acoustic l=0 search window (Danny t382, 2026-10-19): widened from 20 kHz–12 MHz (no recorded
+# rationale for that band; 12 MHz was clipping overtones for the rarefied-winner core) to 1 Hz–50 MHz.
+# 1 Hz is the floor of the search band; the 1 Hz thermal cycle remains a slow drive envelope
+# (DRIVE_THERMAL_ENVELOPE_Hz), not an acoustic mode to march here.
+FMIN_HZ = 1.0
+FMAX_HZ = 50e6
+# Linear frequency grid: was 4000 over ~12 MHz (df ~ 3 kHz). Bandwidth scale 50/12 -> ~16.7k;
+# use 20000 (df = 2.5 kHz) so the dense high-frequency ladder to 50 MHz stays resolved.
+N_FREQ_GRID = 20000
 
 # ----------------------------------------------------------------------------------------------
 # Geometry presets. core_d = gas (HHO) bubble inner diameter; wall = crystal-quartz layer-one wall.
@@ -592,8 +601,12 @@ def gas_Z(f, r_in):
 def l0_char(f, layers):
     P = propagate(f, layers); num, den = gas_Z(f, layers[0][1])
     return P[1, 0] * den + P[1, 1] * num
-def l0_modes(layers, fmax=12e6, n=4000):
-    fs = np.linspace(2e4, fmax, n)
+def l0_modes(layers, fmin=None, fmax=None, n=None):
+    """l=0 gas-loaded shell roots in [FMIN_HZ, FMAX_HZ] on an N_FREQ_GRID linear grid (defaults)."""
+    fmin = FMIN_HZ if fmin is None else fmin
+    fmax = FMAX_HZ if fmax is None else fmax
+    n = N_FREQ_GRID if n is None else n
+    fs = np.linspace(fmin, fmax, n)
     g = np.array([l0_char(f, layers) for f in fs])
     out = []
     for i in range(n - 1):
@@ -777,7 +790,7 @@ NO_DRIVE = "no drive mechanism defined (electrodes removed 2026-10-19; drive met
 # Electrodes stay retired — do not invent electrode gaps, Paschen tanks or metal films.
 #
 # Acoustic split rule (DRIVE_AC_SPLIT): equal power across all computed l=0 bonded shell modes
-# in the solver window 20 kHz–12 MHz (isolated quartz+films modes if the stack is bare).
+# in the solver window FMIN_HZ–FMAX_HZ (isolated quartz+films modes if the stack is bare).
 # Frequencies come from that mode list only — never a hardcoded 2 MHz or other target.
 # Per mode: P_src,n = drive_W / N; steady W_n = P_src,n * Q_n / omega_n
 #   (from dW/dt = -(omega/Q) W + P_src = 0).
@@ -794,7 +807,7 @@ DRIVE_AC_SPLIT = ("equal across N l=0 bonded shell modes in the solver acoustic 
                   "(isolated modes if bare); frequencies from the computed mode list only; "
                   "1 Hz thermal cycle = slow envelope modulating the drives, not an acoustic mode")
 DRIVE_THERMAL_ENVELOPE_Hz = 1.0   # slow envelope; does not enter the acoustic mode search
-DRIVE_WINDOW_Hz = (2e4, 12e6)     # acoustic search window (widened separately to 1 Hz–50 MHz)
+DRIVE_WINDOW_Hz = (FMIN_HZ, FMAX_HZ)  # acoustic search = solver window (1 Hz–50 MHz)
 
 
 def no_drive_em(stack, T_bto=None):
