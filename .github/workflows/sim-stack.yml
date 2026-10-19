@@ -1,0 +1,141 @@
+name: sim-stack
+
+# Smoke tests for the open-source simulation stack. One independent job per
+# tool so a failure in one never hides the others. Every tool is pinned to an
+# exact version / image digest (see sim/README.md). Each test asserts an
+# analytic answer and writes "expected vs got" to the job summary.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "sim/**"
+      - ".github/workflows/sim-stack.yml"
+  schedule:
+    - cron: "17 19 * * 0"   # weekly, Monday 03:17 Perth (UTC+8)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sim-stack-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOLFINX_IMAGE: dolfinx/dolfinx:v0.11.0@sha256:2ae4bfbc0d9077268880faf04c72750528bee986c94ab223a2c159969bd56fa8
+  OPENFOAM_IMAGE: opencfd/openfoam-default:2512@sha256:33fb575aa9980d2bc42fd58c75ae698c489293ba30c991380fe3f899c622f319
+  CODE_ASTER_IMAGE: simvia/code_aster:18.1.0@sha256:4629a21a109309bb97fbdc27d750445cc869e151e2e2ed6290f69539614e4435
+  CALCULIX_APT: calculix-ccx=2.21-1
+  GWYDDION_APT: gwyddion=2.64-1.1build3 libgwyddion20-dev=2.64-1.1build3
+
+jobs:
+  fenics:
+    name: FEniCSx (DOLFINx 0.11.0) - Poisson + 1D heat
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pull pinned DOLFINx image
+        run: time docker pull "$DOLFINX_IMAGE"
+      - name: Smoke test
+        run: docker run --rm -u 0 -v "$PWD:/repo" -w /repo "$DOLFINX_IMAGE" python3 sim/fenics/smoke_fenics.py
+      - name: Summary
+        if: always()
+        run: cat sim/fenics/out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "### FEniCSx: no result (failed before the test ran)" >> "$GITHUB_STEP_SUMMARY"
+
+  meep:
+    name: MEEP 1.35.0 - PEC cavity TM modes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: sim/meep/environment.yml
+          cache-environment: true
+      - name: Smoke test
+        run: python sim/meep/smoke_meep.py
+      - name: Summary
+        if: always()
+        run: cat sim/meep/out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "### MEEP: no result (failed before the test ran)" >> "$GITHUB_STEP_SUMMARY"
+
+  openfoam:
+    name: OpenFOAM v2512 - icoFoam lid-driven cavity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pull pinned OpenFOAM image
+        run: time docker pull "$OPENFOAM_IMAGE"
+      - name: Run cavity tutorial
+        run: |
+          mkdir -p sim/openfoam/out && chmod -R a+rwX sim
+          docker run --rm -u 0 --entrypoint /bin/bash -v "$PWD:/repo" -w /repo "$OPENFOAM_IMAGE" sim/openfoam/run_cavity.sh
+      - name: Smoke test (assert residuals / velocity)
+        run: python3 sim/openfoam/check_cavity.py
+      - name: Summary
+        if: always()
+        run: cat sim/openfoam/out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "### OpenFOAM: no result (failed before the test ran)" >> "$GITHUB_STEP_SUMMARY"
+
+  calculix:
+    name: CalculiX 2.21 - cantilever vs Euler-Bernoulli
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned CalculiX (Ubuntu 24.04 apt)
+        run: |
+          sudo apt-get update -q
+          time sudo apt-get install -y --no-install-recommends $CALCULIX_APT
+          dpkg-query -W calculix-ccx
+      - name: Smoke test
+        run: python3 sim/calculix/smoke_calculix.py
+      - name: Summary
+        if: always()
+        run: cat sim/calculix/out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "### CalculiX: no result (failed before the test ran)" >> "$GITHUB_STEP_SUMMARY"
+
+  code_aster:
+    name: Code_Aster 18.1.0 - cantilever (POU_D_E) + forma01a
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pull pinned Code_Aster image (~1.5 GB)
+        run: |
+          df -h / | tail -n 1
+          time docker pull "$CODE_ASTER_IMAGE"
+      - name: Run study in container
+        run: |
+          mkdir -p sim/code_aster/out && chmod -R a+rwX sim
+          docker run --rm -v "$PWD:/home/user/repo" -w /home/user/repo "$CODE_ASTER_IMAGE" \
+            bash -lc 'bash sim/code_aster/run_aster_smoke.sh'
+      - name: Smoke test (assert tip deflection)
+        run: python3 sim/code_aster/check_aster.py
+      - name: Summary
+        if: always()
+        run: cat sim/code_aster/out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "### Code_Aster: no result (failed before the test ran)" >> "$GITHUB_STEP_SUMMARY"
+
+  gwyddion:
+    name: Gwyddion 2.64 - load .gsf, check size + RMS
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned Gwyddion + headers (Ubuntu 24.04 apt)
+        run: |
+          sudo apt-get update -q
+          time sudo apt-get install -y --no-install-recommends $GWYDDION_APT libgtk2.0-dev libfftw3-dev pkg-config gcc
+          dpkg-query -W gwyddion libgwyddion20-dev
+      - name: Build headless loader against libgwyddion
+        run: |
+          mkdir -p sim/gwyddion/out
+          gcc -O2 -Wno-deprecated-declarations -o sim/gwyddion/out/gwy_check sim/gwyddion/gwy_check.c $(pkg-config --cflags --libs gwyddion)
+      - name: Smoke test
+        run: python3 sim/gwyddion/smoke_gwyddion.py
+      - name: Summary
+        if: always()
+        run: cat sim/gwyddion/out/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "### Gwyddion: no result (failed before the test ran)" >> "$GITHUB_STEP_SUMMARY"

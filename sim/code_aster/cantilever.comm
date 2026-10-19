@@ -1,0 +1,27 @@
+# Code_Aster smoke test: Euler-Bernoulli cantilever (POU_D_E), same case as
+# the CalculiX test: L = 200 mm, 10 x 10 mm section, E = 210 GPa, P = 100 N.
+# Analytic tip deflection PL^3/(3EI) = 1.523810 mm (exact for POU_D_E).
+DEBUT(LANG="EN")
+
+mesh = LIRE_MAILLAGE(FORMAT="ASTER", UNITE=20)
+model = AFFE_MODELE(MAILLAGE=mesh,
+                    AFFE=_F(GROUP_MA="BEAM", PHENOMENE="MECANIQUE", MODELISATION="POU_D_E"))
+steel = DEFI_MATERIAU(ELAS=_F(E=210000.0, NU=0.3))
+mater = AFFE_MATERIAU(MAILLAGE=mesh, AFFE=_F(TOUT="OUI", MATER=steel))
+cara = AFFE_CARA_ELEM(MODELE=model,
+                      POUTRE=_F(GROUP_MA="BEAM", SECTION="RECTANGLE",
+                                CARA=("HY", "HZ"), VALE=(10.0, 10.0)))
+load = AFFE_CHAR_MECA(MODELE=model,
+                      DDL_IMPO=_F(GROUP_NO="FIXE", DX=0.0, DY=0.0, DZ=0.0,
+                                  DRX=0.0, DRY=0.0, DRZ=0.0),
+                      FORCE_NODALE=_F(GROUP_NO="TIP", FY=-100.0))
+res = MECA_STATIQUE(MODELE=model, CHAM_MATER=mater, CARA_ELEM=cara,
+                    EXCIT=_F(CHARGE=load))
+tab = POST_RELEVE_T(ACTION=_F(INTITULE="tip", GROUP_NO="TIP", RESULTAT=res,
+                              NOM_CHAM="DEPL", NOM_CMP="DY", OPERATION="EXTRACTION"))
+IMPR_TABLE(TABLE=tab)
+dy = tab.EXTR_TABLE().values()["DY"][-1]
+with open("fort.30", "w") as f:
+    f.write("TIP_DY=%.12g\n" % dy)
+print("TIP_DY=%.12g" % dy)
+FIN()

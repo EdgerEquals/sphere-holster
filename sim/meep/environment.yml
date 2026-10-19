@@ -1,0 +1,7 @@
+name: meep-smoke
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12.15
+  - pymeep=1.35.0=nompi_py312h7a316d3_100
+  - numpy=2.5.4

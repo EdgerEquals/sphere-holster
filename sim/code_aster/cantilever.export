@@ -1,0 +1,10 @@
+P time_limit 300
+P memory_limit 2048
+P ncpus 1
+P mpi_nbcpu 1
+P mpi_nbnoeud 1
+F comm cantilever.comm D 1
+F mail cantilever.mail D 20
+F mess out/cantilever.mess R 6
+F resu out/cantilever.resu R 8
+F libr out/tip.txt R 30
