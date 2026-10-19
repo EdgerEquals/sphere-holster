@@ -364,3 +364,12 @@ Danny's design (2026-10-19), following the planned kilowatt drive experiment abo
 - **Ordering:** the acoustic mode sits below the electric mode in frequency, but drives it.
 - **Thermal drive channel:** a thermal drive is included as well.
 - **Full design:** a triad of EMF, acoustic and thermal drives.
+
+## Design decision: the piezo knee is the mixer (2026-10-19)
+Danny's decision (2026-10-19), following the drive triad above. Not built.
+
+- **No separate non-linearity:** the non-linearity needed for the acoustic-to-electric frequency step is not added separately. It comes from the piezo element's own knee.
+- **The piezo knee:** a piezo element is linear in its small-signal regime. Past a certain field strength its response stops being proportional and the non-linear terms kick in. That knee is where frequency mixing happens.
+- **Driving the knee deliberately:** the lower-frequency energy (the acoustic mode, and below it the thermal mode) pumps the piezo back and forth across its knee. The non-linearity does the frequency conversion, pushing energy up to the electric mode's frequency.
+- **Roles:** the knee is the mixer; the lower-frequency drive is the pump.
+- **Principle:** the same as a parametric amplifier, where the pump sits below the signal and pushes energy upward.
