@@ -1,7 +1,8 @@
 """--ping mode for the Claude / Grok review runners (stdlib only), mirroring oai_compat.ping for Kimi / DeepSeek.
 
 Sends one prompt (no diff), writes <out>/ping.json, and on success lands the reply in the review tree via
-land_review_reply.land() when --land-dir (or env REVIEW_LAND_DIR) is set. Exit codes: 0 ok, 2 missing secret,
+land_review_reply.land() when --land-dir (or env REVIEW_LAND_DIR) is set. --run-id (or env REVIEW_RUN_ID) is recorded
+in ping.json and stamped on the landed reply; landing refuses a reply that does not belong to the round's current run. Exit codes: 0 ok, 2 missing secret,
 3 API/parse error or landing failure.
 """
 from __future__ import annotations
@@ -37,6 +38,8 @@ def ping_args(argv, name: str):
                     help="round review dir, e.g. reviews/2026-10-19_round6; the reply lands there as {model}.md")
     ap.add_argument("--land-stem", default=None,
                     help='override land filename stem (default: model). Use e.g. kimi_teamwork for cross-review.')
+    ap.add_argument("--run-id", default=os.environ.get("REVIEW_RUN_ID") or None,
+                    help="current round run id (from launch_round.py / run.json); stamped on ping.json and the landed reply")
     a, _ = ap.parse_known_args(argv)
     prompt = Path(a.ping_file).read_text() if a.ping_file else a.ping
     return a, prompt
@@ -55,7 +58,7 @@ def land_after_ping(rec: dict, model_key: str, land_dir: str | None, out: Path,
         dest = lr.land(land_dir, model_key, rec["reply"],
                        {"model": rec.get("model"), "generated_utc": rec.get("generated_utc"),
                         "source": str(out / "ping.json")},
-                       name=land_stem)
+                       name=land_stem, run_id=rec.get("run_id"))
         rec["landed"] = str(dest)
         return None
     except Exception as e:  # noqa: BLE001
@@ -70,7 +73,8 @@ def ping_main(name: str, model_key: str, secret: str, call, argv=None) -> int:
     depth, cfg = hc.level_cfg(hc.load_dial(), a.depth)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    rec = {"reviewer": name, "mode": "ping", "depth": depth, "prompt": prompt, "generated_utc": hc.now_utc()}
+    rec = {"reviewer": name, "mode": "ping", "depth": depth, "prompt": prompt, "generated_utc": hc.now_utc(),
+           "run_id": a.run_id}
     key = os.environ.get(secret, "").strip()
     if not key:
         rec.update(ok=False, error=f"{secret} is not set; no API call was made.")

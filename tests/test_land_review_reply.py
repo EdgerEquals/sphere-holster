@@ -1,6 +1,7 @@
 """Round ping replies land in reviews/<round>/{model}.md; a run with replies only in the scratch dir is NOT complete.
 No test here reaches the network (urlopen is replaced; API calls are faked)."""
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -109,3 +110,111 @@ def test_launch_teamwork_builds_prompt(tmp_path):
     assert "### Kimi" in prompt and "### DeepSeek" in prompt
     assert "body of grok" in prompt  # own reply included
     assert "### Grok" not in prompt.split("## Peer replies")[1]  # not in peer section as heading for self
+
+
+# --- stale-reply guard -------------------------------------------------------------------------------------------
+
+def _ping_json(path, reply, generated_utc, run_id=None):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"ok": True, "model": "m", "reply": reply, "generated_utc": generated_utc,
+                                "run_id": run_id}))
+
+
+def test_land_stamps_run_id_and_refuses_stale_reply(tmp_path):
+    rnd = tmp_path / "r"
+    run = lr.start_run(rnd, "primary")
+    dest = lr.land(rnd, "kimi", "fresh", {"generated_utc": lr.now_utc()})
+    meta = lr.parse_header(dest.read_text())
+    assert meta["run_id"] == run["run_id"] and meta["landed_utc"]
+    with pytest.raises(lr.StaleReplyError, match="predates current run"):          # older than the run start
+        lr.land(rnd, "deepseek", "old", {"generated_utc": "2026-10-19T00:00:00Z"})
+    with pytest.raises(lr.StaleReplyError, match="not the current run"):           # belongs to another run
+        lr.land(rnd, "grok", "other", {"generated_utc": lr.now_utc()}, run_id="primary-old")
+    with pytest.raises(lr.StaleReplyError, match="cannot prove"):                  # no stamp, no timestamp
+        lr.land(rnd, "claude", "unknown")
+    assert not (rnd / "deepseek.md").exists() and not (rnd / "grok.md").exists()
+    lr.land(rnd, "claude", "launcher-stamped", run_id=run["run_id"])               # explicit current run_id is ok
+
+
+def test_check_fails_when_reply_predates_current_run(tmp_path, capsys):
+    rnd = tmp_path / "r"
+    for m in lr.MODELS:                                                            # legacy land, no run.json
+        lr.land(rnd, m, f"{m} first land", {"generated_utc": "2026-10-19T14:00:00Z"})
+    assert lr.check(rnd) == []                                                     # presence-only (legacy)
+    lr.start_run(rnd, "primary")                                                   # re-fire starts
+    for m in ("deepseek", "claude", "grok"):
+        lr.land(rnd, m, f"{m} refire", {"generated_utc": lr.now_utc()})
+    detail = lr.check_detail(rnd)
+    assert list(detail) == ["kimi"] and detail["kimi"].startswith("STALE")         # kimi.md still the first land
+    assert lr.main(["--round-dir", str(rnd), "--check"]) == 1
+    assert "kimi.md (STALE" in capsys.readouterr().err
+
+
+def test_land_only_refuses_old_scratch_run(tmp_path):
+    rnd, old = tmp_path / "r", tmp_path / "old-run"
+    _ping_json(old / "kimi" / "ping.json", "old kimi", "2026-10-19T14:00:00Z")
+    (old / "grok").mkdir(parents=True)
+    (old / "grok" / "reply.md").write_text("old grok")
+    os.utime(old / "grok" / "reply.md", (1_000_000_000, 1_000_000_000))           # source mtime long before the run
+    lr.start_run(rnd, "primary")
+    assert launch_round.main(["--round-dir", str(rnd), "--run-dir", str(old), "--land-only"]) == 1
+    assert not (rnd / "kimi.md").exists() and not (rnd / "grok.md").exists()
+
+
+def test_ping_main_stamps_run_id(tmp_path, monkeypatch):
+    rnd, brief = tmp_path / "r", tmp_path / "brief.txt"
+    brief.write_text("brief")
+    rid = lr.start_run(rnd, "primary")["run_id"]
+    monkeypatch.setenv("XAI_API_KEY", "dummy")
+    argv = ["--ping-file", str(brief), "--out", str(tmp_path / "out"), "--land-dir", str(rnd), "--run-id", rid]
+    assert pc.ping_main("Grok", "grok", "XAI_API_KEY", lambda *a: ("ok", {}, "grok-x"), argv) == 0
+    assert lr.parse_header((rnd / "grok.md").read_text())["run_id"] == rid
+    assert json.loads((tmp_path / "out" / "ping.json").read_text())["run_id"] == rid
+    argv[-1] = "primary-stale"                                                     # wrong run -> not landed, exit 3
+    (rnd / "grok.md").unlink()
+    assert pc.ping_main("Grok", "grok", "XAI_API_KEY", lambda *a: ("ok", {}, "grok-x"), argv) == 3
+    assert not (rnd / "grok.md").exists()
+
+
+# --- cross-review as an explicit stage ---------------------------------------------------------------------------
+
+def _fake_fire(stage, a, round_dir, run, models, run_id):
+    for m in models:
+        if stage == "teamwork":
+            prompt = launch_round.build_teamwork_prompt(round_dir, m)
+            lr.land(round_dir, m, f"{m} scores peers ({len(prompt)} chars)", name=f"{m}_teamwork", run_id=run_id)
+        else:
+            lr.land(round_dir, m, f"{m} primary", {"generated_utc": lr.now_utc()}, run_id=run_id)
+
+
+def test_round_sequence_fire_land_crossreview_close(tmp_path, monkeypatch):
+    monkeypatch.setattr(launch_round, "_fire", _fake_fire)
+    rnd, prompt = tmp_path / "r", tmp_path / "prompt.md"
+    prompt.write_text("brief")
+    base = ["--round-dir", str(rnd), "--run-dir", str(tmp_path / "run")]
+    assert launch_round.main(base + ["--prompt", str(prompt)]) == 0                # default --stage all
+    runs = lr.load_runs(rnd)
+    assert runs["closed"]["primary_run_id"] == runs["primary"]["run_id"]
+    assert runs["teamwork"]["primary_run_id"] == runs["primary"]["run_id"]
+    assert all((rnd / f"{m}_teamwork.md").is_file() for m in lr.MODELS)
+    # Re-fire primaries only: old cross-reviews no longer count and the round re-opens.
+    assert launch_round.main(base + ["--prompt", str(prompt), "--stage", "primary"]) == 0
+    assert "closed" not in lr.load_runs(rnd)
+    assert launch_round.main(base + ["--stage", "close"]) == 1
+    assert sorted(lr.check(rnd, suffix="_teamwork")) == sorted(lr.MODELS)           # all teamwork files stale
+    assert launch_round.main(base + ["--stage", "teamwork"]) == 0
+    assert launch_round.main(base + ["--stage", "close"]) == 0
+
+
+def test_crossreview_refuses_stale_primaries(tmp_path, monkeypatch):
+    monkeypatch.setattr(launch_round, "_fire", _fake_fire)
+    rnd = tmp_path / "r"
+    for m in lr.MODELS:
+        lr.land(rnd, m, f"{m} first land", {"generated_utc": "2026-10-19T14:00:00Z"})
+    lr.start_run(rnd, "primary")
+    lr.land(rnd, "kimi", "kimi refire", {"generated_utc": lr.now_utc()})
+    with pytest.raises(lr.StaleReplyError, match="primary gate not passed"):
+        launch_round.build_teamwork_prompt(rnd, "kimi")
+    assert launch_round.main(["--round-dir", str(rnd), "--run-dir", str(tmp_path / "t"), "--stage", "teamwork"]) == 1
+    assert not any((rnd / f"{m}_teamwork.md").exists() for m in lr.MODELS)
+    assert launch_round.main(["--round-dir", str(rnd), "--run-dir", str(tmp_path / "t"), "--stage", "close"]) == 1

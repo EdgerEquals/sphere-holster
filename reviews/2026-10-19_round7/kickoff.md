@@ -110,7 +110,22 @@ Suggested protocol sections (team may refine): sharing mode, cross-review order,
 | **Grok** | Paid claim / process cross-check against DESIGN_STATE + kickoff + economics requirements; cross-reviews the other three | `python scripts/review_grok.py` with prompt context |
 | **Claude Code CLI** (executor, not a fifth “review voice”) | May stage docs / local commits for round-7 protocol drafts; **self-check** before every commit; **does not start the round-8 sweep**; does not invent process that contradicts round-6 two-gate rules | Box CLI (`claude`); **do not push** without caller |
 
-Suggested order for **round 7:** suite green (if any docs change requires it) → fan-out design questions → cheap filters first → escalate interesting protocol proposals to Claude/Grok → peer scores on protocol proposals → draft `protocol.md` → **human gate approves** → **then** round 8 may be drafted.
+### Round sequence — four stages, two gates (cannot be skipped)
+
+`scripts/launch_round.py` (default `--stage all`) runs the round in this fixed order:
+
+| Step | Stage | Exit / gate |
+|---|---|---|
+| (a) | **Fire** — four pings as one job, same brief, each with the current primary `run_id` | — |
+| (b) | **Land** — each reply auto-writes `reviews/2026-10-19_round7/{model}.md`, stamped `run_id=… · landed_utc=…` | **Gate 1 — replies landed (COMPLETE):** all four `{model}.md` present **and** stamped with the current primary run (none predates the run start) |
+| (c) | **Cross-review** — refuses to start unless gate 1 passes; each model receives the other three current-run replies (with their run ids) and scores them pass/fail | **Gate 2 — cross-review (COMPLETE):** all four `{model}_teamwork.md` present, stamped with the current teamwork run, and that run scored the **current** primary run |
+| (d) | **Close** — `launch_round.py --stage close` (also run at the end of `--stage all`) | Round **closes only when gate 1 and gate 2 both pass**; recorded under `closed` in `run.json` |
+
+**Stale-reply guard:** every stage run is recorded in `reviews/2026-10-19_round7/run.json` (`run_id`, `started_utc`; teamwork also records the `primary_run_id` it scored). Landing refuses a reply from another run, one generated before the run started, or one with no stamp/timestamp. `land_review_reply.py --check` (and `--check --suffix _teamwork`) fails with `STALE` for any file that predates the current run. A primary re-fire clears the teamwork run and the close record, so old cross-reviews can never close a re-fired round — re-run `--stage teamwork`, then `--stage close`.
+
+Single stages for recovery: `--stage primary`, `--stage teamwork`, `--stage close`; `--land-only` re-lands from a scratch dir under the same freshness rules.
+
+Suggested order for **round 7:** suite green (if any docs change requires it) → fan-out design questions → cheap filters first → escalate interesting protocol proposals to Claude/Grok → **cross-review stage (gate 2)** → peer scores on protocol proposals → draft `protocol.md` → **human gate approves** → **then** round 8 may be drafted.
 
 ---
 
@@ -157,7 +172,8 @@ Round 7 must specify how gate (1) is placed so Claude Code is **not** the sole u
 | 11 | Retired | No electrodes / retired items reintroduced in protocol proposals |
 | 12 | Four pings (when launching) | If caller says “send it” / “launch round 7,” all four pings fire as one job |
 | 13 | Replies landed | All four replies present in `reviews/2026-10-19_round7/` (`kimi.md`, `deepseek.md`, `claude.md`, `grok.md`; `scripts/land_review_reply.py --check` exits 0) — not only in `/tmp` |
+| 14 | Cross-review complete | Gate 2 passes: all four `{model}_teamwork.md` in `reviews/2026-10-19_round7/`, stamped with the current teamwork run, which scored the **current** primary run (`land_review_reply.py --check --suffix _teamwork` exits 0); round closes only via `launch_round.py --stage close` with both gates passing; no `STALE` replies |
 
-**NO-GO:** starting the round-8 4 W sweep before protocol approval; treating economics as optional; skipping the human gate on the protocol; inventing process that contradicts round-6 two-gate order.
+**NO-GO:** starting the round-8 4 W sweep before protocol approval; treating economics as optional; skipping the human gate on the protocol; inventing process that contradicts round-6 two-gate order; skipping cross-review; scoring or closing on a stale (pre-current-run) reply; closing the round before both gates pass.
 
-When rows 1–11 are GO for **starting** the design debate (12 = pings fired when launched), the coordinator may declare: **Round 7 started** — models design the inter-model conversation protocol; **round 8 sweep waits** on `protocol.md` + Edger_Equals approval.
+When rows 1–11 are GO for **starting** the design debate (12 = pings fired when launched; 13 = replies landed; 14 = cross-review complete before the round closes), the coordinator may declare: **Round 7 started** — models design the inter-model conversation protocol; **round 8 sweep waits** on `protocol.md` + Edger_Equals approval.

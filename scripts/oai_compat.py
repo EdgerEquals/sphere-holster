@@ -147,13 +147,13 @@ def _summary(md: str) -> None:
 
 
 def ping(p: Provider, prompt: str, depth: str | None, out: Path, land_dir: str | None = None,
-         land_stem: str | None = None) -> int:
+         land_stem: str | None = None, run_id: str | None = None) -> int:
     dial = hc.load_dial()
     depth, cfg = hc.level_cfg(dial, depth)
     out.mkdir(parents=True, exist_ok=True)
     key = os.environ.get(p.secret, "").strip()
     rec = {"reviewer": p.name, "mode": "ping", "depth": depth, "prompt": prompt, "model_requested": p.model(cfg),
-           "generated_utc": hc.now_utc()}
+           "generated_utc": hc.now_utc(), "run_id": run_id}
     if not key:
         msg = f"{p.secret} is not set; no API call was made. Add it under Settings > Secrets and variables > Actions."
         rec.update(ok=False, error=msg)
@@ -215,7 +215,7 @@ def main(p: Provider) -> None:
         sys.exit(list_models(p))
     if "--ping" in argv or "--ping-file" in argv:
         a, prompt = pc.ping_args(argv, p.name)
-        sys.exit(ping(p, prompt, a.depth, Path(a.out), a.land_dir, land_stem=a.land_stem))
+        sys.exit(ping(p, prompt, a.depth, Path(a.out), a.land_dir, land_stem=a.land_stem, run_id=a.run_id))
     # For the rote checkers an API/parse failure must surface as ERROR (exit 3) even when the free
     # retired-item scan also hit; the hits are still listed in the posted verdict. Local to this process:
     # review_claude.py / review_grok.py keep harness_common.combine unchanged.

@@ -50,7 +50,7 @@ python scripts/launch_round.py --round-dir reviews/2026-10-19_round6 \
   --prompt reviews/2026-10-19_round6/prompt.md --scope-file <scope-override.txt> --run-dir /tmp/round6-run
 ```
 
-It writes the shared user text once, fires the four channels below in parallel, and each channel **lands its own reply** in the round folder. Exit 0 = `COMPLETE` (all four `{model}.md` present); exit 1 = `NOT COMPLETE`.
+It writes the shared user text once, fires the four channels below in parallel, and each channel **lands its own reply** in the round folder. With the default `--stage all` it then runs the cross-review stage and closes the round (sequence below). Exit 0 = `ROUND CLOSED` (both gates pass); exit 1 = a gate is `NOT COMPLETE`. `--stage primary` stops after gate 1.
 
 | Model | Channel (each takes `--ping-file F --out <run-dir>/<model> --land-dir reviews/2026-10-19_round6`) |
 |---|---|
@@ -64,6 +64,23 @@ Prepend the round-6 scope override to the shared user text: **threshold / sequen
 **Land step (automatic, part of every ping):** with `--land-dir` (or env `REVIEW_LAND_DIR`), each channel writes its reply to `reviews/2026-10-19_round6/{kimi,deepseek,claude,grok}.md` via `scripts/land_review_reply.py` as soon as the ping succeeds (a one-line `<!-- landed: … -->` provenance comment, then the reply verbatim). `ping.json` / stdout / stderr stay in the `/tmp` run dir. A ping whose reply cannot be landed exits non-zero.
 
 **Done = landed.** The run is **not complete** while any reply exists only in `/tmp`. Verify with `python scripts/land_review_reply.py --round-dir reviews/2026-10-19_round6 --check`; to recover an older run without re-firing any API call, use `python scripts/launch_round.py --round-dir reviews/2026-10-19_round6 --run-dir /tmp/round6-run --land-only`. The coordinator **reports back only when all four replies have landed** (checklist item 16).
+
+### Round sequence — four stages, two gates (cannot be skipped)
+
+`scripts/launch_round.py` (default `--stage all`) runs the round in this fixed order:
+
+| Step | Stage | Exit / gate |
+|---|---|---|
+| (a) | **Fire** — four pings as one job, same brief, each with the current primary `run_id` | — |
+| (b) | **Land** — each reply auto-writes `reviews/2026-10-19_round6/{model}.md`, stamped `run_id=… · landed_utc=…` | **Gate 1 — replies landed (COMPLETE):** all four `{model}.md` present **and** stamped with the current primary run (none predates the run start) |
+| (c) | **Cross-review** — refuses to start unless gate 1 passes; each model receives the other three current-run replies (with their run ids) and scores them pass/fail | **Gate 2 — cross-review (COMPLETE):** all four `{model}_teamwork.md` present, stamped with the current teamwork run, and that run scored the **current** primary run |
+| (d) | **Close** — `launch_round.py --stage close` (also run at the end of `--stage all`) | Round **closes only when gate 1 and gate 2 both pass**; recorded under `closed` in `run.json` |
+
+**Stale-reply guard:** every stage run is recorded in `reviews/2026-10-19_round6/run.json` (`run_id`, `started_utc`; teamwork also records the `primary_run_id` it scored). Landing refuses a reply from another run, one generated before the run started, or one with no stamp/timestamp. `land_review_reply.py --check` (and `--check --suffix _teamwork`) fails with `STALE` for any file that predates the current run. A primary re-fire clears the teamwork run and the close record, so old cross-reviews can never close a re-fired round — re-run `--stage teamwork`, then `--stage close`.
+
+Single stages for recovery: `--stage primary`, `--stage teamwork`, `--stage close`; `--land-only` re-lands from a scratch dir under the same freshness rules.
+
+*Why the guard exists:* tonight's re-fire overwrote `kimi.md`, but the cross-review brief still carried a hand-written note that `kimi.md` was the first-land (round-7) version, so all three peers flagged a discrepancy that the files no longer had. Cross-review now reads freshness from the stamps, not from prose.
 
 *Why this step exists:* the first round-6 launch wrote replies only to `/tmp/round6-run/<model>/` (`--ping` wrote just `ping.json` + the job summary; Grok/Claude ran from ad-hoc `/tmp` scripts writing `reply.md`). Copying into this folder was a manual step, so only `deepseek.md` landed; `kimi.md`, `claude.md`, `grok.md` were landed afterwards from those artifacts. Do not start round 7, the round-8 sweep, or any sweep from this launch.
 
@@ -224,7 +241,8 @@ After the four models (**Kimi, DeepSeek, Claude, Grok**) propose threshold **mea
 | 14 | Four pings fired | Kimi, DeepSeek, Claude, Grok pings launched as one job ("send it" / "launch round 6") |
 | 15 | Round 8 hold | No 4 W sweep started until threshold is settled; round 7 purpose TBD |
 | 16 | Replies landed | All four replies present in this folder: `kimi.md`, `deepseek.md`, `claude.md`, `grok.md` (`land_review_reply.py --check` exits 0). A run **cannot** be marked done with replies only in `/tmp` |
+| 17 | Cross-review complete | Gate 2 passes: all four `{model}_teamwork.md` present and stamped with the current teamwork run, which scored the **current** primary run (`land_review_reply.py --check --suffix _teamwork` exits 0); round closes only via `launch_round.py --stage close` with both gates passing. No reply in this folder predates the current run (`--check` reports no `STALE`) |
 
-**NO-GO:** suite red, prompt not shared identically, intent to push without caller, starting the round-8 4 W sweep before threshold approval, or declaring the ping run done while any reply is only in `/tmp`.
+**NO-GO:** suite red, prompt not shared identically, intent to push without caller, starting the round-8 4 W sweep before threshold approval, declaring the ping run done while any reply is only in `/tmp`, skipping cross-review, scoring or closing on a stale (pre-current-run) reply, or closing the round before both gates pass.
 
-When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round; 16 = all four replies landed before the run counts as done), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 purpose TBD**; **round 8 sweep waits**.
+When all rows are GO for **starting** the debate (items 1–10 at minimum; 11–13 complete as the round finishes; 14 = pings fired; 15 held through the round; 16 = all four replies landed before the run counts as done; 17 = cross-review complete before the round closes), the coordinator may declare: **Round 6 started** — models debate threshold / sequencing / peer scores; **round 7 purpose TBD**; **round 8 sweep waits**.
