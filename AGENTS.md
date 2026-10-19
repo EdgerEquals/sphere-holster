@@ -116,6 +116,11 @@ Comment syntax: first line must start with the trigger. Words after it, any orde
   `deepseek-verdict-<sha>` (`gh run download <run-id>`).
 - Act on every `blocker`/`major` finding before re-requesting review. Copy Claude's `claims_needing_source_check`
   into a `/grok-check` when Grok has not yet seen them.
+- Ledger statuses (`ledger/README.md`, schema v1.2): `open` = undecided; `accepted` / `fixed` / `rejected` = decided
+  and scored; `deferred` = decided "later" (note gives the revisit condition) and `superseded` = moot because the code
+  or design it targeted is gone. Deferred and superseded are not open, not scored and never mirrored. Danny's
+  decisions are staged in `ledger/pending/` and appended only by CI (`ledger.yml` on push to main); never hand-edit
+  `ledger/findings.jsonl`.
 
 ## Retired items — must not be reintroduced
 

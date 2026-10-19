@@ -53,6 +53,28 @@ DeepSeek and Claude suggested a protected data branch with Issues as a mirror. T
 The backfill (2026-10-19) holds rounds 1 to 3 plus every unexpired verdict, ping and Tavily artifact. Round replies
 are prose, so their bold-led points are stored as severity `note` and nothing was mirrored to issues.
 
+## Statuses (schema v1.2) and staged decisions
+
+| status | meaning | open? | scored (acceptance rate)? | mirrored? |
+|---|---|---|---|---|
+| `open` | undecided (every finding starts here) | yes | no | yes, if severity and cap allow |
+| `accepted` | decided: will be built | no | yes (good) | no |
+| `fixed` | built and landed | no | yes (good) | no |
+| `rejected` | decided: not doing it | no | yes (bad) | no |
+| `deferred` | decided: later; the status `note` gives the reason and revisit condition | no | no | no |
+| `superseded` | moot: the code or design it targeted has been removed; `note` says what replaced it | no | no | no |
+
+`deferred` and `superseded` status records must carry `schema: ssm-ledger/v1.2` and a `note` (the schema enforces
+both). Issue labels `status:deferred` / `status:superseded` set them from a mirrored issue too.
+
+Staged decisions: Danny's dispositions are written locally as wrapper lines in `ledger/pending/*.jsonl` (see
+`ledger/pending/README.md`). They reach `findings.jsonl` only through CI: a push to main that touches
+`ledger/pending/**` (or dispatching `ledger.yml` with `action=ingest-staged`) runs `ledger.py ingest-staged` inside
+`scripts/ledger_commit.sh`. Each line is checked by `ledger_lib.parse_staged_line` (wrapper shape, disposition equals
+the status record, ids and hashes recompute, schema, only finding/status kinds so never a receipt, no secrets or
+trigger strings); a bad line is refused and reported, never half-ingested. Ingest is idempotent (ids dedup), and the
+command refuses to write outside Actions on `refs/heads/main` (`--dry-run` previews locally).
+
 ## Receipts and review class (schema v1.1, round 4)
 
 - `kind: receipt`: a CI execution receipt (see `harness/README.md`, "Receipt gate"). Appended only by `ledger.yml`

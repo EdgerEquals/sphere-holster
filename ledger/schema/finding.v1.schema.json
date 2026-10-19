@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/EdgerEquals/stratified-sphere-model/ledger/schema/finding.v1.schema.json",
-  "title": "Stratified Sphere review ledger record, v1 / v1.1",
-  "description": "One line of ledger/findings.jsonl. The file is append-only: records are never edited or removed; a later 'status' or 'mirror' record refers back to a finding by id. v1.1 (2026-10-19, round 4) adds kind 'receipt' (CI-only execution receipt, attested), kind 'class' (review_class backfill) and the optional review_class field. v1 records stay valid; a finding or cost record with no review_class and no class record counts as 'legacy'.",
+  "title": "Stratified Sphere review ledger record, v1 / v1.1 / v1.2",
+  "description": "One line of ledger/findings.jsonl. The file is append-only: records are never edited or removed; a later 'status' or 'mirror' record refers back to a finding by id. v1.1 (2026-10-19, round 4) adds kind 'receipt' (CI-only execution receipt, attested), kind 'class' (review_class backfill) and the optional review_class field. v1 records stay valid; a finding or cost record with no review_class and no class record counts as 'legacy'. v1.2 (2026-10-19) adds the statuses 'deferred' (decided: later, not open) and 'superseded' (moot: the code or design it targeted is gone); a status record using either must carry schema ssm-ledger/v1.2 and a note giving the reason or revisit condition. These records come only from CI ingest of ledger/pending/ (ledger.yml).",
   "type": "object",
   "required": [
     "schema",
@@ -15,7 +15,8 @@
     "schema": {
       "enum": [
         "ssm-ledger/v1",
-        "ssm-ledger/v1.1"
+        "ssm-ledger/v1.1",
+        "ssm-ledger/v1.2"
       ]
     },
     "kind": {
@@ -157,8 +158,11 @@
         "open",
         "accepted",
         "rejected",
-        "fixed"
-      ]
+        "fixed",
+        "deferred",
+        "superseded"
+      ],
+      "description": "open = undecided. accepted / fixed / rejected = decided (scored). deferred = decided later, revisit condition in note; not open, not scored, not mirrored. superseded = moot because the targeted code/design was removed; not open, not scored, not mirrored."
     },
     "issue_number": {
       "type": [
@@ -274,6 +278,10 @@
       "items": {
         "type": "string"
       }
+    },
+    "staged_ref": {
+      "type": "string",
+      "description": "v1.2 status records ingested from ledger/pending/: the staged file they came from."
     }
   },
   "allOf": [
@@ -396,6 +404,35 @@
           "finding_id",
           "review_class"
         ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "kind": {
+            "const": "status"
+          },
+          "status": {
+            "enum": [
+              "deferred",
+              "superseded"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "note"
+        ],
+        "properties": {
+          "schema": {
+            "const": "ssm-ledger/v1.2"
+          }
+        }
       }
     }
   ]

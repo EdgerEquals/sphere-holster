@@ -111,7 +111,7 @@ def scorecards(records: list[dict], keys: dict | None = None, cfg=None) -> dict:
     for r in records:
         if r["kind"] != "finding" or r.get("reviewer") not in L.REVIEWERS.values():
             continue
-        c = cards.setdefault(r["reviewer"], {"findings": 0, "by_status": {"open": 0, "accepted": 0, "rejected": 0, "fixed": 0},
+        c = cards.setdefault(r["reviewer"], {"findings": 0, "by_status": {s: 0 for s in L.STATUSES},
                                              "by_severity": {s: 0 for s in cfg["severity_order"]}, "planted_runs": [],
                                              "spec_review_excluded": 0, "by_class": {k: 0 for k in L.REVIEW_CLASSES}})
         c.setdefault("spec_review_excluded", 0); c.setdefault("by_class", {k: 0 for k in L.REVIEW_CLASSES})
@@ -123,9 +123,11 @@ def scorecards(records: list[dict], keys: dict | None = None, cfg=None) -> dict:
             c["spec_review_excluded"] += 1
             continue
         c["findings"] += 1
-        c["by_status"][st.get(r["id"], "open")] += 1
+        c["by_status"].setdefault(st.get(r["id"], "open"), 0)
+        c["by_status"][st.get(r["id"], "open")] += 1   # deferred / superseded are their own buckets, never "open"
         c["by_severity"][r["severity"]] += 1
     for c in cards.values():
+        # deferred and superseded are decided but not scored: they are in neither the numerator nor the denominator
         good, bad = c["by_status"]["accepted"] + c["by_status"]["fixed"], c["by_status"]["rejected"]
         c["acceptance_rate"] = round(good / (good + bad), 3) if (good + bad) else None
     runs = {}
@@ -143,18 +145,19 @@ def scorecards(records: list[dict], keys: dict | None = None, cfg=None) -> dict:
 
 def render_md(sc: dict) -> str:
     L_ = ["# Reviewer scorecards", "", f"Ledger as of {sc['generated_utc']}, from `ledger/findings.jsonl` (issue #8).", "",
-          "Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed ledger issues. Planted = the latest "
+          "Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed ledger issues and CI-ingested staged "
+          "decisions; deferred and superseded are not open and not scored. Planted = the latest "
           f"planted-mistake run against `{sc['fixture']}` (recall = seeded mistakes caught / planted).", "",
-          "| Reviewer | findings | open | accepted | fixed | rejected | acceptance | planted recall | planted precision | planted runs |",
-          "|---|---|---|---|---|---|---|---|---|---|"]
+          "| Reviewer | findings | open | accepted | fixed | rejected | deferred | superseded | acceptance | planted recall | planted precision | planted runs |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for rev in ("Claude", "Grok", "Kimi", "DeepSeek"):
         c = sc["reviewers"].get(rev)
         if not c:
-            L_.append(f"| {rev} | 0 | | | | | n/a | not run | not run | 0 |"); continue
+            L_.append(f"| {rev} | 0 | | | | | | | n/a | not run | not run | 0 |"); continue
         b, last = c.get("by_status", {}), (c["planted_runs"][-1] if c["planted_runs"] else None)
         fmt = lambda v: "n/a" if v is None else f"{v:.0%}"
         L_.append(f"| {rev} | {c['findings']} | {b.get('open', 0)} | {b.get('accepted', 0)} | {b.get('fixed', 0)} | "
-                  f"{b.get('rejected', 0)} | {fmt(c.get('acceptance_rate'))} | "
+                  f"{b.get('rejected', 0)} | {b.get('deferred', 0)} | {b.get('superseded', 0)} | {fmt(c.get('acceptance_rate'))} | "
                   f"{fmt(last['recall']) if last else 'not run'} | {fmt(last['precision']) if last else 'not run'} | "
                   f"{len(c['planted_runs'])} |")
     L_ += ["", "Spec-review findings (no execution receipt) are excluded from every number above; legacy = before the "

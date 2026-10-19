@@ -104,6 +104,11 @@ Paid reviews (Claude, Grok) only count as **code reviews** when CI has proved th
 - **Effect downstream:** verdict artifacts carry `review_class.json`; the ledger stamps `review_class` on findings and
   costs; the scorer excludes spec-review from scorecards and planted precision/recall; mirroring skips spec-review;
   the monthly cost rollup splits spend by class. Findings from before the gate are `legacy` (no receipt).
+- **Statuses (ledger v1.2):** `open`, `accepted`, `fixed`, `rejected`, plus `deferred` (decided later; revisit
+  condition in the status note) and `superseded` (moot: the targeted code or design was removed). The last two are
+  not open, are outside the acceptance rate and are never mirrored to issues. Staged decisions in `ledger/pending/`
+  reach the ledger only through `ledger.yml` (push to main touching `ledger/pending/**`, or dispatch
+  `action=ingest-staged`); `ledger.py ingest-staged` refuses to write anywhere else (`--dry-run` previews locally).
 
 Local inspection (read-only, no write path): `python scripts/receipt_gate.py decide --head <sha> --no-attest`,
 `python scripts/stub_detector.py solver_v0.py:l0_modes`.

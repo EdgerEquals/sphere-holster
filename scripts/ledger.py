@@ -8,6 +8,9 @@
   python scripts/ledger.py mirror  [--apply] [--min-severity major] [--cap 5] [--only-ids a,b]   # dry-run unless --apply
   python scripts/ledger.py status  --issue N --state closed --reason completed|not_planned [--labels a,b]
   python scripts/ledger.py append-file --file <records.jsonl>
+  python scripts/ledger.py ingest-staged [--dir ledger/pending] [--dry-run]
+      (v1.2: Danny's staged decisions -> finding + status records. Writes only inside the ledger workflow on main,
+       GITHUB_ACTIONS=true and GITHUB_REF=refs/heads/main; anywhere else it refuses unless --dry-run)
   python scripts/ledger.py validate            # schema + receipt digests (evidence unaltered)
   python scripts/ledger.py classify-legacy     # v1.1: tag pre-gate findings/costs review_class=legacy
   python scripts/ledger.py verify-append-only --old <file> --new <file>
@@ -150,7 +153,7 @@ def cmd_mirror(a, cfg, gh: GitHub | None = None) -> dict:
 
 def status_from_issue(state: str, reason: str | None, labels: list[str]) -> str | None:
     labels = [x.lower() for x in labels]
-    for s in ("rejected", "fixed", "accepted"):
+    for s in ("superseded", "deferred", "rejected", "fixed", "accepted"):
         if f"status:{s}" in labels:
             return s
     if state == "closed":
@@ -187,6 +190,29 @@ def cmd_backfill(a, cfg) -> dict:
     return {"parsed": len(recs), "appended": len(added)}
 
 
+def staged_write_allowed(env=os.environ) -> bool:
+    """CI is the only writer of the ledger: staged decisions are appended only by ledger.yml running on main."""
+    return env.get("GITHUB_ACTIONS") == "true" and env.get("GITHUB_REF") == "refs/heads/main"
+
+
+def cmd_ingest_staged(a, cfg, env=os.environ) -> dict:
+    d = Path(a.dir) if a.dir else L.ROOT / "ledger" / "pending"
+    recs, refused = L.parse_staged_dir(d, cfg)
+    existing = {r["id"] for r in L.read_ledger(ledger_path(cfg))}
+    new = [r for r in recs if r["id"] not in existing]
+    res = {"dir": str(d), "parsed": len(recs), "new": len(new), "refused": refused,
+           "statuses": {s: sum(1 for r in new if r["kind"] == "status" and r["status"] == s) for s in L.STATUSES}}
+    if a.dry_run:
+        res["mode"] = "dry-run"
+        return res
+    if not staged_write_allowed(env):
+        raise SystemExit("ingest-staged writes only inside the ledger workflow on main (GITHUB_ACTIONS=true, "
+                         "GITHUB_REF=refs/heads/main); use --dry-run locally. The ledger is CI-written.")
+    res["mode"] = "apply"
+    res["appended"] = len(L.append_records(ledger_path(cfg), recs))
+    return res
+
+
 def cmd_validate(cfg) -> dict:
     schema = L.load_schema()
     recs = L.read_ledger(ledger_path(cfg))
@@ -216,6 +242,7 @@ def main(argv=None):
     p = sp.add_parser("append-file"); p.add_argument("--file", required=True)
     p = sp.add_parser("status"); p.add_argument("--issue", required=True); p.add_argument("--state", required=True)
     p.add_argument("--reason", default=None); p.add_argument("--labels", default="")
+    p = sp.add_parser("ingest-staged"); p.add_argument("--dir", default=None); p.add_argument("--dry-run", action="store_true")
     sp.add_parser("validate")
     sp.add_parser("classify-legacy")
     p = sp.add_parser("verify-append-only"); p.add_argument("--old", required=True); p.add_argument("--new", required=True)
@@ -245,6 +272,10 @@ def main(argv=None):
     elif a.cmd == "append-file":
         recs = L.read_ledger(Path(a.file))
         res = {"appended": len(L.append_records(ledger_path(cfg), recs))}
+    elif a.cmd == "ingest-staged":
+        res = cmd_ingest_staged(a, cfg)
+        for msg in res["refused"]:
+            print(f"::warning title=Staged record refused::{msg}", file=sys.stderr)
     elif a.cmd == "validate":
         res = cmd_validate(cfg)
     else:

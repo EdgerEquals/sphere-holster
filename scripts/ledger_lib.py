@@ -23,7 +23,11 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "harness" / "ledger.json"
 SCHEMA_PATH = ROOT / "ledger" / "schema" / "finding.v1.schema.json"
 SCHEMA_TAG = "ssm-ledger/v1.1"   # v1.1 adds receipt/class kinds + review_class; v1 lines stay valid
+SCHEMA_TAG_V12 = "ssm-ledger/v1.2"  # v1.2 adds statuses deferred + superseded (status records only)
 REVIEW_CLASSES = ("code-review", "spec-review", "legacy")
+STATUSES = ("open", "accepted", "rejected", "fixed", "deferred", "superseded")
+DECIDED_SCORED = ("accepted", "fixed", "rejected")   # count toward acceptance rate
+PARKED = ("deferred", "superseded")                  # decided, not open, not scored, never mirrored
 REVIEWERS = {"claude": "Claude", "grok": "Grok", "kimi": "Kimi", "deepseek": "DeepSeek"}
 
 
@@ -152,10 +156,19 @@ def make_cost(cfg, *, reviewer, model, tokens, source, cost_usd=None, cost_basis
             "cost_usd": None if cost_usd is None else round(float(cost_usd), 6), "cost_basis": cost_basis or "reported"}
 
 
-def make_status(finding_id: str, status: str, source: dict, issue_number=None) -> dict:
+def make_status(finding_id: str, status: str, source: dict, issue_number=None, note: str | None = None) -> dict:
+    """Status record. deferred / superseded (v1.2) need a note: the reason or the revisit condition."""
+    if status not in STATUSES:
+        raise ValueError(f"unknown status {status!r}")
     h = dedup_hash("status", finding_id, status, source.get("ref"))
-    return {"schema": SCHEMA_TAG, "kind": "status", "id": h[:16], "hash": h, "recorded_utc": now_utc(),
-            "source": source, "finding_id": finding_id, "status": status, "issue_number": issue_number}
+    rec = {"schema": SCHEMA_TAG_V12 if status in PARKED else SCHEMA_TAG, "kind": "status", "id": h[:16], "hash": h,
+           "recorded_utc": now_utc(), "source": source, "finding_id": finding_id, "status": status,
+           "issue_number": issue_number}
+    if note is not None:
+        rec["note"] = note
+    elif status in PARKED:
+        raise ValueError(f"status {status!r} needs a note (reason / revisit condition)")
+    return rec
 
 
 def make_mirror(finding_id: str, issue_number: int, source: dict) -> dict:
@@ -501,6 +514,69 @@ def validate(obj, schema: dict, path: str = "$") -> list[str]:
 
 
 # ------------------------------------------------------------------ derived views
+# ------------------------------------------------------------------ staged decisions (ledger/pending/, v1.2)
+class StagedRefused(Exception):
+    pass
+
+
+DISPOSITION_STATUS = {"accepted": "accepted", "fixed": "fixed", "rejected": "rejected", "deferred": "deferred",
+                      "superseded": "superseded"}
+STAGED_KEYS = {"staged", "decided_by", "decided_on", "disposition", "reason", "finding", "status"}
+
+
+def parse_staged_line(w: dict, cfg: dict, schema: dict) -> list[dict]:
+    """One wrapper line of ledger/pending/*.jsonl -> [finding, status] ledger records, or raise StagedRefused.
+    Checks: wrapper shape, disposition matches the status record, ids/hashes recompute (no hand-edited ids), every
+    record schema-valid, only finding/status kinds (never receipts), no secrets or live triggers in stored text."""
+    if not isinstance(w, dict) or set(w) != STAGED_KEYS or w.get("staged") is not True:
+        raise StagedRefused(f"not a staged wrapper (keys {sorted(w) if isinstance(w, dict) else type(w).__name__})")
+    want = DISPOSITION_STATUS.get(w["disposition"])
+    if not want:
+        raise StagedRefused(f"unknown disposition {w['disposition']!r}")
+    f, s = w["finding"], w["status"]
+    if not isinstance(f, dict) or f.get("kind") != "finding":
+        raise StagedRefused("inner finding missing")
+    if not isinstance(s, dict) or s.get("kind") != "status":
+        raise StagedRefused(f"disposition {w['disposition']} has no status record (deferred needs status 'deferred')")
+    if s.get("status") != want:
+        raise StagedRefused(f"disposition {w['disposition']} but status record says {s.get('status')!r}")
+    if s.get("finding_id") != f.get("id"):
+        raise StagedRefused("status.finding_id does not match finding.id")
+    fh = dedup_hash("finding", f.get("reviewer"), f.get("domain"), f.get("file"), f.get("claim"), "")
+    sh = dedup_hash("status", s.get("finding_id"), s.get("status"), (s.get("source") or {}).get("ref"))
+    for rec, h in ((f, fh), (s, sh)):
+        if rec.get("hash") != h or rec.get("id") != h[:16]:
+            raise StagedRefused(f"{rec.get('kind')} {rec.get('id')}: id/hash do not recompute")
+    for rec in (f, s):
+        errs = validate(rec, schema)
+        if errs:
+            raise StagedRefused(f"{rec.get('kind')} {rec.get('id')} fails schema: {errs[:3]}")
+        for k in ("claim", "note", "reason"):
+            v = rec.get(k) if k != "reason" else w["reason"]
+            if v and (sanitise(v, cfg, 10 ** 6) != re.sub(r"[ \t]+", " ", str(v)).strip() or contains_trigger(v, cfg)):
+                raise StagedRefused(f"{rec.get('kind')} {rec.get('id')}: {k} has unsanitised text (secret/trigger/HTML)")
+    return [f, s]
+
+
+def parse_staged_dir(d: Path, cfg: dict, schema: dict | None = None) -> tuple[list[dict], list[str]]:
+    """All ledger/pending/*.jsonl -> (records, refusals). A refused line is skipped and reported, never half-ingested."""
+    schema = schema or load_schema()
+    recs, refused = [], []
+    for p in sorted(Path(d).glob("*.jsonl")):
+        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip():
+                continue
+            try:
+                recs += parse_staged_line(json.loads(line), cfg, schema)
+            except (StagedRefused, json.JSONDecodeError, KeyError, TypeError) as e:
+                refused.append(f"{p.name}:{i}: {e}")
+    return recs, refused
+
+
+def is_open(status: str | None) -> bool:
+    return (status or "open") == "open"
+
+
 def current_status(records: list[dict]) -> dict[str, str]:
     st = {r["id"]: r.get("status", "open") for r in records if r["kind"] == "finding"}
     for r in records:
