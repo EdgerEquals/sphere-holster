@@ -1,9 +1,9 @@
 # Stratified Sphere — Design State (single source of truth)
 
 **Updated:** 2026-10-19 AWST · **Owner:** Danny (EdgerEquals)
-**Repo:** https://github.com/EdgerEquals/stratified-sphere-model
-**Live viewer:** https://edgerequals.github.io/stratified-sphere-model/
-**Raw link for AI tools:** https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/DESIGN_STATE.md
+**Repo:** https://github.com/EdgerEquals/sphere-holster
+**Live viewer:** https://edgerequals.github.io/sphere-holster/
+**Raw link for AI tools:** https://raw.githubusercontent.com/EdgerEquals/sphere-holster/main/DESIGN_STATE.md
 
 All figures are paper estimates from the v0 model. None have been measured.
 Every tool working on this project reads this file first, never reintroduces a retired item, and treats everything under **Open** as undecided.

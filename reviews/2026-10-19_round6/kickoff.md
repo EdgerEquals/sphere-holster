@@ -1,0 +1,143 @@
+# Round 6 kickoff — 4 W amplitude sweep (drive_W=1)
+
+**Branch:** `holster-loop-2026-10-19`  
+**Team brief (verbatim):** [`prompt.md`](prompt.md)  
+**Bundle on origin:** `da37b3c`  
+**Do not push** unless the caller says so. This file is documentation only — it does not run tests or the sweep.
+
+Core locked for this run (do not re-open): bubble **0.57295 mm**, wall **1.43463 mm**, tourbillon **9.12441 µm**, fill **0.1044 × ambient** (HHO 2:1), window **1 Hz–50 MHz**, drive **`drive_W=1`** (= 1 W × 4 domains = **4 W total**).
+
+---
+
+## 1. Pre-flight — full test suite (required)
+
+Per `prompt.md` §5, Claude Code (executor) must confirm the suite is green **before** any sweep commit or ledger entry. Coordinator / caller should run the same check before declaring the run started.
+
+From the repo root (use the project venv if present; otherwise one that has the test deps):
+
+```bash
+cd /path/to/sphere-holster
+git checkout holster-loop-2026-10-19
+git rev-parse --short HEAD   # expect da37b3c or a descendant that still carries round-6
+
+# Full suite
+python -m pytest -q --tb=line
+# or, if using the box venv from earlier sessions:
+# /tmp/fx2/venv/bin/pytest -q --tb=line
+```
+
+**Pass criterion:** last line reports all green, e.g. `178 passed in …` (count may rise if new tests land; record the **actual** pass/fail + count in every ledger entry).
+
+**No-go if:** any failure, collection error, or missing deps. Fix first; do not start the sweep.
+
+Optional drive smoke (does not replace the full suite):
+
+```bash
+python -m pytest -q tests/test_drive_1W.py --tb=short
+```
+
+---
+
+## 2. Launch the 4 W (drive_W=1) amplitude sweep
+
+There is **no** dedicated `drive_4W_*.py` harness in tree yet. Geometry sweeps (`geometry_sweep_v0.py`, `geometry_fill_sweep_v0.py`) are **no-source** lock searches. Round 6 **creates** the first driven amplitude artifact.
+
+### 2a. Single-point smoke on the rarefied core (executor first step)
+
+```bash
+python - <<'PY'
+import json
+import solver_v0 as S
+
+pre = next(p for p in S.PRESETS if p["id"] == "base5")
+# base5 must already be the rarefied winner (0.57295 / 1.43463 / 9.12441 µm @ 0.1044×)
+run = S.run_case(pre, {}, drive_W=1.0)
+d = run["drive"]
+out = {
+    "drive_W": d["drive_W"],
+    "n_modes_driven": d["n_modes_driven"],
+    "P_src_per_mode_W": d["P_src_per_mode_W"],
+    "f_Hz_first_last": [d["f_Hz"][0], d["f_Hz"][-1]] if d.get("f_Hz") else None,
+    "W_ac_sum_J": d.get("W_ac_sum_J", run.get("W_ac")),
+    "P_gas": run["P_gas"],
+    "Tss_min_max": [float(min(run["Tss"])), float(max(run["Tss"]))],
+    "geometry": {
+        "a_mm": pre.get("a") or pre.get("a_mm"),
+        "w_mm": pre.get("w") or pre.get("w_mm"),
+        "t2_um": pre.get("t2") or pre.get("t2_um"),
+        "p_factor": getattr(S, "CORE_P_FACTOR", None) or pre.get("p_factor"),
+    },
+}
+print(json.dumps(out, indent=2))
+PY
+```
+
+Expect `drive_W == 1.0`, `P_gas == 1.0`, `n_modes_driven > 0`, frequencies inside **1 Hz–50 MHz**.
+
+### 2b. Team sweep deliverable (write new artifact)
+
+Per `prompt.md` Task 1, the team/executor:
+
+1. Agrees the grid (geometry + mix fixed; optional fully-rarefied pressure or envelope grid only).
+2. Runs `run_case(..., drive_W=1.0)` (or a thin wrapper script they add) at each point.
+3. Writes results to the repo root (or this folder), suggested names:
+   - `drive_4W_amplitude_v0.json`, or
+   - `geometry_drive_4W_sweep_v0.json`
+4. Records best locks, amplitudes / energies, frequencies, pressures, tree commit hash, and exact `drive_W` / acoustic split.
+5. Re-runs the **full suite** (§1); only then stages a local commit / ledger entry with `N passed` in the body.
+
+Claude Code CLI is the intended executor for steps 2b–5; chat Claude does **not** run the solver.
+
+---
+
+## 3. Four-model role assignment
+
+Give **every** model the same verbatim text from [`prompt.md`](prompt.md). Roles below match that brief:
+
+| Model | Role this round | How to reach (typical) |
+|---|---|---|
+| **Kimi** | Cheap rote: units, power bookkeeping (1+1+1+1=4), retired-item scan, DESIGN_STATE consistency, JSON completeness | `python scripts/review_kimi.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` (or holster `/kimi-check` / workflow ping with the prompt) |
+| **DeepSeek** | Same cheap filter as Kimi (independent) | `python scripts/review_deepseek.py --ping "$(cat reviews/2026-10-19_round6/prompt.md)"` |
+| **Claude (chat)** | Paid / read-only physics + method review; **cross-reviews the other three**; never runs solver or commits | Holster Claude channel / Messages API (see prior `reviews/2026-10-19_round5/claude_run.py` pattern); findings → ledger |
+| **Grok** | Paid source / claim cross-check against `solver_v0.py` + DESIGN_STATE; **cross-reviews the other three** | `python scripts/review_grok.py` with prompt context, or round runner; Tavily pre-search opt-in only if needed |
+| **Claude Code CLI** (executor, not a fifth “review voice”) | Runs suite, sweep, local commits; **self-check** before every commit/ledger line | Box CLI (`claude`); output gated by caller; **do not push** |
+
+Suggested order: suite green → executor smoke (2a) → cheap Kimi/DeepSeek plan check → executor full sweep artifact → Claude + Grok review numbers → all four cross-review + teamwork + recommendations.
+
+---
+
+## 4. Where outputs land
+
+| Artifact | Path |
+|---|---|
+| Team brief | `reviews/2026-10-19_round6/prompt.md` |
+| This kickoff | `reviews/2026-10-19_round6/kickoff.md` |
+| Sweep / amplitude JSON | repo root `drive_4W_amplitude_v0.json` or `geometry_drive_4W_sweep_v0.json` (name as team agrees); short human summary also under this folder |
+| Per-model replies | `reviews/2026-10-19_round6/{kimi,deepseek,claude,grok}.md` |
+| Teamwork scores | `reviews/2026-10-19_round6/*_teamwork.md` |
+| Process recommendations | `reviews/2026-10-19_round6/recommendations.md` (seed for DESIGN_STATE; caller locks) |
+| Ledger staging | `ledger/pending/*.jsonl` (CI ingest); never hand-edit `ledger/findings.jsonl` on main outside documented tools |
+| Ledger mirror | labelled GitHub issues (`ledger`, `model:<x>`, `sev:<x>`, …) when dial/dispatch allows |
+
+Every Claude Code ledger line must include suite **pass/fail + count**.
+
+---
+
+## 5. Go / no-go checklist (declare “run started” only if all GO)
+
+| # | Check | GO if… |
+|---|---|---|
+| 1 | Branch | On `holster-loop-2026-10-19` with round-6 files present (`prompt.md`, this kickoff) |
+| 2 | Core geometry | `base5` / CORE_* match rarefied winner (0.57295 / 1.43463 / 9.12441 µm @ 0.1044× HHO 2:1) |
+| 3 | Window | `FMIN_HZ=1`, `FMAX_HZ=50e6` in solver |
+| 4 | Full suite | Green; record exact `N passed` |
+| 5 | Drive API | `run_case(..., drive_W=1)` available; `tests/test_drive_1W.py` part of the green suite |
+| 6 | Prompt §5 | Self-check rule understood; executor will not commit on red suite |
+| 7 | Models | Kimi, DeepSeek, Claude (chat), Grok each have the **same** `prompt.md` text ready |
+| 8 | Outputs | Target paths in §4 agreed; no push planned without caller |
+| 9 | Retired | No electrodes / retired items in the planned sweep |
+| 10 | Ledger | Staging path `ledger/pending/` known; schema / labels understood |
+
+**NO-GO:** suite red, wrong geometry, missing `drive_W`, prompt not shared identically, or intent to push without caller.
+
+When all rows are GO, the coordinator may declare: **Round 6 started** — executor begins §2, models stand by for cross-review of verified artifacts.

@@ -1,6 +1,6 @@
 # Round 6 team prompt — 4 W amplitude sweep + cross-review (2026-10-19)
 
-**Repo:** https://github.com/EdgerEquals/stratified-sphere-model  
+**Repo:** https://github.com/EdgerEquals/sphere-holster  
 **Branch (work tree):** `holster-loop-2026-10-19`  
 **Models:** Kimi, DeepSeek, Claude (chat reviewer), Grok  
 **Executor available:** Claude Code CLI on the box (authenticated; see §5)  
