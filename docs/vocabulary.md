@@ -47,7 +47,7 @@ Names the apparatus and its behavior. Unchanged project terms.
 
 ## The split
 
-Process terms name the loop's operations. Physics terms name the apparatus and its behavior. Do not mix them — e.g. no "booster" or "payload" for the sphere.
+Process terms name the loop's operations. Physics terms name the apparatus and its behavior.
 
 ## Correct usage
 
