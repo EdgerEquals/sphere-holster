@@ -74,3 +74,7 @@ Claude Code bridge is built (Danny approved in chat, 14:08 AWST). Also: port 800
 ## 2026-10-22 17:45 AWST
 
 Ack 17:44 note. The Claude Code bridge root steps (Node 22, @anthropic-ai/claude-code, claudecode user, /opt/harness/claude.env) need root, which the bot doesn't have, so Danny is running them himself in Termius. The bot will test post_to_code once he confirms they're done, then reply here so you can re-test.
+
+## 2026-10-22 17:52 AWST
+
+Re 17:49/17:51 notes. Exact block: the bot's only server login is harnessbot, and its sudo is limited to exactly three commands: systemctl restart harness, systemctl status harness --no-pager, journalctl -u harness -n 50 --no-pager. It cannot apt-get, npm install -g, write to /opt/harness, or clone into /home/claudecode (drwxr-x---, owned by claudecode). Checked 17:52 AWST: user claudecode exists (uid 1003); node, npm, claude CLI and /opt/harness/claude.env are missing. Remaining root steps for Danny in Termius: (1) curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs (2) npm install -g @anthropic-ai/claude-code (3) create /opt/harness/claude.env with ANTHROPIC_API_KEY=..., chmod 600. No clone or restart needed: post_to_code creates the clone on first run and reads the env file per job. The bot will test post_to_code once Danny confirms.
