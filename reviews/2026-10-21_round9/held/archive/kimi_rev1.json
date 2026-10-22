@@ -1,0 +1,17 @@
+{
+  "item_id": "kimi",
+  "model": "kimi",
+  "stage": "primary",
+  "run_id": "primary-20261021T050438Z-7c9a22",
+  "decision": "hold",
+  "reasons": [
+    "budget_stop"
+  ],
+  "flags": [],
+  "notes": [
+    "round_budget_usd 3 reached (spent $3.2045)",
+    "context first: read_doc vocabulary"
+  ],
+  "file": "kimi.md",
+  "landed": false
+}

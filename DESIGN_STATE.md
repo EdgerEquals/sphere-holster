@@ -82,7 +82,7 @@ Every tool working on this project reads this file first, never reintroduces a r
 ## Information layer (harness architecture)
 Full spec: the Drive doc "Stratified Sphere — Information Layer (Harness Architecture) 2026-10-19".
 
-- **Holsters (Danny, 2026-10-19):** 19 in total, one per knee and one per energy domain: **12 knee holsters + 7 energy-domain holsters**. The seven energy domains are optical, acoustic, electric, magnetic, thermal, chemical and **information** (the information layer is a real domain). Each knee and each energy domain has its **own** holster; the holster is not a single shared component. Say "energy domains", not "power domains". (Superseded: "18 harnesses: 6 domain + 12 knee", and the same-day 6 + 12 = 18 holster note.) The domain holsters run in parallel on GitHub Actions and pass results to each other between rounds.
+- **Harnesses (Danny, 2026-10-19):** 19 in total, one per knee and one per energy domain: **12 knee harnesses + 7 energy-domain harnesses**. The seven energy domains are optical, acoustic, electric, magnetic, thermal, chemical and **information** (the information layer is a real domain). Each knee and each energy domain has its **own** harness; the harness is not a single shared component. Say "energy domains", not "power domains". (Superseded: "18 harnesses: 6 domain + 12 knee", and the same-day 6 + 12 = 18 harness note.) The domain harnesses run in parallel on GitHub Actions and pass results to each other between rounds.
 - **Coordinator:** Cursor. It reads a granularity dial: shallow for scouting, deep for validating.
 - **Checks:**
   - The Claude API audits Cursor's merges every few rounds.
@@ -107,13 +107,13 @@ Full spec: the Drive doc "Stratified Sphere — Information Layer (Harness Archi
   - Knee harness details
   - Which harness to build first (thermal was suggested, then paused)
 
-## Locked holster architecture (2026-10-19, from review round 3)
+## Locked harness architecture (2026-10-19, from review round 3)
 Danny locked items 1–4 on 2026-10-19 from review round 3 (`reviews/2026-10-19_round3/`) and item 5 the same day from round 4 (`reviews/2026-10-19_round4/`). Treat them as decided; do not re-open them without Danny. Status updated 2026-10-19 14:40 AWST: items 1–3 and 5 built, item 4 partial. Details: `ledger/README.md`, `gateway/README.md`.
 
 | # | Item | What it is | Source | Order | Status |
 |---|---|---|---|---|---|
 | 1 | GitHub review ledger | Every review finding is filed as a GitHub issue and appended to a permanent, append-only JSONL log; reviewers are scored from it. | Round 3: DeepSeek, Claude and Grok's top pick (Kimi's runner-up); closes round 2's "review loop doesn't close" gap | **First.** Everything else builds on it. | **built** (issue #7): `ledger/findings.jsonl` on main, schema v1, workflow `ledger.yml`; issue mirroring off by default (dispatch, threshold major, cap 5/day) |
-| 2 | Scoring rubric (planted mistakes) | Each reviewer is scored on whether it catches mistakes deliberately planted in the work it reviews. | DeepSeek's round-2 idea (seed known defects), made concrete per Claude's round-3 suggestion (score reviewers from ledger status) | On top of the ledger | **built** (issue #8): fixture `ledger/planted/v1`, `ledger-score.yml` (offline default); no paid planted run yet |
+| 2 | Scoring rubric | Each reviewer is scored from ledger status (acceptance rate). | Claude's round-3 suggestion (score reviewers from ledger status) | On top of the ledger | **built** (issue #8): `scripts/ledger_score.py offline`, scorecards kept outside the repo. Planted-mistake scoring **retired** 2026-10-20 22:52 AWST ("our auditing is gonna be sufficient"): fixture and `ledger-score.yml` moved to Archive; never reintroduce |
 | 3 | Monthly cost rollup per model | Spend per model per month, rolled up from the ledger's cost stamps, so spend per model is visible. | Grok's round-3 suggestion (a cost stamp on every ledger record) | On top of the ledger | **built** (issue #9): `ledger/costs_YYYY-MM.*`, `ledger-costs.yml` (monthly cron + dispatch), Pages `ledger/`; October backfilled |
 | 4 | FEniCS/OpenFOAM MCP gateway | Models drive simulations directly through an MCP gateway to the open simulation stack (sandboxed). | Kimi's round-3 top pick; Claude and Grok's runner-up (after the ledger) | **After the ledger** | **partial** (issue #10): hardened FEniCS + OpenFOAM MCP containers pass CI (`mcp-gateway.yml`) and log to the ledger, but expose only the existing smoke tests; upstream dolfinx-mcp failed to initialise in CI |
 | 5 | Receipt gate + spec-review class | A paid Claude/Grok review counts as a **code review** only if a CI execution receipt covers every component it touches; otherwise it is a **spec review**: routed to the cheap Kimi/DeepSeek path by default, never scored, never mirrored as fixable issues. Receipts are written by CI only (GitHub artifact attestation) and must prove real execution: the entrypoint is imported **and** called (line trace), is not a stub (AST check: pass / ... / raise NotImplementedError / return-a-constant), and passes ≥1 numeric check. A stub with locked I/O never qualifies. | Round 4 (issue #11): DeepSeek, Claude and Grok proposed the receipt + spec-review class; Kimi's pushback (a stub with locked I/O schemas would satisfy a naive receipt) is built in as the anti-stub rule | Gates items 1–3; uses item 4's CI | **built** 2026-10-19: `harness/receipts.json`, `scripts/receipt.py`, `scripts/stub_detector.py`, `scripts/exec_trace.py`, `scripts/receipt_gate.py`, `.github/actions/receipt/`; receipts from engineering-tests (compute-core), sim-stack (sim-fenics), mcp-gateway (mcp-gateway); dial `receipt_gate: enforce|warn|off` (enforce); ledger schema v1.1. Verified in CI 2026-10-19: first attested receipts for all three components at 719ec3f; gate dry-runs classify a DESIGN_STATE-only commit as spec-review and a `solver_v0.py` commit as code-review; pre-gate findings tagged legacy |
@@ -215,15 +215,15 @@ Design intent from Danny (2026-10-19), recorded only. Nothing is coded for it. P
    - The time-domain run is the natural bridge: the solver marches in time, keeps history, and records the field at fixed radii, so the wave tail and the oscillation are visible.
    - Then promote to multi-state, with the guided channels, spin/rotation and rotating oscillation as the first multi-state features.
 
-## Decision: ionisation and plasma sit inside the electric holster (2026-10-19)
-Danny's decision (2026-10-19). Ionisation and plasma are not their own energy domains. They sit inside the existing holsters:
+## Decision: ionisation and plasma sit inside the electric harness (2026-10-19)
+Danny's decision (2026-10-19). Ionisation and plasma are not their own energy domains. They sit inside the existing harnesses:
 
-- **Electric holster: the field side.** Ionisation threshold, the Paschen curve and electron density. Paschen here means gas-breakdown physics as a field-side quantity of the gas (breakdown field vs pressure × length); it does not refer to electrodes, which remain removed from the model.
-- **Chemical holster: the plasma chemistry.** Recombination, the HHO reactions and the autoignition cascade.
-- **The plasma state straddles both holsters.** The crossover between them is a documented handoff between the electric and chemical holsters, not a gap.
+- **Electric harness: the field side.** Ionisation threshold, the Paschen curve and electron density. Paschen here means gas-breakdown physics as a field-side quantity of the gas (breakdown field vs pressure × length); it does not refer to electrodes, which remain removed from the model.
+- **Chemical harness: the plasma chemistry.** Recombination, the HHO reactions and the autoignition cascade.
+- **The plasma state straddles both harnesses.** The crossover between them is a documented handoff between the electric and chemical harnesses, not a gap.
 
-## Future item: handoff rules between holsters (2026-10-19)
-Recorded only; nothing is coded and no reviewer has been run. Many things will sit in more than one holster (the plasma state above is the first example), so the model needs rules for how handoffs between holsters work. This is to be put to the crew (Claude and Grok) with a push, but not yet.
+## Future item: handoff rules between harnesses (2026-10-19)
+Recorded only; nothing is coded and no reviewer has been run. Many things will sit in more than one harness (the plasma state above is the first example), so the model needs rules for how handoffs between harnesses work. This is to be put to the crew (Claude and Grok) with a push, but not yet.
 
 ## Decision: all six physical energy domains from the start (2026-10-19)
 Danny's decision (2026-10-19). The model carries all six physical energy domains from the start: optical, acoustic, electric, magnetic, thermal and chemical.
@@ -232,7 +232,7 @@ Danny's decision (2026-10-19). The model carries all six physical energy domains
 - **Electric is the driving field, not a wave.** The electric domain is the field that drives the whole system. It does not travel as a wave; it sets the thresholds (the ionisation knee and the Paschen curve, as gas-breakdown physics of the fill) and the drive conditions for the others.
 - **Time-domain run (future item):** build it to carry all six domains, so each domain's wave or field is visible as the front expands.
 
-Note: this concerns the six physical domains. The information domain (the 7th, per the 19-holster architecture) is unchanged; it is not a propagating physical wave.
+Note: this concerns the six physical domains. The information domain (the 7th, per the 19-harness architecture) is unchanged; it is not a propagating physical wave.
 
 ## Future item: electrocaloric term in the BTO film and layer two (2026-10-19)
 Danny's intent (2026-10-19), recorded only; nothing is coded. Add the electrocaloric term to the BTO film and to the tourmaline layer (layer two).
@@ -240,12 +240,12 @@ Danny's intent (2026-10-19), recorded only; nothing is coded. Add the electrocal
 - **What it is:** electrocaloric is the reverse of pyroelectric: an electric field changes the material's entropy and temperature.
 - **Materials:** barium titanate is a classic electrocaloric material, and the sol-gel recipe (MTES:TEOS 80:20 binder, doped grains) may carry it too.
 - **Caveat:** randomly oriented grains largely cancel each other out, so the net effect depends on grain alignment in the recipe.
-- **Field source:** the field is the electric holster's field. It is not applied by electrodes, which remain removed from the model.
-- **Holsters: it straddles three.**
-  - The electric holster owns the field side: the applied field drives the entropy change.
-  - The thermal holster owns the temperature side: the cooling or heating that results.
-  - The chemical holster owns the entropy change itself, since entropy is a thermodynamic state variable in the same family as the HHO reactions and recombination.
-- **Another crossover, like plasma:** the electric field sets the condition, the thermal holster sees the temperature shift, and the chemical holster tracks the entropy. It is a good worked example for the future item on handoff rules between holsters (to be put to Claude and Grok later; not run yet).
+- **Field source:** the field is the electric harness's field. It is not applied by electrodes, which remain removed from the model.
+- **Harnesses: it straddles three.**
+  - The electric harness owns the field side: the applied field drives the entropy change.
+  - The thermal harness owns the temperature side: the cooling or heating that results.
+  - The chemical harness owns the entropy change itself, since entropy is a thermodynamic state variable in the same family as the HHO reactions and recombination.
+- **Another crossover, like plasma:** the electric field sets the condition, the thermal harness sees the temperature shift, and the chemical harness tracks the entropy. It is a good worked example for the future item on handoff rules between harnesses (to be put to Claude and Grok later; not run yet).
 
 ## Note: layer-two recipe, field tuning during gel formation (2026-10-19)
 Danny's intent (2026-10-19), recorded only; nothing is coded. While the tourmaline sol-gel (layer two) is still a gel during formation, it is tuned by bombarding it with two fields:
@@ -262,7 +262,7 @@ Danny's decision (2026-10-19). The circulating-power figures are gone from the s
 - **Couplings, all in the code:**
   - Pyroelectric polarization (layer two, and BTO at p 2.0e-4 C/m²K [lit], 0 above the Curie point [est]) feeds the electric march.
   - Piezo (acoustic stress) enters as the phasor of the same equation at the mode frequency.
-  - Electrocaloric, (∂S/∂E)_T = p: the heat −T·p·dE goes to thermal, and the entropy p·dE goes to the chemical holster.
+  - Electrocaloric, (∂S/∂E)_T = p: the heat −T·p·dE goes to thermal, and the entropy p·dE goes to the chemical harness.
   - Polar grains are reported as the aligned upper bound (random grains ≈ 0) [est].
 - **Thermal march:** solved in θ = T − 293 K, so a zero-heat state stays exactly at 293 K.
 - **Acceptance rule (zero run):** with no drive and no input, every field is exactly zero everywhere: electric, magnetic, optical, acoustic, chemical and every coupling output. The whole stack sits at 293 K. The check uses exact equality; rounding noise is fixed at the source, not hidden by a tolerance. Each coupling is also checked on its own with synthetic inputs (stress for piezo, a temperature change for pyro, a field change for electrocaloric): zero in gives exactly zero out, and non-zero input scales as the physics says. The test is `tests/test_acceptance_zero_run.py`.
@@ -555,3 +555,69 @@ Danny's decision (2026-10-19). Claude stays in the project in **two** roles. The
 2. **Claude Code CLI (executor).** Installed and configured on the bot's computer (box), authenticated via `ANTHROPIC_API_KEY` stored at `~/.config/claude-code-env/anthropic.env` (outside the repo; never committed). It may run the solver, run tests, and file local commits. **All of its output is gated behind the caller's review before anything is pushed.** Push remains caller-only.
 
 Both roles are scored as first-class ledger entries, on the same footing as Kimi and DeepSeek findings. The key path above is a machine location note only; the secret itself is not recorded here.
+
+## Decision: joint-step wording approved, features on (2026-10-21)
+Danny approved the wording in `Current/round8/model_wording_proposals_2026-10-20.md` exactly as written and turned on all four features (`scripts/model_wording.py` `APPROVED`), round 9 on only: `cc_budget_request` (02:12), `info_switch` (02:13), `reask` (02:14), `request_setting` (02:15). The deep-role lines are in `harness/models/deepseek/instructions_deep.md` (rev 2) and the request_setting paragraph in `deepseek/instructions.md` (rev 6); `ask_for_person` is offered to every member who asks Claude Code questions, Build included; `request_setting` to the cheap DeepSeek only. Claude Code runs these joint jobs at `--effort max`; his own replies and the budget-request continuation stay at the CLI default. Round 8 is unchanged.
+
+## Decision: preamble retired from round 9; its missing parts move into the harnesses (2026-10-21)
+Danny's decisions (2026-10-21 AWST), round 9 on only. Round 8, its brief (preamble included) and its prompt hash are unchanged.
+
+- **Preamble retired (10:00):** `Current/round_preamble.md` is no longer put in front of the round 9 brief. The round 9 brief file holds only the round part (previous draft archived as `Archive/kickoff_round9_draft_2026-10-21_rev1.md`); the launcher never prepended a preamble, it sends the brief file as given. Wording in `scripts/launch_round.py` and here now says "brief", not "shared brief or preamble".
+- **Brief numbering (10:00):** the round 9 brief's sections are 1 to 4 and it has no `# Round 9` heading; it opens on `**Round:** 9` once the draft heading is stripped at fire time (from round 9 the strip also drops the blank line the heading leaves).
+- **What moved into the harnesses (09:43, 09:45, 09:51):** the parts of the preamble no harness carried (ethics first; the clean start; rig questions go to the information switch, whose answers the team goes by on rig items; process and physics terms together, new terms only after the human lead approves) are in `instructions.md` for Kimi, cheap DeepSeek, Claude, Grok and Build (one shared block, just before the vocabulary line). Claude Code's `instructions.md` now says he is the information switch. Deep DeepSeek's `instructions_deep.md` has its own ethics line as line 2. Names and the information layer stay in `docs/vocabulary.md` and `docs/harness_context.md` (unchanged). Wording: `Current/round9/preamble_to_harness_draft_2026-10-21.md` section B.
+- **Order (09:59, replaces 20:14):** each model's harness text (`instructions.md`) is sent first, then the brief (`scripts/model_setup.py` `with_additions`; the brief is an exact suffix, one blank line between). The same order applies to a round 9 cross-review prompt. Rounds before 9 get the brief alone, as before.
+- **Brief guard:** unchanged (`MODEL_NAME_RE`, operator-only words). It checks the brief only; each model's harness text names its own model and is added after the guard.
+
+## Decision: DeepSeek Low and DeepSeek High; round 9 brief trimmed (2026-10-21)
+Danny's decisions (2026-10-21 AWST), round 9 on only. Round 8 and its prompt hash are unchanged.
+
+- **Names and headings (10:19):** cheap DeepSeek is **DeepSeek Low** and his round replies are headed `# DeepSeek Low` (`harness/models/deepseek/instructions.md` rev 8, `reply_format.yml` rev 3). Deep DeepSeek is **DeepSeek High**: his opening line lists his joint jobs (budget requests, answer checks, re-asks and setting requests) and he heads his replies `# DeepSeek High` (`instructions_deep.md` rev 4).
+- **Heading checks (10:19):** from round 9, `scripts/land_review_reply.py` refuses a deepseek round reply headed `# DeepSeek` or `# DeepSeek High`, or opening as DeepSeek High; any other member naming either DeepSeek is refused as before. Deep replies (`scripts/lookup_requests.py` `DeepSide.ask`): the `# DeepSeek High` heading line is taken off before the call is read; any other heading counts as no call and is written to `joint/deep_refusals.jsonl`. Round 8 uses the old patterns unchanged. The brief guard still catches both names (they contain DeepSeek).
+- **Models fixed in the harness (10:35):** DeepSeek Low always starts on `deepseek-flash`; DeepSeek High is always `deepseek-v4-pro`; an approved request_setting re-runs DeepSeek Low on DeepSeek High's model. These live in `harness/models/deepseek/setup.yml` `roles` (rev 9; they must equal `model_id.shallow` / `model_id.deep`), not in round config. From round 9 the launcher refuses a `round_config.json` that sets a DeepSeek model or setting (`round_config.deepseek_settings_in_config`), and `deepseek_round_model` is no longer required or read. Round 8 still uses its `deepseek_round_model` (deepseek-v4-pro). `search_filter_model` (the search filter, also a DeepSeek model id) is unchanged. Kimi stays on kimi-k3 for round 9 (10:39, no change).
+- **Deep wording (10:37):** two lines in `instructions_deep.md` (rev 5): jobs are any request from the team, saying who asks and what kind of job; replies give the heading, then one JSON block.
+- **Names in joint jobs and cross-review (10:37):** Claude Code's joint-job role line and the partner name shown to him say DeepSeek High; from round 9 the cross-review peer heading for the round reply is `### DeepSeek Low` (round 8 unchanged).
+- **Keys stay `deepseek`:** model key, run folders, ledger reviewer key and scorecard rows are unchanged (the ledger row still reads DeepSeek).
+- **Members list (10:32):** `docs/vocabulary.md` now reads "Members: Kimi, DeepSeek Low, DeepSeek High, Claude, Grok, Build and Claude Code." The doc is part of the round 8 prompt hash, so Danny approved a new round 8 hash: `e019e5ad784859c20dc730db8c433ac79b096efbcde934712c64ed5648eb92d0` -> `8a5126ce4d98e120557b4624d6738900998a9609e52df295f4106a89ed1b7279` (18 pieces; only `read_doc:vocabulary` changed). Old baseline file: `Archive/prompts_after_instructions_rev2.json`; new: `/workspace/scratch/prompts_after_instructions.json`.
+- **Brief (10:10, 10:16):** the round 9 brief names no round (no `Round:` line; "Round 9 scope" is now "Scope"; the round comes from the folder and `mission.md`), and section 4 no longer repeats the harness's vocabulary and rig-questions lines.
+- **Setting re-run (10:17):** the request_setting paragraph stays in the prompt when cheap DeepSeek's job re-runs on the higher setting. Nothing was built for this; it is how the re-run already works.
+
+## Decision: Build joins the Ensemble (2026-10-21)
+Danny's decision (2026-10-21, 01:03 AWST). xAI's `grok-build-0.1`, named **Build** (01:15), joins the review rounds as a regular team member alongside Claude, DeepSeek, Grok and Kimi, from round 9. Claude Code stays the checking role. The round team is now Kimi, DeepSeek, Claude, Grok, Build and Claude Code.
+
+- **Harness:** `harness/models/build/` (model key `build`, display name Build, heading `# Build`); runner `scripts/review_build.py`; settings in `harness/dial.yml` `build_*`; price in `harness/ledger.json` ($1.00 in / $0.20 cached / $2.00 out per M tokens; a prompt of 200,000 tokens or more bills the whole request at double).
+- **Reasoning (01:07):** Build and Grok send no reasoning field and run at the model's own default level (`reasoning_effort: none`). Build rejects the field.
+- **Wrong-heading refusal (02:03):** kept for all members. A reply whose `# Name` heading or opening names a different member is refused (`scripts/land_review_reply.py` `IDENTITY_PATTERNS`, logged to `landing_refusals.jsonl`); `Build` is matched with its capital B only.
+- **Brief guard (02:01):** from round 9, capital-B `Build` (case-sensitive, word boundary) in the brief stops the fire like the other member names (`scripts/launch_round.py` `MODEL_NAME_RE`); lowercase "build" passes.
+- **Ledger (02:06; noted 02:17):** Build is a scored reviewer in the CI ledger: `scripts/ledger_lib.py` `REVIEWERS` and the review-round parser, `ledger/schema/finding.v1.schema.json` reviewer enum, and the scorecards (`scripts/ledger_score.py`: the four original rows always, a Build row once the ledger holds a Build finding). No CI workflow channel for him; older entries and four-model texts are unchanged and still validate.
+- **Own lookup budget (02:18):** Build's round 9 own lookup budget is $0.50 (the others stay $0.25), set with the optional round_config param `lookup_budget_own_by_model_usd` ({"build": 0.5}).
+- **Clean copy map (02:16):** from round 9, Claude Code's clean copy (`scripts/cc_export.py`) holds a MAP.md made by the same generator as the models' code folder, over the files in his copy only. No instruction line about it.
+- **Output cap (02:03):** `build_max_tokens` = 10000 for round 9 (round-level, round 9 lookup params draft). It caps visible output only; reasoning is billed on top.
+- **Search (01:52, replacing 01:17):** Build is set up like Kimi and DeepSeek: optional Tavily context, off by default (`tavily.enabled`), on when a run gives a search query; no built-in web search and no Grok-style automatic pre-search.
+- **Lookup budget:** the same $0.25 own lookup budget as the other members (round-level, set in the round's `round_config.json`).
+- **Claude Code effort (01:12):** joint jobs that decide what goes to Danny (the info switch, ask-for-person, budget requests, setting requests) run at his highest level (`claude --effort max`, `harness/dial.yml` `claude_code.joint_effort`) from round 9; his own replies run at the CLI default. The 30-turn limit stays.
+
+## Decision: round 9 scoring built (2026-10-21)
+
+Scoring draft approved 11:46 AWST ("Yes, approve the scoring draft and build it"); full text in `Current/round9/scoring_draft_2026-10-21.md`. Applies from round 9; rounds before 9 and the existing scorecard are unchanged.
+
+- **Scorecard:** `scripts/scoring.py` writes `scorecard_round<N>.json/.md` and `round_report_round<N>.md` to the scorecard folder (outside the repo, never shown to models). 18 columns per member per round: Kimi, DeepSeek Low, DeepSeek High, Claude, Grok, Build, Claude Code. Accuracy counts a wrong finding 3 times; a rejection with no reason stays under Open; cost per useful point includes wildcard points; spec-review spend counts in Cost. `ledger_score.py offline` writes it too, beside the existing files.
+- **Ledger v1.3:** rejection reason (wrong / not_useful, with quoted words and AWST time) on rejected status records; new kinds wildcard, match, call, ruling; optional `role` (high = DeepSeek High, joint = Claude Code's joint-job spend) and `round`. Staged through ledger/pending as `{staged, kind: scoring_record, record}`; ids must recompute. Existing records stay valid.
+- **Same finding:** same round, different members, same file (non-empty) and domain, word-set overlap at least 0.5; near misses from 0.3 listed in the round report. Unique: every other member's match rejected; an open, deferred or superseded match makes it not unique for now.
+- **Calls:** each member's last call per joint job (budget, setting, re-ask, answer check) and Claude Code's information-switch answers. Judged by Danny's ruling (wins) or by outcome (setting requests; approved budget requests); everything else waits for Danny and is listed in the round report, as are agreed calls. Points: backed = severity of the finding it was about, else the job's accepted or fixed findings added up; overturned or waiting = 0.
+- **Staging:** `scripts/scoring.py stage --round-dir DIR --round N` stages calls, joint-job spend (role high / joint), Claude Code's reply spend and Danny's rulings from `to_danny/danny_decisions.jsonl` (lines with `danny_words` and `awst` only).
+- **Answer checks logged:** from round 9 every answer check is written to `joint/answer_checks.jsonl`.
+- **DeepSeek Low name in job texts:** from round 9 the asker name for the cheap DeepSeek in joint job texts is "DeepSeek Low" (`lookup_requests.shown`); `DISPLAY` and round 8 unchanged.
+
+## Decision: Claude Code reads the harness folder (2026-10-21)
+
+Ruled 12:17 AWST: Claude Code may read the whole `harness/` folder (every member's harness files) directly, read-only, never write. Global rule 12:15: harness files change only between rounds, on Danny's say; no member can change them.
+
+- From round 9, `scripts/review_claude_code.py` adds `--add-dir <repo>/harness`, leaves `harness/` out of the repo Read deny rules, and adds Edit/Write/MultiEdit/NotebookEdit deny rules on it. Tools stay Read, Grep, Glob; Bash, write and web tools stay denied; the round folder, his logs and the rest of the repo stay denied. Round 8 argv unchanged.
+- His clean copy (working directory) is unchanged and still holds no model harness files (G4); the harness folder is a separate read-only directory. No wording about it is sent to him.
+
+## Decision: gate 1 release (2026-10-21)
+
+Approved 15:33 AWST: "Yes, build the gate 1 release change now". Applies from round 9; rounds before 9 never read the decisions file and gate 1 output is unchanged.
+
+- `scripts/gate1.py`: a line in `to_danny/danny_decisions.jsonl` with decision `released` (latest per item_id; stage and run_id must match when given) delivers a held item when its `file_sha256` equals the sha256 of the landed reply file now. The item gets flag `released_by_danny` and `released_by_danny {quote, time_awst, file_sha256, held_reasons}`, its reasons are cleared, a note is added, and the summary line and `gate1/summary.md` ("Released by Danny" table) show it. A different sha256 or no landed file leaves it held with a "release … not applied" note (`release_mismatch`).
+- `scripts/handoff.py`: the packet lists released items under Delivered with the quote and AWST time; a held item whose release was not applied shows the note; `handoff_log.jsonl` records reason `released_by_danny`; a released item's earlier `held/<item>.json` is moved to `held/archive/<item>_revN.json` (never deleted).

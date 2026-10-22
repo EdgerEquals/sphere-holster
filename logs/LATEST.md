@@ -1,9 +1,9 @@
 # LATEST: round log index
 
-Branch: `holster-loop-2026-10-19` (not `main`). All times are AWST (UTC+8). Updated 2026-10-22 AWST.
+Branch: `holster-loop-2026-10-19` (not `main`). All times are AWST (UTC+8). Updated 2026-10-22 AWST (rev 2: round 8 and 9 folders now pushed).
 Every link is relative to this file. Each round's full log is the folder under `reviews/`; the model replies are the `<model>.md` files in it.
 
-**Not on GitHub yet (local only, as of this update):** the round 8 and round 9 folders (`reviews/2026-10-20_round8/`, `reviews/2026-10-21_round9/`), `docs/harness_context.md`, and the latest edits to `DESIGN_STATE.md`. Their links below will 404 until they are pushed. The DESIGN_STATE split copies in `logs/design_state/` already carry the latest text.
+**Size note:** some files in the round 8 and 9 folders are over 50 KB (the `*_log.jsonl`, `flow_log.jsonl`, `store/` and Claude Code transcript files). Use the `.md` replies, `gate1/summary.md` and `to_danny/` files instead. `DESIGN_STATE.md` (81 KB) is mirrored in `logs/design_state/`.
 
 ## Rounds (newest first)
 
@@ -64,7 +64,7 @@ Every link is relative to this file. Each round's full log is the folder under `
 
 - [`DESIGN_STATE.md`](../DESIGN_STATE.md): **the master**, single source of truth (81 KB, over the 50 KB limit).
 - [`logs/design_state/`](design_state/README.md): read-only split mirrors of DESIGN_STATE.md, each under 50 KB. Start with [part 1](design_state/DESIGN_STATE_2026-10-19_part1.md) (Locked, Open, Retired), then [part 2](design_state/DESIGN_STATE_2026-10-19_part2.md) and [2026-10-21](design_state/DESIGN_STATE_2026-10-21.md). The master wins if they differ.
-- [`docs/harness_context.md`](../docs/harness_context.md): what the harness is and how the sphere code is laid out (local only for now; see above).
+- [`docs/harness_context.md`](../docs/harness_context.md): what the harness is and how the sphere code is laid out.
 - [`docs/vocabulary.md`](../docs/vocabulary.md): project vocabulary.
 - [`docs/context_fresh_draft_2026-10-21.md`](../docs/context_fresh_draft_2026-10-21.md): fresh context for the discrete, time-evolving model. **Draft, awaiting Danny's review**; it replaces nothing until he approves it.
 - [`logs/from_voice.md`](from_voice.md): inbox placeholder for notes from voice Claude, not yet read by the harness.

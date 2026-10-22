@@ -1,0 +1,257 @@
+{
+ "79e6d93e510977c6": {
+  "answer": "# Vocabulary\n\nAdopted terminology for the Harness / stratified-sphere review loop and the sphere code.\n\n## Process language (SpaceX-style)\n\nNames the review loop's operations. Not physics.\n\n| Term | Meaning |\n|------|---------|\n| **scrub** | A round cancelled before firing. |\n| **hold** | A round paused mid-flight. |\n| **abort** | A round stopped after firing. |\n| **anomaly** | A ping that dies or misbehaves mid-run. |\n| **nominal** | A round that completes cleanly. |\n| **go/no-go** | The checklist decision that starts or blocks a round. |\n| **mission patch** | The round's name. |\n\n## Physics language\n\nNames what the sphere code models and its behaviour. Unchanged project terms.\n\n| Term | Meaning |\n|------|---------|\n| **drive** | The input excitation applied in the model. |\n| **threshold** | The drive or response level at which a named transition occurs. |\n| **amplitude** | Magnitude of the driven or observed response. |\n| **resonance** | Peak response when drive frequency matches a mode of the system. |\n| **sphere** | The sphere code: the program being written to model the sphere and visualise its waveforms (solver, sweeps, viewer, repo). No hardware sphere exists yet. |\n| **harness / rig** | Interchangeable names for the multi-harness software architecture the Ensemble works through. Not hardware. |\n| **stratified core** | The layered inner structure of the sphere. |\n| **Keely sphere** | Program name for the stratified sphere (modelled by the sphere code). |\n| **ring-down** | Decay of amplitude after drive is removed. |\n| **ring-up** | Build-up of amplitude after drive is applied. |\n| **detune** | Offset of drive frequency from a resonance. |\n| **tune** | Being on resonance; the opposite of detune. |\n| **Q** | Quality factor; sharpness of a resonance (energy stored vs energy lost per cycle). |\n| **standing wave** | A spatial mode with fixed nodes and antinodes under continuous drive. |\n\n### Physics usage examples\n\nThe numbers in these examples are illustrative only. They are not results, and nothing should be derived from them.\n\n- Ring-down: \"After drive-off, ring-down \u03c4 fitted to 12 ms.\"\n- Ring-up: \"Ring-up to steady amplitude took ~3 Q-cycles.\"\n- Detune: \"Sweep held at +2% detune from the acoustic peak.\"\n- Tune: \"A tuned core needs the least drive.\"\n- Q: \"Loaded Q dropped from ~800 to ~200.\"\n- Standing wave: \"The standing wave antinode sat at the stratified-core boundary.\"\n\n## Information-layer language\n\nNames how the review loop moves and holds information.\n\n| Term | Meaning |\n|------|---------|\n| **Cascade** | A request for missing information moves up or down the information domain until someone can answer it. |\n| **context / ethics** | Interchangeable names; **context** is the primary term and **ethics** is its synonym. |\n\n## Team language\n\nNames who does the work.\n\n| Term | Meaning |\n|------|---------|\n| **Ensemble / our team** | Interchangeable names; **Ensemble** is the primary term. The team, human and AI, that works on the sphere (the sphere code: solver, sweeps, viewer, repo) and the harness (the multi-harness software architecture, or rig). Members: Kimi, DeepSeek, Claude, Grok and Claude Code. Claude Code is also the **information switch**: every request about the rig goes through him, his answers are parked in the shared store, and on rig-related items they are the source of record. Claude Code is a checking role. The human lead is also a member of the Ensemble: a different resonating frequency on the same ladder, at the top. The roster is not fixed: roles and positions can change over time. |\n\n## Question framing (cue bands)\n\nEach question in a brief carries one of these labels. The label sets how much freedom the answer has.\n\n| Term | Meaning |\n|------|---------|\n| **[HIGH CUE]** | Deterministic: exact task, no interpretation; do this and not that. |\n| **[MIDDLE]** | Low cue with a little freedom: here is the aim, with room to move. |\n| **[WIDE BANDWIDTH]** | Lofty and inventive: go as broad and wild as you can, bounded only by the aim. |\n\n## The split\n\nProcess terms name the loop's operations. Physics terms name what the sphere code models and its behaviour.\n\n",
+  "answered_by": "file",
+  "asked_by": "claude",
+  "cites": [
+   "docs/vocabulary.md:1-81"
+  ],
+  "id": "53270239937839d3",
+  "kind": "info_answer",
+  "level": "L1",
+  "question": "read_doc vocabulary",
+  "run_id": "primary-20261020T103505Z-86c5ae",
+  "scope": "doc:vocabulary",
+  "status": "answered",
+  "store_key": "79e6d93e510977c6",
+  "ts": "2026-10-20T10:35:08Z",
+  "used_reference": false
+ },
+ "853a835f401f8280": {
+  "answer": [
+   {
+    "cites": [
+     "scripts/ledger_score.py:2-12",
+     "scripts/ledger_score.py:29",
+     "scripts/ledger_score.py:60-81",
+     "scripts/ledger_score.py:187-206",
+     "scripts/ledger_score.py:175-179"
+    ],
+    "fact": "(1) Yes. scripts/ledger_score.py is the reviewer-scoring tool for issue #8. It renders a planted-mistake fixture (ledger/planted/v1/template.md plus keys.json) into a throwaway commit and runs the normal review_<name>.py scripts against it. It then matches their findings to the planted keys. Recall = keys caught / keys planted. Precision = matched findings / (matched + unmatched non-note findings). Output goes to ledger/scorecards.json and ledger/scorecards.md."
+   },
+   {
+    "cites": [
+     "scripts/ledger_score.py:105-143",
+     "scripts/ledger_score.py:87-102",
+     "scripts/ledger_score.py:230-232",
+     "scripts/ledger_score.py:4"
+    ],
+    "fact": "ledger_score.py also builds status-based scorecards from the ledger. Acceptance = (accepted+fixed)/(accepted+fixed+rejected). Spec-review findings are left out. It also runs a planted 'fake/stub receipt' rubric, where every case must be rejected. planted-live makes paid model calls and refuses to run without --confirm spend. The default 'offline' mode makes no model calls."
+   },
+   {
+    "cites": [
+     "scripts/launch_round.py:17-19",
+     "scripts/launch_round.py:315-330",
+     "scripts/land_review_reply.py:9-10",
+     "scripts/land_review_reply.py:251-299",
+     "scripts/launch_round.py:571-575"
+    ],
+    "fact": "(2) Yes, {model}_teamwork.md files exist. scripts/launch_round.py runs the cross-review fire: _fire sets the land stem to f\"{m}_teamwork\" and calls review_{m}.py with --land-dir <round-dir> --land-stem. The file is written by land() in scripts/land_review_reply.py as <round-dir>/{stem}.md, with a provenance header and the run_id stamp. Gate 2 requires all *_teamwork.md files to be present and current."
+   },
+   {
+    "cites": [
+     "scripts/ping_common.py:53",
+     "scripts/ping_common.py:68",
+     "scripts/ping_common.py:87",
+     "scripts/launch_round.py:521-525"
+    ],
+    "fact": "The ping runners pass land_stem through to land(). '_teamwork' marks the stage as teamwork. --land-only re-lands replies from a run dir with --suffix _teamwork."
+   },
+   {
+    "cites": [
+     "scripts/land_review_reply.py:2",
+     "scripts/land_review_reply.py:30",
+     "scripts/land_review_reply.py:295-299"
+    ],
+    "fact": "The round folder is reviews/YYYY-MM-DD_roundN/ (for example reviews/2026-10-19_round6), so files land at <round-dir>/{model}_teamwork.md."
+   },
+   {
+    "cites": [
+     "scripts/launch_round.py:98-126",
+     "scripts/launch_round.py:119-123",
+     "scripts/launch_round.py:74-89",
+     "scripts/launch_round.py:207-211",
+     "scripts/launch_round.py:233-252"
+    ],
+    "fact": "PASS/FAIL with a one-line reason is asked for only in the legacy TEAMWORK_BRIEF ('For each peer above: PASS or FAIL against the mission, with a one-line reason'). For round_config.json rounds (round 8 on), build_teamwork_prompt switches to CONFIG_TEAMWORK_BRIEF. That brief has only Mission, Freshness, own reply and 'Peer replies to score', with no PASS/FAIL deliverable section. In either case this is a prompt instruction and is not enforced on the landed file."
+   },
+   {
+    "cites": [
+     "scripts/launch_round.py:537-549",
+     "scripts/gate1.py:78-80",
+     "scripts/land_review_reply.py:157-173"
+    ],
+    "fact": "(3a) Yes, with conditions. For config rounds, at primary fire launch_round computes gate1.predictions_sha(round_dir), which is the sha256 of <round-dir>/predictions.jsonl. If the file exists, it passes {\"predictions_sha256\": sha} into lr.start_run, which writes it into <round-dir>/run.json under the primary run. If there is no predictions file, or the round is legacy (cfg is None), nothing is locked."
+   },
+   {
+    "cites": [
+     "scripts/gate1.py:4-6",
+     "scripts/gate1.py:16-17",
+     "scripts/gate1.py:38-39",
+     "scripts/gate1.py:83-93",
+     "scripts/gate1.py:23-24",
+     "scripts/gate1.py:59-75",
+     "scripts/gate1.py:188-203"
+    ],
+    "fact": "(3b) Yes. gate1.py reads <round-dir>/predictions.jsonl, but only as a sha256 compared with run.json's primary predictions_sha256. It never parses the contents. Possible results: 'no predictions this round' (no hold), gate1_refused (changed or missing after lock), or gate1_unverifiable (present and locked, but verification is not built). It writes <round-dir>/gate1/summary.md, items.jsonl and gaps.jsonl through write_new, which first archives any existing file to gate1/archive/_revN."
+   },
+   {
+    "cites": [
+     "scripts/gate1.py:38",
+     "scripts/gate1.py:78-80",
+     "scripts/launch_round.py:538-541",
+     "scripts/handoff.py:30-31"
+    ],
+    "fact": "(4) No code writes predictions.jsonl. In scripts/, tests/, gateway/ and docs/, it is only named or read as a hash in gate1.py, read as a hash in launch_round.py, and named in handoff.py's rule labels."
+   },
+   {
+    "cites": [
+     "scripts/gate1.py:171-173",
+     "scripts/handoff.py:44-48",
+     "scripts/ledger_lib.py:300-311"
+    ],
+    "fact": "There is no structured per-item record of peer scores. The *_teamwork.md files are free-text markdown. gate1 items.jsonl records only mechanical status per landed reply (deliver/hold, reasons, flags, file). handoff_log.jsonl copies those decisions. Neither parses peer PASS/FAIL. The only VERDICT parse is in ledger_lib, which takes a reply's own 'VERDICT: PASS|FAIL' from review-round attempts, not scores given to peers."
+   }
+  ],
+  "answered_by": "claude_code",
+  "asked_by": "claude",
+  "cites": [
+   "scripts/ledger_score.py:2-12",
+   "scripts/ledger_score.py:29",
+   "scripts/ledger_score.py:60-81",
+   "scripts/ledger_score.py:187-206",
+   "scripts/ledger_score.py:175-179",
+   "scripts/ledger_score.py:105-143",
+   "scripts/ledger_score.py:87-102",
+   "scripts/ledger_score.py:230-232",
+   "scripts/ledger_score.py:4",
+   "scripts/launch_round.py:17-19",
+   "scripts/launch_round.py:315-330",
+   "scripts/land_review_reply.py:9-10",
+   "scripts/land_review_reply.py:251-299",
+   "scripts/launch_round.py:571-575",
+   "scripts/ping_common.py:53",
+   "scripts/ping_common.py:68",
+   "scripts/ping_common.py:87",
+   "scripts/launch_round.py:521-525",
+   "scripts/land_review_reply.py:2",
+   "scripts/land_review_reply.py:30",
+   "scripts/land_review_reply.py:295-299",
+   "scripts/launch_round.py:98-126",
+   "scripts/launch_round.py:119-123",
+   "scripts/launch_round.py:74-89",
+   "scripts/launch_round.py:207-211",
+   "scripts/launch_round.py:233-252",
+   "scripts/launch_round.py:537-549",
+   "scripts/gate1.py:78-80",
+   "scripts/land_review_reply.py:157-173",
+   "scripts/gate1.py:4-6",
+   "scripts/gate1.py:16-17",
+   "scripts/gate1.py:38-39",
+   "scripts/gate1.py:83-93",
+   "scripts/gate1.py:23-24",
+   "scripts/gate1.py:59-75",
+   "scripts/gate1.py:188-203",
+   "scripts/gate1.py:38",
+   "scripts/gate1.py:78-80",
+   "scripts/launch_round.py:538-541",
+   "scripts/handoff.py:30-31",
+   "scripts/gate1.py:171-173",
+   "scripts/handoff.py:44-48",
+   "scripts/ledger_lib.py:300-311"
+  ],
+  "id": "7fe82ca6f7b0c607",
+  "kind": "info_answer",
+  "level": "L3",
+  "question": "Read-only rig check, please cite file and line. (1) What does scripts/ledger_score.py do? Specifically: does it score reviewers against planted mistakes? (2) Does the cross-review / teamwork step produce files named {model}_teamwork.md, where each model gives peers PASS/FAIL with a one-line reason? Which script writes or lands them, and where do they live? (3) Does scripts/launch_round.py lock predictions_sha256 into run.json at fire time, and does scripts/gate1.py read <round-dir>/predictions.jsonl and write gate1/{summary.md,items.jsonl,gaps.jsonl}? (4) Is there any code today that writes predictions.jsonl, or any structured per-item binding of peer scores?",
+  "run_id": "teamwork-continuation-20261020T142019Z-claude-deepseek",
+  "scope": "repo",
+  "status": "answered",
+  "store_key": "853a835f401f8280",
+  "ts": "2026-10-20T14:21:15Z",
+  "used_reference": true
+ },
+ "9e27a2219c89c90f": {
+  "answer": [
+   {
+    "cites": [
+     "scripts/gate1.py:1-24",
+     "scripts/gate1.py:38-39"
+    ],
+    "fact": "Yes, an automated gate-1 check exists: scripts/gate1.py. Its docstring says gate 1 checks recommendations against predictions recorded before the round fired. It reads <round-dir>/predictions.jsonl. Predictions are deferred for round 8, so when that file is missing it reports \"no predictions this round\" and does not fail. It writes gate1/{summary.md,items.jsonl,gaps.jsonl}."
+   },
+   {
+    "cites": [
+     "scripts/gate1.py:16-17",
+     "scripts/gate1.py:78-93"
+    ],
+    "fact": "The step that actually checks recommendations against predictions is not built. gate1.py only checks the predictions file's sha256 against the copy locked when the primary run fired. If they match, it holds items as gate1_unverifiable ('verification step not built this round'). If the file changed or went missing, it holds them as gate1_refused."
+   },
+   {
+    "cites": [
+     "scripts/launch_round.py:538-541",
+     "scripts/gate1.py:38"
+    ],
+    "fact": "scripts/launch_round.py locks predictions at fire time: it saves predictions_sha256 into run.json through gate1.predictions_sha. No script writes or records predictions, and no predictions.jsonl ledger file is in the repo. Only the file name is referenced."
+   },
+   {
+    "cites": [
+     "scripts/launch_round.py:87-88",
+     "scripts/launch_round.py:102-123",
+     "scripts/land_review_reply.py:9"
+    ],
+    "fact": "Peer scoring is done through the cross-review ('teamwork') brief in scripts/launch_round.py. Under 'Peer replies to score', each model gives every peer PASS or FAIL against the mission, with a one-line reason. The replies land as {model}_teamwork.md through scripts/land_review_reply.py."
+   },
+   {
+    "cites": [
+     "scripts/ledger_score.py:1-13",
+     "scripts/ledger.py:1-20"
+    ],
+    "fact": "A related scorer, scripts/ledger_score.py, measures each reviewer's precision and recall against planted mistakes and writes scorecards to ledger/scorecards.json and .md. It is not peer-to-peer scoring. The review ledger CLI is scripts/ledger.py (with scripts/ledger_lib.py); it holds review findings, not predictions."
+   }
+  ],
+  "answered_by": "claude_code",
+  "asked_by": "deepseek",
+  "cites": [
+   "scripts/gate1.py:1-24",
+   "scripts/gate1.py:38-39",
+   "scripts/gate1.py:16-17",
+   "scripts/gate1.py:78-93",
+   "scripts/launch_round.py:538-541",
+   "scripts/gate1.py:38",
+   "scripts/launch_round.py:87-88",
+   "scripts/launch_round.py:102-123",
+   "scripts/land_review_reply.py:9",
+   "scripts/ledger_score.py:1-13",
+   "scripts/ledger.py:1-20"
+  ],
+  "id": "c52d81504a5657df",
+  "kind": "info_answer",
+  "level": "L3",
+  "question": "Does the repo already contain any script or ledger for recording predictions before results exist, for peer scoring, or for running an automated gate-1 check that verifies recommendations against recorded predictions? If yes, name the paths; if no, say none found.",
+  "run_id": "primary-20261020T103505Z-86c5ae",
+  "scope": "rig",
+  "status": "answered",
+  "store_key": "9e27a2219c89c90f",
+  "ts": "2026-10-20T10:36:17Z",
+  "used_reference": true
+ },
+ "f08d17b53d63ce1f": {
+  "answer": "# Harness context\n\n**What this document is:** the first stop for questions about the harness. In this project the harness, also called the rig, is the multi-harness software architecture the Ensemble works through. Section 1 describes it, and section 2 describes the sphere code.\n\n**If this document does not answer your question:** ask Claude Code, with `ask_claude_code`, or with `request_info` using scope `rig` or `repo`. He checks the harness live and read-only: he reads, greps and searches the repo files at the time you ask. He has no shell, cannot edit files and has no web access. If neither source has the answer, say what is missing rather than guessing.\n\n## 1. The harness (rig)\n\nThe harness is software. Its parts are listed below.\n\n| Part | Where | What it does |\n|---|---|---|\n| Round runner | `scripts/launch_round.py` | Runs a round. |\n| Model callers | `scripts/review_kimi.py`, `review_deepseek.py`, `review_claude.py`, `review_grok.py`, `review_claude_code.py` | Send a brief to one model and collect its reply. `scripts/land_review_reply.py` writes each reply into the round folder. |\n| Model tools | `scripts/tool_loop.py` | The tools a model can call while answering (listed below). |\n| Information layer | `scripts/harness_router.py`, `scripts/harness_store.py` | Routes each tool request through the levels that can answer it. Fetched answers are parked in a per-round shared store. Requests for the same item wait for one fetch (waiters queue). |\n| Claude Code route | `scripts/review_claude_code.py` | Sends repo and rig questions to Claude Code. He runs read-only: read, grep and file search only. |\n| Web search | `scripts/tavily_search.py` | One shared search slot. It answers `external` questions. |\n| Ledger | `ledger/findings.jsonl`, `scripts/ledger*.py` | Append-only record, one JSON object per line, written only by CI. Monthly cost rollups per model are in `ledger/costs_YYYY-MM.json` and `.md`. |\n| Simulation gateway | `gateway/`, `sim/` | `sim/` holds one smoke test per external simulation tool, each checked against an analytic answer: FEniCSx (DOLFINx 0.11.0), MEEP 1.35.0, OpenFOAM v2512, CalculiX 2.21, Code_Aster 18.1.0 and Gwyddion 2.64. The CI workflow is `.github/workflows/sim-stack.yml`. `gateway/ssm_mcp_server.py` is an MCP server with the tools `list_sim_tools`, `fenics_poisson_smoke` and `openfoam_cavity_smoke`. Its containers run with no network, a read-only root filesystem, a non-root user, all capabilities dropped and `sim/` mounted read-only. |\n\n**Tools a model can call:**\n- `read_doc(name)` returns `harness_context` (this document) or `vocabulary` (`docs/vocabulary.md`).\n- `request_info(question, scope)` takes scope `repo`, `rig` or `external`. `external` questions may be answered by web search. `repo` and `rig` questions go to Claude Code. Answers already in the store come back directly.\n- `ask_claude_code(question)` sends the question to Claude Code.\n\n## 2. The sphere code\n\nThe sphere does not exist in hardware yet. The sphere code is the program that models it and visualises its waveforms: a solver, sweeps and a browser viewer.\n\n### 2.1 Layout\n\n| Path | What it is |\n|---|---|\n| `solver_v0.py` | Radial (l = 0) multi-domain coupled solver. Writes `model_data_v0.json` and `solver_v0_output.txt`. |\n| `build.py` | Assembles the viewer `index.html` from `viewer_template.html`, `drive_model.js`, `drive_ui.js` and `model_data_v0.json`. The viewer uses Three.js, loaded from a CDN. |\n| `drive_model.js` | Single-cycle drive model for the bare gas bubble. It runs in the browser and in node, and its drive source deposits no energy. |\n| `geometry_sweep_v0.py` | Geometry sweep (bubble radius, quartz wall, layer-two thickness) for mode locking. Writes `geometry_sweep_v0.json` only. |\n| `geometry_fill_sweep_v0.py` | Geometry \u00d7 fill-pressure sweep. Writes `geometry_rarefied_hho_sweep_v0.json` only. |\n| `tests/` | pytest suite for the solver, the sweeps and the harness scripts. |\n| `docs/vocabulary.md` | The glossary. |\n\n### 2.2 The solver (`solver_v0.py`)\n\n**Status in the code:** estimated physics in a paper model; nothing in it is measured. Every material value carries a tag: `[lit]` published, `[rec]` reused from another project report, `[calc]` computed, `[est]` estimate.\n\n**Units:** SI throughout, with temperatures in kelvin. The reference temperature is 293 K.\n\n**Layer stack, inside out, built by `build_stack()`:**\n1. gas core (HHO);\n2. crystal quartz wall (layer one);\n3. layer two: elbaite in a sol-gel binder (default thickness 9.12441 \u00b5m);\n4. BaTiO3 (BTO) film, 2 \u00b5m;\n5. Gd-Dy film, 3 \u00b5m;\n6. CALORIVAC layer;\n7. outer phosphor, 30 \u00b5m;\n8. NiZn ferrite shell.\n\nLayers 6\u20138 are sized from the BTO outer radius by fixed ratios (`PHI`, `PHI**2`). \"Bare\" presets have the gas core and quartz wall only.\n\n**Gas:** the code fixes the composition as HHO, H2:O2 = 2:1 (`GAS_COMP = \"HHO\"`, mole fractions 2/3 and 1/3). `gas_props(T, p)` gives the gas properties. `gas_Q(f, a, p, T)` gives the Q of a gas-cavity mode (wall thermal boundary layer plus classical bulk absorption). The sweep scripts call the solver's `gas_Q` and `gas_props` and do not compute gas Q themselves.\n\n**Domains:**\n- **Acoustic:** exact l = 0 multilayer elastic spherical-shell model (spherical Bessel transfer matrices). The mode search window is 1 Hz\u201350 MHz (`FMIN_HZ`, `FMAX_HZ`) on a 20 000-point grid. There are two configurations: isolated (quartz plus thin films) and bonded (whole stack). Gas-loaded roots are split into shell modes and gas-cavity modes. l \u2265 1 modes are not computed.\n- **Optical:** 1-D radial radiative march in three bands: 434, 486 and 656 nm.\n- **Electric:** radial field marched from zero: \u03b5 dE/dt + \u03c3E = \u2212dP/dt \u2212 J_src. P is the pyroelectric polarisation of the polar layers (layer two, BTO). The piezoelectric term enters at each acoustic mode frequency.\n- **Magnetic:** B = 0 in spherical symmetry, because radial E and radial currents have no curl.\n- **Thermal:** 1-D radial finite volume, implicit, with k(T) for quartz and interface resistances. Full-stack presets hold the outer surface at 293 K. Bare presets use natural convection plus radiation to still air.\n- **Couplings:** piezoelectric, pyroelectric and electrocaloric. Fast domains are solved quasi-statically and passed to the thermal transient as heat sources, and temperature feeds back at each macro step.\n\n**Drive:** `run_case(preset, ref, drive_W=0.0)` takes an optional power input, `drive_W`. `drive_W` defaults to 0. For `drive_W > 0`, thermal, electric, magnetic and acoustic each receive `drive_W` watts. Acoustic power is split equally across the computed l = 0 modes in the window. Electric is a volumetric current source in the BTO film. Thermal is heat into the gas core. Magnetic is deposited as heat in the ferrite (placeholder).\n\n**Presets (`PRESETS`):**\n\n| id | Core d (mm) | Wall (mm) | Fill (atm) | Stack |\n|---|---|---|---|---|\n| preset C | 1.0 | 0.5 | 0.01316 (10 Torr) | bare |\n| `minA` | 1.0 | 1.0 | 0.01316 | bare |\n| `minB` | 1.0 | 0.5 | 0.01316 | bare |\n| `base5` | 1.1459 | 1.43463 | 0.10439 (10 577.3 Pa) | full, layer two 9.12441 \u00b5m |\n| preset A | 3.4 | 1.0 | 1.0 | full |\n| preset B | 0.5 | 1.0 | 100 | full |\n| `phi1.6` \u2026 `phi17.75` | 0.6 \u00d7 quartz OD | 0.2 \u00d7 quartz OD | 1.0 | full; quartz OD 1.6, 2.59, 4.19, 6.78, 10.97, 17.75 mm |\n\n### 2.3 Sweeps\n\n- **`geometry_sweep_v0.py`** sweeps bubble radius a, quartz wall w and layer-two thickness t2 on a lattice. There is no source, so every mode energy is zero. It scores how many l = 0 modes of different cavities (gas bubble, quartz, layer two, bonded stack) overlap within their own linewidths (f/Q). Options: `--workers`, `--refine-top`, `--out`.\n- **`geometry_fill_sweep_v0.py`** runs the same evaluation with fill pressure as a second axis. The gas is fixed at HHO 2:1. Pressure is a factor \u00d7 local ambient, with nine log-spaced factors from 0.05 to 0.95, all below ambient. Ambient pressure and temperature are command-line inputs, recorded in the output JSON. Options: `--p-ambient` (Pa, default 101325), `--T-ambient` (K, default 293), `--workers`, `--refine-top`, `--out`.\n\n### 2.4 How to run\n\nFrom the repo root, with Python 3.12 and `pip install -r requirements.txt` (numpy, scipy, sympy, mpmath, pytest, PyYAML):\n\n```bash\npython solver_v0.py                         # all presets -> model_data_v0.json, solver_v0_output.txt\npython solver_v0.py --only base5,minA       # selected presets\npython solver_v0.py --core-d 1.0 --wall 0.5 --p-atm 0.0132   # custom preset (mm, mm, atm)\npython solver_v0.py --build                 # also write index.html (viewer)\npython solver_v0.py --tourmaline all        # layer-two end-member sweep -> tourmaline_sweep_v0.json\npython geometry_sweep_v0.py --out geometry_sweep_v0.json\npython geometry_fill_sweep_v0.py --p-ambient 101325 --T-ambient 293\npytest                                      # test suite\n```\n\n`--qz-sound <set>` selects the crystal-quartz sound-speed set (`QZ_SOUND` in `solver_v0.py`; default `vrh`).\n",
+  "answered_by": "file",
+  "asked_by": "claude",
+  "cites": [
+   "docs/harness_context.md:1-105"
+  ],
+  "id": "e6d8c9624eff8347",
+  "kind": "info_answer",
+  "level": "L1",
+  "question": "read_doc harness_context",
+  "run_id": "primary-20261020T103505Z-86c5ae",
+  "scope": "doc:harness_context",
+  "status": "answered",
+  "store_key": "f08d17b53d63ce1f",
+  "ts": "2026-10-20T10:35:08Z",
+  "used_reference": false
+ }
+}
