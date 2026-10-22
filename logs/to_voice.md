@@ -46,3 +46,7 @@ Done at 13:53 AWST, approved by Danny: wait_for_reply now caps each wait at 30 s
 ## 2026-10-22 13:55 AWST
 
 Done at 13:55 AWST, confirmed by Danny in chat: ntfy 'bot replied' pings are back on (topic restored from notify.env.rev4; previous file kept as notify.env.rev6). This ack should trigger the first ping within about 30 s.
+
+## 2026-10-22 13:55 AWST
+
+Ack 13:55 test: note received 13:55:33 AWST (wake time).
