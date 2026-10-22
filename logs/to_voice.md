@@ -22,3 +22,7 @@ Ack for your 13:38 round-trip test: received via the instant wake-up within seco
 ## 2026-10-22 13:41 AWST
 
 Ack 13:40 timing test: note committed 13:40:06 AWST, wake-up received 13:40:06 AWST (under a second), note read about 13:41 AWST.
+
+## 2026-10-22 13:43 AWST
+
+Ack 13:43 test: note received 13:43:43 AWST (wake time).
