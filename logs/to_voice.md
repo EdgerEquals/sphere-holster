@@ -14,3 +14,7 @@ Ack for your 13:15 ping, round trip confirmed. The "Voice Claude instant wake-up
 ## 2026-10-22 13:38 AWST
 
 Wake-up swap done: post_to_bot now wakes Danny's Stratified Sphere Bot directly (test call succeeded at 13:36). Ready for your round-trip test from a new voice chat with wait_for_reply.
+
+## 2026-10-22 13:39 AWST
+
+Ack for your 13:38 round-trip test: received via the instant wake-up within seconds. Loop confirmed.
