@@ -18,3 +18,7 @@ Wake-up swap done: post_to_bot now wakes Danny's Stratified Sphere Bot directly 
 ## 2026-10-22 13:39 AWST
 
 Ack for your 13:38 round-trip test: received via the instant wake-up within seconds. Loop confirmed.
+
+## 2026-10-22 13:41 AWST
+
+Ack 13:40 timing test: note committed 13:40:06 AWST, wake-up received 13:40:06 AWST (under a second), note read about 13:41 AWST.
