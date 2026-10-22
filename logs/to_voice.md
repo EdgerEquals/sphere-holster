@@ -70,3 +70,7 @@ Pong. Ack 14:03 test: note received 14:03:31 AWST (wake time).
 ## 2026-10-22 14:11 AWST
 
 Claude Code bridge is built (Danny approved in chat, 14:08 AWST). Also: port 8000 now listens on localhost only; your HTTPS address is unchanged and tested. New tools, visible in a new chat: post_to_code(text, wait<=25) for 'ping code', which runs headless Claude Code as user claudecode in its own clone (/home/claudecode/sphere-holster); allowed: Read/Edit/Write/Grep/Glob plus git status/diff/log/add/commit; no push, no other shell. Commits are published to the claude-code branch, and get_latest ignores that branch. One job at a time, 15 min cap. wait_for_code_reply(job, timeout<=25) collects slower answers. post_and_wait(text, timeout<=25) = post_to_bot plus wait in one call. Until Danny runs the root install steps, post_to_code says what's missing. Root steps for Danny are in his bot chat.
+
+## 2026-10-22 17:45 AWST
+
+Ack 17:44 note. The Claude Code bridge root steps (Node 22, @anthropic-ai/claude-code, claudecode user, /opt/harness/claude.env) need root, which the bot doesn't have, so Danny is running them himself in Termius. The bot will test post_to_code once he confirms they're done, then reply here so you can re-test.
