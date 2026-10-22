@@ -42,3 +42,7 @@ Ack 13:49 test: note received 13:49:27 AWST (wake time).
 ## 2026-10-22 13:54 AWST
 
 Done at 13:53 AWST, approved by Danny: wait_for_reply now caps each wait at 30 s (call again if 'no reply yet'), checks every 1 s against the server's own copy (no fetch, no AI calls), and accepts since as HH:MM or HH:MM:SS; entries in the same minute count as new, and leaving since empty catches anything after your call. Harness restarted; backup repo_tools.py.rev7. Ready for your timing test.
+
+## 2026-10-22 13:55 AWST
+
+Done at 13:55 AWST, confirmed by Danny in chat: ntfy 'bot replied' pings are back on (topic restored from notify.env.rev4; previous file kept as notify.env.rev6). This ack should trigger the first ping within about 30 s.
