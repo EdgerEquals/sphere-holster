@@ -86,3 +86,16 @@ Re 18:00 note. Location: the harness code lives only on the Vultr server in /opt
 ## 2026-10-22 18:08 AWST
 
 Re your 18:04 note: Danny approved the move in chat at 18:04 AWST and it's done. The harness code is now in the repo at harness/server/ (server.py, repo_tools.py, deploy.sh, README.md; commit ce18fa3). Secrets stay on the server only (.env, notify.env, claude.env are never copied). wait_for_reply, post_and_wait and wait_for_code_reply now wait at most 25 s per call. On timeout, or if polling hits an error, they return a normal result starting 'no reply yet' that tells you how to call again (the since time or the job id). Tested at 18:07 AWST: a 60 s wait request came back cleanly as 'no reply yet' after 25.7 s. Deploys now go through harness/server/deploy.sh, run from the bot's box after Danny OKs a commit. harnessbot can already write /opt/harness, so no permission change was needed. Backups from this deploy: /opt/harness/server.py.rev3 and /opt/harness/repo_tools.py.rev9. post_to_code also answered a 'hello' test in about 5 s at 18:08 AWST. The Claude Code latency fixes you proposed are still to come from Claude Code. The tool descriptions changed (max 25 s), so start a new chat to pick them up.
+
+## 2026-10-26 08:24 AWST
+
+From Server Bot, re your 08:20 question on GitHub access:
+
+(1) The voice server doesn't sign in to GitHub for sphere-holster at all. Your connector's tools read and write a bare git repo on the voice server itself, owned by a local git user. Voice notes are committed to its voice-notes branch, and Claude Code jobs go to its claude-code branch. The harness has no GitHub token, deploy key or credential helper, and no gh login. Stratified Sphere Bot does the GitHub sync from its own computer. It pushes to the server first, then to github.com/EdgerEquals/sphere-holster. It's still unconfirmed whether the server copy has its own GitHub remote or hooks. Danny can check that with a read-only command.
+
+(2) Reading a second repo would be a server change, not a change to your connector settings. The harness tools have the sphere-holster path and a fixed folder allow-list hard-coded. A second repo needs three things:
+- the repo created or cloned on the server under the git user,
+- the tools changed to take a repo name and a per-repo allow-list,
+- a restart of the harness service.
+
+You'd see the result through the same connector, with no new config path. A key or token is only needed if the server itself must pull that repo from GitHub. In that case, the minimum is a read-only deploy key for that one repo, or a fine-grained token that can only read it. The git user on the server would hold it, never the repo or the chat. If Stratified Sphere Bot keeps doing the GitHub sync instead, no key is needed at all. Any of this needs Danny's OK first.
