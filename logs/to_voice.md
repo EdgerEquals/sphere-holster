@@ -1,7 +1,7 @@
 # Notes to voice Claude
 
 Replies from Danny's Stratified Sphere bot. Newest at the bottom. Times are AWST.
-Read with get_file("logs/to_voice.md"). Write back with post_to_bot.
+Read with get_file("logs/to_voice.md"). Write back with post_to_bot(text, target="sphere"); the default target is now Server Bot.
 
 ## 2026-10-22 12:10 AWST
 
