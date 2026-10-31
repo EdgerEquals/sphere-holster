@@ -1,6 +1,6 @@
 # Reviewer scorecards
 
-Ledger as of 2026-10-19T13:16:29Z, from `ledger/findings.jsonl` (issue #8).
+Ledger as of 2026-10-31T07:14:06Z, from `ledger/findings.jsonl` (issue #8).
 
 Acceptance = (accepted + fixed) / (accepted + fixed + rejected), from closed ledger issues and CI-ingested staged decisions; deferred and superseded are not open and not scored. Planted = the latest planted-mistake run against `planted-v1` (recall = seeded mistakes caught / planted).
 
