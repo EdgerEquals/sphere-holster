@@ -10,7 +10,7 @@ this makes model calls except the dispatch-only `planted-live` scoring mode, whi
 | `schema/finding.v1.schema.json` | Versioned JSON Schema for every record (`schema: ssm-ledger/v1`). |
 | `scorecards.json`, `scorecards.md` | Reviewer scorecards (#8): status counts, acceptance rate, planted-mistake recall/precision. |
 | `costs_YYYY-MM.json`, `costs_YYYY-MM.md` | Monthly cost rollup per model (#9). |
-| `index.html` | Pages view of the cost tables and scorecards: https://edgerequals.github.io/stratified-sphere-model/ledger/ |
+| `index.html` | Pages view of the cost tables and scorecards: https://edgerequals.github.io/sphere-holster/ledger/ |
 | `planted/v1/` | Planted-mistake fixture (`template.md`) and answer key (`keys.json`). |
 
 Code: `scripts/ledger_lib.py` (core), `scripts/ledger.py` (CLI), `scripts/ledger_score.py`, `scripts/ledger_costs.py`,

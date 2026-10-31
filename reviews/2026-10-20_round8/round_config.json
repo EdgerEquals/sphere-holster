@@ -1,0 +1,60 @@
+{
+  "round": 8,
+  "models": [
+    "kimi",
+    "deepseek",
+    "claude",
+    "grok",
+    "claude_code"
+  ],
+  "tools": true,
+  "docs": {
+    "vocabulary": "docs/vocabulary.md",
+    "harness_context": "docs/harness_context.md"
+  },
+  "params": {
+    "tool_max_turns": 10,
+    "tool_max_calls": 20,
+    "kimi_max_tokens": 24000,
+    "deepseek_max_tokens": 24000,
+    "claude_max_tokens": 24000,
+    "grok_max_tokens": 24000,
+    "store_scope": "round",
+    "store_max_age_s": false,
+    "waiter_timeout_s": 30,
+    "waiter_poll_s": 1,
+    "inflight_lease_s": 120,
+    "cascade_max_hops": 5,
+    "cascade_allow_human": true,
+    "round_budget_usd": 3,
+    "fetch_budget_usd": 1.5,
+    "search_credits_per_round": 20,
+    "search_filter_model": "deepseek-flash",
+    "search_filter_max_tokens": 4000,
+    "claude_code_max_budget_usd": 1.0,
+    "claude_code_timeout_s": 300,
+    "claude_code_reference_path": "harness/cc_reference",
+    "deepseek_round_model": "deepseek-v4-pro",
+    "model_depth": "deep",
+    "context_first_docs": [
+      "harness_context",
+      "vocabulary"
+    ],
+    "unpriced_allowed": [
+      "claude",
+      "kimi"
+    ],
+    "model_ids": {
+      "kimi": "kimi-k3"
+    }
+  },
+  "proposed": {},
+  "notes": {
+    "kickoff_source": "Current/round8/kickoff_round8_draft_2026-10-20.md",
+    "kickoff_sha256_at_build": "19326270d5e5dce2ca89d0e95c9dc255e05bb540e39b19e72f61e9dcc921bee1",
+    "params_decided": "All values confirmed by Danny 2026-10-20 17:16-17:26 AWST; see param_decisions_round8_2026-10-20.md. context_first is measured only: models are never told to read first; reading either document counts.",
+    "unpriced_allowed": "Danny 17:32: \"Log tokens only, leave his cost out of the $3\" (claude-opus-5-5 has no price on file); Danny 17:34: \"K3, we will find costa after the run\" (kimi-k3, no price on file)",
+    "model_ids": "Danny 17:34: Kimi on kimi-k3 (id per platform.kimi.ai/docs/guide/kimi-k3-quickstart; default reasoning_effort max)",
+    "claude_code_max_budget_usd": "Danny 17:38: \"Raise it to $1\" (per Claude Code call: primary/cross-review reply and each info request)"
+  }
+}

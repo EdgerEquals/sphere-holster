@@ -1,0 +1,16 @@
+{
+  "primary": {
+    "run_id": "primary-20261019T160614Z-872eec",
+    "started_utc": "2026-10-19T16:06:14Z"
+  },
+  "teamwork": {
+    "run_id": "teamwork-20261019T160716Z-bc2a8e",
+    "started_utc": "2026-10-19T16:07:16Z",
+    "primary_run_id": "primary-20261019T160614Z-872eec"
+  },
+  "closed": {
+    "closed_utc": "2026-10-19T16:12:29Z",
+    "primary_run_id": "primary-20261019T160614Z-872eec",
+    "teamwork_run_id": "teamwork-20261019T160716Z-bc2a8e"
+  }
+}

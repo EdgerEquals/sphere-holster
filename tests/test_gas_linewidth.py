@@ -5,7 +5,7 @@ import math
 import solver_v0 as S
 
 A, P1, T0 = 1.5e-3, 101325.0, 293.0
-F1 = 4.4934 * 533.0 / (2 * math.pi * A)          # first l=0 rigid-wall mode of the base5 bubble, ~254 kHz
+F1 = 4.4934 * 533.0 / (2 * math.pi * A)          # first l=0 rigid-wall mode of a 1.5 mm reference bubble, ~254 kHz
 
 
 def test_no_fixed_constant_and_hand_formula():
@@ -16,7 +16,7 @@ def test_no_fixed_constant_and_hand_formula():
     g_cl = math.pi * F1 ** 2 / g["c"] ** 2 * (4 / 3 * g["mu"] / g["rho"] + (g["gamma"] - 1) * g["D_t"])
     assert math.isclose(t["Q"], F1 / (2 * (g_th + g_cl)), rel_tol=1e-12)
     assert t["g_visc_Hz"] == 0.0                     # radial mode: no tangential wall velocity, no viscous wall loss
-    assert 200 < t["Q"] < 400                        # HHO, 1 atm, 293 K, 1.5 mm bubble: Q ~ 300
+    assert 200 < t["Q"] < 400                        # HHO, 1 atm, 293 K, 1.5 mm reference bubble: Q ~ 300
     assert math.isclose(g["k"], S.K_HHO0, rel_tol=0.01)   # Wilke mix of H2/O2 agrees with the solver's HHO k
 
 

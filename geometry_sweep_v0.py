@@ -8,11 +8,14 @@ default outputs (solver_v0_output.txt, model_data_v0.json, index.html, tourmalin
 geometry_sweep_v0.json.
 
 Swept: gas bubble radius a, quartz wall thickness w, tourbillon (layer two) thickness t2. Every other layer is built
-by build_stack exactly as for base5 (BTO 2 um, Gd-Dy 3 um, phi-stepped outer zones), 1 atm HHO at 293 K.
+by build_stack exactly as for the core (BTO 2 um, Gd-Dy 3 um, phi-stepped outer zones). BASE is the rarefied-sweep
+winner (ea694ce): a 0.57295 mm, w 1.43463 mm, t2 9.12441 um at 0.1044 x ambient HHO, 293 K. The sweep lattice is still
+BASE * phi^(i/8); historical geometry_sweep_v0.json results (3b81839) were run around the former base5 (1.5/1.0/5.0 @ 1 atm).
 
-Mode sets per geometry (acoustic, l = 0 only, search window 20 kHz - 12 MHz = the solver's l0_modes window):
-  B  bubble gas cavity alone, rigid wall: f = x_n c_HHO / (2 pi a), j1(x_n) = 0. Q is NOT in the model (the gas has no
-     loss term) -> fallback: linewidth 0 [est], so a B mode locks only inside its partner's own linewidth.
+Mode sets per geometry (acoustic, l = 0 only, search window FMIN_HZ–FMAX_HZ = the solver's l0_modes window):
+  B  bubble gas cavity alone, rigid wall: f = x_n c_HHO / (2 pi a), j1(x_n) = 0. Q from solver_v0.gas_Q(f, a, p, T,
+     'HHO') at the fill state (CORE_P_ATM, 293 K): wall thermal boundary layer + classical bulk absorption, viscous wall loss
+     0 for l = 0 [est: modelling assumption, upper bound on Q], so a B mode now has its own linewidth f/Q.
   Q  quartz layer alone (free shell, vacuum both faces): propagate() roots; Q_eff from mode_energy_stats (= 2100).
   T  tourbillon alone (free layer-two shell): propagate() roots in the window plus its first thickness mode
      (searched near cL/2t2); Q_eff from mode_energy_stats (= 150).
@@ -28,7 +31,8 @@ Boundary-reflection round trips: a round trip inside one cavity (B: across the d
 Q: n cL/(2w); T: n cL2/(2 t2)) lands on a real mode of ANOTHER cavity when |f_rt - f_mode| <= (f_mode/Q_mode)/2
 (a reflection has no Q of its own: width 0). Targets: B -> Q, T, S; Q -> B, T; T -> B, Q.
 Score = number of locks (mode-mode + reflection landings). Also reported: distinct real modes taking part, and
-locks per real mode in the window (density-normalised, because a larger body simply has more modes in the window).
+locks per real mode in the window (density-normalised, because a larger body simply has more modes in the window), and sharp_per_mode = sharp locks /
+modes in the window (third ranking, rank_spm).
 Cascade holding together (gate, reported per geometry): in each cavity thermal < acoustic fundamental < electric.
 Knees crossed at the right thresholds: NOT SCORED. A knee crossing needs a field amplitude, and with no source every
 amplitude is exactly zero; it stays unscored until a source is defined.
@@ -50,12 +54,19 @@ sys.path.insert(0, HERE)
 import solver_v0 as S  # noqa: E402
 
 PHI = S.PHI
-FMIN, FMAX, NGRID = 2e4, 12e6, 4000          # same window and grid as solver l0_modes
-P_ATM = 1.0                                   # base5 fill
-BASE = dict(a_mm=1.5, w_mm=1.0, t2_um=5.0)    # base5
+FMIN, FMAX, NGRID = S.FMIN_HZ, S.FMAX_HZ, S.N_FREQ_GRID  # same window and grid as solver l0_modes
+# Fill and lattice centre = rarefied-sweep winner (ea694ce), replacing former base5 (1.5/1.0/5.0 @ 1 atm).
+P_ATM = S.CORE_P_ATM
+BASE = dict(a_mm=S.CORE_A_MM, w_mm=S.CORE_W_MM, t2_um=S.CORE_T2_UM)
 CAV_PAIRS = {("B", "Q"), ("B", "T"), ("Q", "T"), ("B", "S")}
 REFL_TARGETS = {"B": ("Q", "T", "S"), "Q": ("B", "T"), "T": ("B", "Q")}
-GAS_Q_FALLBACK = "gas-cavity Q not in the model: linewidth 0 [est]"
+GAS_COMP = "HHO"
+# Gas-cavity Q: derived by solver_v0.gas_Q(f, a, p, T, comp) at the sweep's fill state (CORE_P_ATM HHO, 293 K; no
+# source, so the gas stays at 293 K). Modelling assumption, not measured physics: isothermal wall, no molecular
+# relaxation, no discharge loss -> an upper bound on Q (lower bound on the gas linewidth).
+GAS_Q_SOURCE = ("derived: solver_v0.gas_Q(f, a, p, T, 'HHO') at CORE_P_ATM (~0.1044 x ambient), 293 K (no source); "
+                "wall thermal boundary layer + classical bulk absorption, viscous wall loss 0 for l=0; modelling "
+                "assumption (isothermal wall, no relaxation/discharge loss), upper bound on Q, not measured")
 
 
 # ------------------------------------------------------------------ scoring (pure, testable)
@@ -194,14 +205,46 @@ def q_of(f, L):
     return S.mode_energy_stats(f, L, 0.0)["Q_eff"]
 
 
-def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
-    """All modes, locks and score for one geometry. No source: every mode energy is 0."""
+def _fill_gas_Z(gp):
+    """Opt-in (fill sweep only): solver_v0.gas_Z with the mix's own c and gamma from gas_props at the fill state
+    (K = gamma p). Same pole-free form; used only while evaluate(comp=...) runs, then the solver's own is restored."""
+    c, K = gp["c"], gp["gamma"] * S.GAS["p"]
+    def gz(f, r_in):
+        k = 2 * math.pi * f / c; x = k * r_in
+        return -K * k * math.sin(x) / x, (math.sin(x) / x ** 2 - math.cos(x) / x)
+    return gz
+
+
+def evaluate(a_mm, w_mm, t2_um, details=False, em=False, p_atm=None, comp=None, T_K=None):
+    """All modes, locks and score for one geometry. No source: every mode energy is 0.
+    Default (p_atm=None, comp=None): the core fill (P_ATM = CORE_P_ATM HHO, c_hho, solver gas_Z). Opt-in fill state
+    (geometry_fill_sweep_v0): p_atm and/or comp (name or {species: x}) set the gas everywhere it enters: the rigid-wall
+    B modes and bubble round trips use c from S.gas_props, the bonded-stack gas loading uses that c and K = gamma p,
+    gas Q is S.gas_Q at (p, T, comp), and the cascade thermal rate uses the mix's k/(rho cp). T_K (opt-in, with the
+    fill path): gas temperature for gas_props, sound speed, gas loading and gas Q (default 293 K = S.T_REF)."""
+    if comp is None and p_atm is None and T_K is None:
+        return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM, None)
+    old_gz = S.gas_Z
+    try:
+        return _evaluate(a_mm, w_mm, t2_um, details, em, P_ATM if p_atm is None else p_atm, comp or GAS_COMP,
+                         S.T_REF if T_K is None else T_K)
+    finally:
+        S.gas_Z = old_gz; S.GAS["p"] = P_ATM * 101325.0; S.GAS["T"] = S.T_REF
+
+
+def _evaluate(a_mm, w_mm, t2_um, details, em, p_atm, comp, T_K=None):
     t0 = time.time()
     st = S.build_stack(2 * a_mm, w_mm, t_l2=t2_um * S.UM)
-    S.GAS["p"] = P_ATM * 101325.0; S.GAS["T"] = S.T_REF
+    Tg = S.T_REF if T_K is None else T_K
+    S.GAS["p"] = p_atm * 101325.0; S.GAS["T"] = Tg
     a, b = st["r_in"], st["r_q"]; t2 = t2_um * S.UM
     lay = st["layers"]
-    c_g = S.c_hho(S.T_REF)
+    if comp is None:
+        c_g = S.c_hho(S.T_REF); qcomp = GAS_COMP
+        rho_g = P_ATM * 101325.0 * 0.012011 / (8.314462618 * S.T_REF); al_B = S.K_HHO0 / (rho_g * S.CP_HHO)
+    else:
+        gp = S.gas_props(Tg, S.GAS["p"], comp); c_g = gp["c"]; qcomp = comp
+        al_B = gp["D_t"]; S.gas_Z = _fill_gas_Z(gp)
     LQ = [("quartz", a, b)]; LT = [("layer2", b, b + t2)]
     B = gas_rigid_l0(a, c_g)
     Qm = free_modes(LQ)
@@ -209,7 +252,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
     Tm = free_modes(LT) + free_modes(LT, 0.6 * f_fp, 1.4 * f_fp, 400)
     Sm = split(S.l0_modes(lay), free_modes(lay))
     s_stats = S.all_modes_stats(Sm, lay, 0.0)
-    modes = ([dict(cav="B", f=f, Q=None) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
+    modes = ([dict(cav="B", f=f, Q=S.gas_Q(f, a, p=p_atm * 101325.0, T=Tg, comp=qcomp)) for f in B] + [dict(cav="Q", f=f, Q=q_of(f, LQ)) for f in Qm]
              + [dict(cav="T", f=f, Q=q_of(f, LT)) for f in Tm] + [dict(cav="S", f=m["f"], Q=m["Q_eff"]) for m in s_stats])
     assert all(m["W"] == 0.0 for m in s_stats)   # no source: zero run
     cLq = S.MAT["quartz"]["cL"]
@@ -220,8 +263,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
     part = {(lk[k][0], lk[k][1]) for lk in locks for k in ("a", "b") if not lk[k][0].endswith("rt")}
     n_in = sum(1 for m in modes if m["f"] <= FMAX)
     # thermal (model convention tau = L^2/(pi^2 alpha), f = 1/(2 pi tau)) and electric (estimates), per cavity
-    rho_g = P_ATM * 101325.0 * 0.012011 / (8.314462618 * S.T_REF)
-    al = dict(B=S.K_HHO0 / (rho_g * S.CP_HHO), Q=S.MAT["quartz"]["k"] / (S.MAT["quartz"]["rho"] * S.MAT["quartz"]["cp"]),
+    al = dict(B=al_B, Q=S.MAT["quartz"]["k"] / (S.MAT["quartz"]["rho"] * S.MAT["quartz"]["cp"]),
               T=m2["k"] / (m2["rho"] * m2["cp"]))
     Lc = dict(B=a, Q=w_mm * S.MM, T=t2)
     f_th = {k: math.pi * al[k] / (2 * Lc[k] ** 2) for k in al}
@@ -235,9 +277,12 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
              score=len(locks), n_mode_locks=sum(1 for x in locks if x["kind"] == "mode"),
              n_reflection_locks=sum(1 for x in locks if x["kind"] == "reflection"),
              n_sharp_locks=sum(1 for x in locks if not x["density_guaranteed"]),
+             n_B_locks=sum(1 for x in locks if x["a"][0] in ("B", "Brt") or x["b"][0] == "B"),
              by_pair=_by_pair(locks),
              n_distinct_modes=len(part), n_modes_window=n_in,
              locks_per_mode=round(len(locks) / n_in, 4) if n_in else 0.0,
+             sharp_per_mode=round(sum(1 for x in locks if not x["density_guaranteed"]) / n_in, 4) if n_in else 0.0,
+             gas_Q_first=round(modes[0]["Q"], 2) if B else None, c_gas=round(c_g, 3),
              n_modes=dict(B=len(B), Q=len(Qm), T=len(Tm), S=len(Sm)),
              cascade_ok=all(cascade.values()), cascade=cascade, golden=gold, runtime_s=round(time.time() - t0, 2))
     if details:
@@ -248,7 +293,7 @@ def evaluate(a_mm, w_mm, t2_um, details=False, em=False):
         r["thermal_Hz"] = {k: round(v, 4) for k, v in f_th.items()}
         r["electric_est_Hz"] = {k: float("%.4g" % v) for k, v in f_el.items()}
         r["acoustic_fundamental_Hz"] = {k: (round(v, 1) if v else None) for k, v in f_ac.items()}
-        r["Q_eff"] = dict(Q=q_of(Qm[0], LQ) if Qm else None, T=q_of(Tm[0], LT) if Tm else None, B=GAS_Q_FALLBACK,
+        r["Q_eff"] = dict(Q=q_of(Qm[0], LQ) if Qm else None, T=q_of(Tm[0], LT) if Tm else None, B=dict(source=GAS_Q_SOURCE, Q_first=round(modes[0]["Q"], 2) if B else None),
                           S=[round(m["Q_eff"], 2) for m in s_stats])
         if em:
             r["electric_open_sphere"] = em_open(a, b, b + t2)
@@ -291,7 +336,7 @@ def em_open(a, b, r2):
 # ------------------------------------------------------------------ grid
 # Grid on a phi^(1/8) lattice: point = BASE * phi^(i/8) per axis, i integer (exact de-duplication by index).
 LAT = 8                                                                  # lattice: phi^(1/8)
-COARSE = dict(a_mm=(-16, 12, 4), w_mm=(-20, 12, 4), t2_um=(-16, 12, 4))  # (i_lo, i_hi, step): phi^(1/2) steps around base5
+COARSE = dict(a_mm=(-16, 12, 4), w_mm=(-20, 12, 4), t2_um=(-16, 12, 4))  # (i_lo, i_hi, step): phi^(1/2) steps around BASE (core)
 REFINE_K = 2                                                             # refine: +-2 lattice steps (phi^(1/8)) per axis
 
 
@@ -329,10 +374,13 @@ def run(workers=8, refine_top=5):
     for i, r in enumerate(allr): r["rank"] = i + 1
     sk = lambda r: (not r["cascade_ok"], -r["n_sharp_locks"], -r["score"])
     for i, r in enumerate(sorted(allr, key=sk)): r["rank_sharp"] = i + 1
+    pk = lambda r: (not r["cascade_ok"], -r["sharp_per_mode"], -r["n_sharp_locks"])
+    for i, r in enumerate(sorted(allr, key=pk)): r["rank_spm"] = i + 1
     det = lambda r, em: dict(evaluate(r["a_mm"], r["w_mm"], r["t2_um"], details=True, em=em), idx=r["idx"], rank=r["rank"],
-                             rank_sharp=r["rank_sharp"], stage=r["stage"])
+                             rank_sharp=r["rank_sharp"], rank_spm=r["rank_spm"], stage=r["stage"])
     top = [det(r, True) for r in allr[:10]]
     top_sharp = [det(r, False) for r in sorted(allr, key=sk)[:10]]
+    top_spm = [det(r, False) for r in sorted(allr, key=pk)[:10]]
     bd = det(next(r for r in allr if r["idx"] == [0, 0, 0]), True)
     n = len(allr)
     corr = {ax: float(np.corrcoef([r[ax] for r in allr], [r["score"] for r in allr])[0, 1]) for ax in ("a_mm", "w_mm", "t2_um")}
@@ -342,7 +390,7 @@ def run(workers=8, refine_top=5):
                           scoring=__doc__.split("Lock (the scoring definition):")[1].split("Golden ratio:")[0].strip(),
                           golden="secondary non-scoring column: adjacent ratios of sorted distinct sharp-lock frequencies vs 1.618",
                           knees="unscored: knee crossings need a field amplitude; with no source every amplitude is exactly 0",
-                          window_Hz=[FMIN, FMAX], p_atm=P_ATM, T_K=S.T_REF, base5=BASE, gas_Q=GAS_Q_FALLBACK,
+                          window_Hz=[FMIN, FMAX], p_atm=P_ATM, T_K=S.T_REF, base5=BASE, gas_Q=GAS_Q_SOURCE, 
                           coarse_axes={k: [round(lattice_value(k, i), 5) for i in v] for k, v in axes_i.items()},
                           box={k: [round(lattice_value(k, lo), 5), round(lattice_value(k, hi), 5)] for k, (lo, hi) in box.items()},
                           coarse_step="phi^(1/2)", refine=f"top {refine_top} coarse seeds, phi^(1/{LAT}) steps, +-{REFINE_K} per axis, clipped to the box",
@@ -350,8 +398,9 @@ def run(workers=8, refine_top=5):
                           score_correlation=corr,
                           qz_sound=S.QZ_SOUND_SEL,
                           n_cascade_fail=sum(1 for r in allr if not r["cascade_ok"]),
-                          ranking="cascade gate first (thermal < acoustic < electric in every cavity), then primary: score (number of locks), tie-break distinct modes; secondary: sharp locks (not density-guaranteed)"),
-                top10=top, top10_sharp=top_sharp, base5=bd, results=allr)
+                          ranking="cascade gate first (thermal < acoustic < electric in every cavity), then primary: score (number of locks), tie-break distinct modes; secondary: sharp locks (not density-guaranteed); third: sharp_per_mode desc, tie sharp locks (rank_spm)",
+                          gas_Q_range=[min(r["gas_Q_first"] for r in allr if r["gas_Q_first"]), max(r["gas_Q_first"] for r in allr if r["gas_Q_first"])]),
+                top10=top, top10_sharp=top_sharp, top10_spm=top_spm, base5=bd, results=allr)
 
 
 def main():
@@ -367,10 +416,10 @@ def main():
     m = res["meta"]
     print(f"coarse {m['n_coarse']} + refine {m['n_refine']} geometries in {m['runtime_s']} s; base5 rank {res['base5']['rank']} "
           f"(sharp rank {res['base5']['rank_sharp']}) score {res['base5']['score']} sharp {res['base5']['n_sharp_locks']}")
-    for r in res["top10"] + res["top10_sharp"]:
+    for r in res["top10"] + res["top10_spm"]:
         print(f"#{r['rank']:3d} a {r['a_mm']:.4f} mm w {r['w_mm']:.4f} mm t2 {r['t2_um']:.3f} um | score {r['score']} "
               f"(mode {r['n_mode_locks']}, refl {r['n_reflection_locks']}, sharp {r['n_sharp_locks']}) distinct {r['n_distinct_modes']} cascade {r['cascade_ok']} "
-              f"| phi nearest {r['golden']['nearest_phi']}")
+              f"| modes {r['n_modes_window']} spm {r['sharp_per_mode']} (spm rank {r['rank_spm']}) | phi nearest {r['golden']['nearest_phi']}")
     print("wrote", os.path.basename(a.out))
 
 

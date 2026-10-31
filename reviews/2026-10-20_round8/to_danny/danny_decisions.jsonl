@@ -1,0 +1,6 @@
+{"q": 1, "store_key": "3eda846543a9da45", "asked_by": "claude", "decision": "closed", "reason": "reply already landed", "quote": "Close it, his reply already landed", "time": "2026-10-20 22:23 AWST"}
+{"q": 2, "store_key": "13c428cc22f88aa7", "asked_by": "grok", "decision": "answer delivered to grok as follow-up", "reason": "Claude Code answered fully but the answer was parked pending_human; Grok never received it", "quote": "Send it now; Grok replies with any changes", "time": "2026-10-20 22:27 AWST", "followup_run_id": "followup-20261020T142927Z-grok-cc-answer", "followup_reply": "reviews/2026-10-20_round8/grok_followup_cc_answer.md"}
+{"store_key": "5ab41239d1f43291", "decision": "closed", "quote": "Close it, his reply already landed", "time_awst": "2026-10-20 23:56"}
+{"store_key": "d9efee7217d17003", "decision": "closed", "quote": "Close it, his reply already landed", "time_awst": "2026-10-20 23:57"}
+{"store_key": "c7d3c5fd78d6ada8", "decision": "closed", "quote": "Close it, the answers are known now", "time_awst": "2026-10-20 23:57"}
+{"store_key": "455beb1dfbf458d6", "decision": "closed", "quote": "Close it, the answers are known now", "time_awst": "2026-10-20 23:57"}

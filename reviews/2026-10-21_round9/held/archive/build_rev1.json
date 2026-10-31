@@ -1,0 +1,17 @@
+{
+  "item_id": "build",
+  "model": "build",
+  "stage": "primary",
+  "run_id": "primary-20261021T050438Z-7c9a22",
+  "decision": "hold",
+  "reasons": [
+    "turn_cap_reached"
+  ],
+  "flags": [],
+  "notes": [
+    "turn_cap_reached",
+    "context first: read_doc vocabulary"
+  ],
+  "file": "build.md",
+  "landed": true
+}

@@ -1,0 +1,185 @@
+# Round 7 kickoff — conversation design (inter-model protocol)
+
+**Branch:** `holster-loop-2026-10-19`  
+**Round:** 7  
+**Mission patch:** 4 W sweep — the 4 W (`drive_W=1`) amplitude sweep, deferred from this round to round 8 per `53d4894` (see `docs/vocabulary.md`: mission patch = the round's name).  
+**Do not push** unless the caller says so. This file is documentation only — it does not run tests or a sweep.
+
+Future rounds each get their own mission patch name when drafted.
+
+**Round 7 scope:** design how the four models (**Kimi, DeepSeek, Claude, Grok**) talk to each other — cross-review flow, peer scoring in practice, where the automated gate sits inside the conversation, and how feedback fan-out works. **No amplitude sweep in this round. No solver runs. No Claude Code sweep work.**
+
+**Round 6 (done / in flight):** threshold debate — measure + value, sequencing recommendations, peer scoring into the ledger, two-gate rules. Round 7 assumes that loop shape and does not re-open the threshold definition itself (unless Edger_Equals reopens it).
+
+**Round 8 (not this kickoff):** the **4 W** (`drive_W=1`) amplitude sweep on the rarefied core. **Round-8 hold:** the sweep is kicked off **only after** round 7’s protocol is designed, written up, and **approved by the human gate (Edger_Equals)**. See §2 and the deliverable note in §6.
+
+Core geometry remains locked for later rounds (do not re-open here): bubble **0.57295 mm**, wall **1.43463 mm**, tourbillon **9.12441 µm**, fill **0.1044 × ambient** (HHO 2:1), window **1 Hz–50 MHz**.
+
+---
+
+## 1. Why this round exists
+
+Round 6 locked *what* the loop decides (threshold first) and *that* there are two gates. Round 7 locks *how the four models converse* before anyone pays for a sweep or lets Claude Code execute recommendation checks at scale.
+
+Without an explicit protocol:
+
+- Paid models may each re-read the full shared context four times.
+- Cross-review can become four pairwise full reads instead of a cheap compiled pass.
+- Claude Code’s automated gate can sit “outside” the conversation or, worse, rubber-stamp recommendations that include its own Claude-side voice without a clear peer path.
+- The human gate may receive an unstructured dump instead of a prediction-versus-result package.
+
+Round 7’s job is to design that protocol **before** round 8.
+
+---
+
+## 2. Round 8 hold — 4 W amplitude sweep (deferred)
+
+**Round 7 has no sweep work.** Do not run `drive_W=1` sweeps, single-point drive smokes for kickoff, or write `drive_4W_*.json` / `geometry_drive_4W_sweep_v0.json` as round-7 deliverables.
+
+The **4 W** (`drive_W=1`; 1 W × four domains) amplitude sweep is **round 8**. It starts **only after**:
+
+1. Round 6’s threshold (measure + value) is settled or explicitly waived by **Edger_Equals**,  
+2. Round 7’s **protocol document** exists and is **approved by the human gate (Edger_Equals)**, and  
+3. A separate `reviews/…_round8/` kickoff (or addendum) carries launch commands and artifact paths.
+
+Until then, treat any sweep instructions in older drafts or in prior prompts as **deferred to round 8**.
+
+---
+
+## 3. Sequencing reminder (unchanged from round 6)
+
+| Step | Round | What |
+|---|---|---|
+| 1 | **6** | Threshold debate (measure + value), sequencing asks, peer scores → human gate settles threshold |
+| 2 | **7** | **This kickoff** — conversation / protocol design (economics required) → human gate approves protocol |
+| 3 | **8** | **Only then** — 4 W (`drive_W=1`) amplitude sweep on the rarefied core |
+
+Two gates from round 6 still apply to any later feedback loop (**automated Claude Code → human Edger_Equals → only then feedback**). Round 7 designs *how conversation and fan-out sit around those gates*; it does not invent a third gate or remove either existing one.
+
+---
+
+## 4. Design questions (team must answer)
+
+Give **every** model the same brief for this round. Scope override: **conversation design / protocol first; no sweep.**
+
+The team (**Kimi, DeepSeek, Claude, Grok**) should propose and debate concrete answers to:
+
+1. **Sharing findings** — Do models reply **directly** to each other (threaded / pairwise), or do they write into a **compiled summary** that others read? When is each mode allowed?
+2. **Cross-review order** — Who reviews whom, in what order, and after which artifacts exist? Can cheap filters finish before paid models start cross-review?
+3. **Cross-review context (adopted default)** — Peer context for cross-review is **compiled conclusions/scores only**, not full peer replies (caller folded this in from `reviews/2026-10-19_round6/handoff.md`). How is that compilation produced, by whom, and what fields must each conclusion block carry so scoring still works?
+4. **Peer scoring in practice** — How are scores collected (axes, format, where filed)? How do peer scores of threshold proposals (and later of protocol proposals) land in the ledger without each model scoring itself?
+5. **Automated gate inside the conversation** — How does **Claude Code**’s automated gate (prediction check + threshold TBD from round 6) sit *inside* the loop so it does **not** check its own recommendations unchecked? What peer or human path covers Claude-side recommendations before feedback fans out?
+6. **Human gate packaging** — Exactly what does **Edger_Equals** receive as the **prediction-versus-result package** (fields, files, one-pager vs full dumps)? What is held until sign-off?
+7. **Aim check (required in every model reply)** — In their own words, what does each model think **our aim** is (the team’s aim for this program / loop)? One short paragraph; no parroting this kickoff verbatim.
+8. **Improvements against that aim (required)** — What other improvements or suggestions does each model recommend against that aim (protocol, economics, gates, tooling)? List concrete items; trivial restatements of already-locked rules do not count.
+
+Capture replies under this folder (e.g. `reviews/2026-10-19_round7/{kimi,deepseek,claude,grok}.md` and/or a shared debate note). The human gate decides what becomes protocol. Cross-review economics and the aim/suggestions asks are also summarized in `reviews/2026-10-19_round6/handoff.md`.
+
+---
+
+## 5. Economics — requirements, not afterthoughts
+
+These are **design constraints**. A protocol that ignores them is incomplete for round 7.
+
+| Requirement | Meaning |
+|---|---|
+| **Tiered work** | **Kimi** and **DeepSeek** act as **cheap filters** first. Escalate **only interesting findings** to **Claude** and **Grok**. Paid models should not be the first pass for rote consistency / units / retired-item scans when a cheap filter can do it. |
+| **Cached shared context** | Brief, `DESIGN_STATE`, and solver summary (when one exists) are paid **once**, then reused — **not** re-injected and re-billed four times as four independent full contexts. |
+| **Batched cross-reviews** | Prefer a **compiled summary** of cheap findings for paid cross-review, instead of each paid model reading all three other full replies separately. |
+| **Conclusions-only cross-review context (adopted)** | For round 7+ cross-review, each model receives peer **conclusions/scores only**, not full `{model}.md` bodies (see round-6 handoff). Round 6’s `launch_round.py` still injects full replies for e2e continuity until a `--teamwork-summary` (or protocol-specified) mode lands — do not silently change that live path mid-round-6. |
+
+The protocol doc must say how each requirement is enforced (who compiles, when cache is refreshed, escalate criteria for “interesting”, and the exact schema of a conclusions/scores block). Reference: `reviews/2026-10-19_round6/handoff.md` (Cost-saving option — adopted for round 7+).
+
+---
+
+## 6. Deliverable — protocol document (round 8 depends on it)
+
+**Round 7’s deliverable** is a protocol document, e.g.:
+
+`reviews/2026-10-19_round7/protocol.md`
+
+That file (once drafted from the team debate and **approved by Edger_Equals**) is what **round 8’s sweep kickoff depends on**. Do **not** create `protocol.md` in this kickoff commit — only design and debate toward it. Round-8 kickoff should not launch until the protocol exists and the human gate has signed off.
+
+Suggested protocol sections (team may refine): sharing mode, cross-review order, peer-scoring procedure, automated-gate placement + anti-self-check rule, human-gate package schema, economics enforcement, launch/fan-out commands for later rounds.
+
+---
+
+## 7. Four-model role assignment (this round)
+
+| Model | Role this round | How to reach (typical) |
+|---|---|---|
+| **Kimi** | Cheap rote + protocol proposals: consistency vs DESIGN_STATE / this kickoff; flag expensive patterns | `python scripts/review_kimi.py` with round-7 brief / kickoff scope |
+| **DeepSeek** | Same cheap filter as Kimi (independent); escalate only interesting protocol risks | `python scripts/review_deepseek.py` with round-7 brief / kickoff scope |
+| **Claude (chat)** | Paid / read-only method review of the **conversation design**; cross-reviews others’ protocol proposals; never runs solver or commits | Holster Claude channel / Messages API (see prior `reviews/2026-10-19_round5/claude_run.py` pattern) |
+| **Grok** | Paid claim / process cross-check against DESIGN_STATE + kickoff + economics requirements; cross-reviews the other three | `python scripts/review_grok.py` with prompt context |
+| **Claude Code CLI** (executor, not a fifth “review voice”) | May stage docs / local commits for round-7 protocol drafts; **self-check** before every commit; **does not start the round-8 sweep**; does not invent process that contradicts round-6 two-gate rules | Box CLI (`claude`); **do not push** without caller |
+
+### Round sequence — four stages, two gates (cannot be skipped)
+
+`scripts/launch_round.py` (default `--stage all`) runs the round in this fixed order:
+
+| Step | Stage | Exit / gate |
+|---|---|---|
+| (a) | **Fire** — four pings as one job, same brief, each with the current primary `run_id` | — |
+| (b) | **Land** — each reply auto-writes `reviews/2026-10-19_round7/{model}.md`, stamped `run_id=… · landed_utc=…` | **Gate 1 — replies landed (COMPLETE):** all four `{model}.md` present **and** stamped with the current primary run (none predates the run start) |
+| (c) | **Cross-review** — refuses to start unless gate 1 passes; each model scores the other three. **Round 7+ default (protocol):** conclusions/scores only (handoff). **Current launcher:** still full peer bodies until `--teamwork-summary` / protocol wires conclusions-only | **Gate 2 — cross-review (COMPLETE):** all four `{model}_teamwork.md` present, stamped with the current teamwork run, and that run scored the **current** primary run |
+| (d) | **Close** — `launch_round.py --stage close` (also run at the end of `--stage all`) | Round **closes only when gate 1 and gate 2 both pass**; recorded under `closed` in `run.json` |
+
+**Stale-reply guard:** every stage run is recorded in `reviews/2026-10-19_round7/run.json` (`run_id`, `started_utc`; teamwork also records the `primary_run_id` it scored). Landing refuses a reply from another run, one generated before the run started, or one with no stamp/timestamp. `land_review_reply.py --check` (and `--check --suffix _teamwork`) fails with `STALE` for any file that predates the current run. A primary re-fire clears the teamwork run and the close record, so old cross-reviews can never close a re-fired round — re-run `--stage teamwork`, then `--stage close`.
+
+Single stages for recovery: `--stage primary`, `--stage teamwork`, `--stage close`; `--land-only` re-lands from a scratch dir under the same freshness rules.
+
+Suggested order for **round 7:** suite green (if any docs change requires it) → fan-out design questions → cheap filters first → escalate interesting protocol proposals to Claude/Grok → **cross-review stage (gate 2)** → peer scores on protocol proposals → draft `protocol.md` → **human gate approves** → **then** round 8 may be drafted.
+
+---
+
+## 8. Where outputs land
+
+| Artifact | Path |
+|---|---|
+| This kickoff | `reviews/2026-10-19_round7/kickoff.md` |
+| Round-6 handoff (adopted economics) | `reviews/2026-10-19_round6/handoff.md` — conclusions-only cross-review default |
+| Per-model replies | `reviews/2026-10-19_round7/{kimi,deepseek,claude,grok}.md` |
+| Teamwork / peer scores | `reviews/2026-10-19_round7/*_teamwork.md` or ledger staging |
+| **Protocol (deliverable)** | `reviews/2026-10-19_round7/protocol.md` — **after** debate; not created by this kickoff alone |
+| Ledger staging | `ledger/pending/*.jsonl` when filing protocol findings / peer scores |
+| Sweep / amplitude JSON (**round 8 only**) | repo root `drive_4W_*.json` / `geometry_drive_4W_sweep_v0.json` — **not** round-7 deliverables |
+
+---
+
+## 9. Two gates (reference — unchanged from round 6)
+
+There are **two gates** in the loop. Claude Code’s gate is **automated**; the human gate **sits above it**. **Nothing reaches the team as feedback without passing both.**
+
+| Gate | Who | Role |
+|---|---|---|
+| **(1) Automated gate** | **Claude Code** | Runs each recommendation against the model **with a prediction**; holds the **threshold** (deviation vs confidence — from round 6 / human approval). Packages the prediction-versus-result gap. |
+| **(2) Human gate** | **Edger_Equals** | Eyeballs that gap **before** any feedback feeds back to the team. Also approves round 7’s **protocol** before round 8. |
+
+Round 7 must specify how gate (1) is placed so Claude Code is **not** the sole unchecked reviewer of Claude-side recommendations, and how gate (2) receives a clear package. Skipping either gate remains a no-go.
+
+---
+
+## 10. Go / no-go checklist (declare “round 7 started” only if all GO)
+
+| # | Check | GO if… |
+|---|---|---|
+| 1 | Branch | On `holster-loop-2026-10-19` with this kickoff present |
+| 2 | Scope | Conversation design only; **no** 4 W sweep, no solver amplitude work |
+| 3 | Round situating | Round 6 = threshold; round 7 = protocol; round 8 = sweep — understood |
+| 4 | Round-8 hold | Sweep waits on protocol design **and** human-gate approval of that protocol |
+| 5 | Design questions | §4 questions ready to fan out identically to all four models (includes aim-in-own-words + improvements-against-aim) |
+| 6 | Economics | Tiered work, cached shared context, batched cross-reviews, and **conclusions-only** cross-review context treated as **requirements** (handoff adopted for round 7+) |
+| 7 | Two gates | Automated (Claude Code) then human (Edger_Equals); no third gate invented; no gate removed |
+| 8 | Deliverable path | Team knows deliverable is `reviews/2026-10-19_round7/protocol.md` (draft after debate) |
+| 9 | Models | Kimi, DeepSeek, Claude (chat), Grok each have the **same** round-7 scope (no sweep) |
+| 10 | Outputs | Round-7 paths in §8 agreed; no push without caller |
+| 11 | Retired | No electrodes / retired items reintroduced in protocol proposals |
+| 12 | Four pings (when launching) | If caller says “send it” / “launch round 7,” all four pings fire as one job |
+| 13 | Replies landed | All four replies present in `reviews/2026-10-19_round7/` (`kimi.md`, `deepseek.md`, `claude.md`, `grok.md`; `scripts/land_review_reply.py --check` exits 0) — not only in `/tmp` |
+| 14 | Cross-review complete | Gate 2 passes: all four `{model}_teamwork.md` in `reviews/2026-10-19_round7/`, stamped with the current teamwork run, which scored the **current** primary run (`land_review_reply.py --check --suffix _teamwork` exits 0); round closes only via `launch_round.py --stage close` with both gates passing; no `STALE` replies |
+| 15 | Aim + suggestions | Every primary reply states the team’s aim in the model’s own words **and** lists concrete improvements/suggestions against that aim (§4 items 7–8) |
+
+**NO-GO:** starting the round-8 4 W sweep before protocol approval; treating economics as optional; skipping the human gate on the protocol; inventing process that contradicts round-6 two-gate order; skipping cross-review; scoring or closing on a stale (pre-current-run) reply; closing the round before both gates pass; omitting aim-in-own-words or improvements-against-aim from a primary reply.
+
+When rows 1–11 are GO for **starting** the design debate (12 = pings fired when launched; 13 = replies landed; 14 = cross-review complete before the round closes; 15 = aim + suggestions present in each primary reply), the coordinator may declare: **Round 7 started** — models design the inter-model conversation protocol; **round 8 sweep waits** on `protocol.md` + Edger_Equals approval.

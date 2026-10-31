@@ -1,9 +1,9 @@
 # Stratified Sphere — Design State (single source of truth)
 
 **Updated:** 2026-10-19 AWST · **Owner:** Danny (EdgerEquals)
-**Repo:** https://github.com/EdgerEquals/stratified-sphere-model
-**Live viewer:** https://edgerequals.github.io/stratified-sphere-model/
-**Raw link for AI tools:** https://raw.githubusercontent.com/EdgerEquals/stratified-sphere-model/main/DESIGN_STATE.md
+**Repo:** https://github.com/EdgerEquals/sphere-holster
+**Live viewer:** https://edgerequals.github.io/sphere-holster/
+**Raw link for AI tools:** https://raw.githubusercontent.com/EdgerEquals/sphere-holster/main/DESIGN_STATE.md
 
 All figures are paper estimates from the v0 model. None have been measured.
 Every tool working on this project reads this file first, never reintroduces a retired item, and treats everything under **Open** as undecided.
@@ -82,7 +82,7 @@ Every tool working on this project reads this file first, never reintroduces a r
 ## Information layer (harness architecture)
 Full spec: the Drive doc "Stratified Sphere — Information Layer (Harness Architecture) 2026-10-19".
 
-- **Holsters (Danny, 2026-10-19):** 19 in total, one per knee and one per energy domain: **12 knee holsters + 7 energy-domain holsters**. The seven energy domains are optical, acoustic, electric, magnetic, thermal, chemical and **information** (the information layer is a real domain). Each knee and each energy domain has its **own** holster; the holster is not a single shared component. Say "energy domains", not "power domains". (Superseded: "18 harnesses: 6 domain + 12 knee", and the same-day 6 + 12 = 18 holster note.) The domain holsters run in parallel on GitHub Actions and pass results to each other between rounds.
+- **Harnesses (Danny, 2026-10-19):** 19 in total, one per knee and one per energy domain: **12 knee harnesses + 7 energy-domain harnesses**. The seven energy domains are optical, acoustic, electric, magnetic, thermal, chemical and **information** (the information layer is a real domain). Each knee and each energy domain has its **own** harness; the harness is not a single shared component. Say "energy domains", not "power domains". (Superseded: "18 harnesses: 6 domain + 12 knee", and the same-day 6 + 12 = 18 harness note.) The domain harnesses run in parallel on GitHub Actions and pass results to each other between rounds.
 - **Coordinator:** Cursor. It reads a granularity dial: shallow for scouting, deep for validating.
 - **Checks:**
   - The Claude API audits Cursor's merges every few rounds.
@@ -107,13 +107,13 @@ Full spec: the Drive doc "Stratified Sphere — Information Layer (Harness Archi
   - Knee harness details
   - Which harness to build first (thermal was suggested, then paused)
 
-## Locked holster architecture (2026-10-19, from review round 3)
+## Locked harness architecture (2026-10-19, from review round 3)
 Danny locked items 1–4 on 2026-10-19 from review round 3 (`reviews/2026-10-19_round3/`) and item 5 the same day from round 4 (`reviews/2026-10-19_round4/`). Treat them as decided; do not re-open them without Danny. Status updated 2026-10-19 14:40 AWST: items 1–3 and 5 built, item 4 partial. Details: `ledger/README.md`, `gateway/README.md`.
 
 | # | Item | What it is | Source | Order | Status |
 |---|---|---|---|---|---|
 | 1 | GitHub review ledger | Every review finding is filed as a GitHub issue and appended to a permanent, append-only JSONL log; reviewers are scored from it. | Round 3: DeepSeek, Claude and Grok's top pick (Kimi's runner-up); closes round 2's "review loop doesn't close" gap | **First.** Everything else builds on it. | **built** (issue #7): `ledger/findings.jsonl` on main, schema v1, workflow `ledger.yml`; issue mirroring off by default (dispatch, threshold major, cap 5/day) |
-| 2 | Scoring rubric (planted mistakes) | Each reviewer is scored on whether it catches mistakes deliberately planted in the work it reviews. | DeepSeek's round-2 idea (seed known defects), made concrete per Claude's round-3 suggestion (score reviewers from ledger status) | On top of the ledger | **built** (issue #8): fixture `ledger/planted/v1`, `ledger-score.yml` (offline default); no paid planted run yet |
+| 2 | Scoring rubric | Each reviewer is scored from ledger status (acceptance rate). | Claude's round-3 suggestion (score reviewers from ledger status) | On top of the ledger | **built** (issue #8): `scripts/ledger_score.py offline`, scorecards kept outside the repo. Planted-mistake scoring **retired** 2026-10-20 22:52 AWST ("our auditing is gonna be sufficient"): fixture and `ledger-score.yml` moved to Archive; never reintroduce |
 | 3 | Monthly cost rollup per model | Spend per model per month, rolled up from the ledger's cost stamps, so spend per model is visible. | Grok's round-3 suggestion (a cost stamp on every ledger record) | On top of the ledger | **built** (issue #9): `ledger/costs_YYYY-MM.*`, `ledger-costs.yml` (monthly cron + dispatch), Pages `ledger/`; October backfilled |
 | 4 | FEniCS/OpenFOAM MCP gateway | Models drive simulations directly through an MCP gateway to the open simulation stack (sandboxed). | Kimi's round-3 top pick; Claude and Grok's runner-up (after the ledger) | **After the ledger** | **partial** (issue #10): hardened FEniCS + OpenFOAM MCP containers pass CI (`mcp-gateway.yml`) and log to the ledger, but expose only the existing smoke tests; upstream dolfinx-mcp failed to initialise in CI |
 | 5 | Receipt gate + spec-review class | A paid Claude/Grok review counts as a **code review** only if a CI execution receipt covers every component it touches; otherwise it is a **spec review**: routed to the cheap Kimi/DeepSeek path by default, never scored, never mirrored as fixable issues. Receipts are written by CI only (GitHub artifact attestation) and must prove real execution: the entrypoint is imported **and** called (line trace), is not a stub (AST check: pass / ... / raise NotImplementedError / return-a-constant), and passes ≥1 numeric check. A stub with locked I/O never qualifies. | Round 4 (issue #11): DeepSeek, Claude and Grok proposed the receipt + spec-review class; Kimi's pushback (a stub with locked I/O schemas would satisfy a naive receipt) is built in as the anti-stub rule | Gates items 1–3; uses item 4's CI | **built** 2026-10-19: `harness/receipts.json`, `scripts/receipt.py`, `scripts/stub_detector.py`, `scripts/exec_trace.py`, `scripts/receipt_gate.py`, `.github/actions/receipt/`; receipts from engineering-tests (compute-core), sim-stack (sim-fenics), mcp-gateway (mcp-gateway); dial `receipt_gate: enforce|warn|off` (enforce); ledger schema v1.1. Verified in CI 2026-10-19: first attested receipts for all three components at 719ec3f; gate dry-runs classify a DESIGN_STATE-only commit as spec-review and a `solver_v0.py` commit as code-review; pre-gate findings tagged legacy |
@@ -215,15 +215,15 @@ Design intent from Danny (2026-10-19), recorded only. Nothing is coded for it. P
    - The time-domain run is the natural bridge: the solver marches in time, keeps history, and records the field at fixed radii, so the wave tail and the oscillation are visible.
    - Then promote to multi-state, with the guided channels, spin/rotation and rotating oscillation as the first multi-state features.
 
-## Decision: ionisation and plasma sit inside the electric holster (2026-10-19)
-Danny's decision (2026-10-19). Ionisation and plasma are not their own energy domains. They sit inside the existing holsters:
+## Decision: ionisation and plasma sit inside the electric harness (2026-10-19)
+Danny's decision (2026-10-19). Ionisation and plasma are not their own energy domains. They sit inside the existing harnesses:
 
-- **Electric holster: the field side.** Ionisation threshold, the Paschen curve and electron density. Paschen here means gas-breakdown physics as a field-side quantity of the gas (breakdown field vs pressure × length); it does not refer to electrodes, which remain removed from the model.
-- **Chemical holster: the plasma chemistry.** Recombination, the HHO reactions and the autoignition cascade.
-- **The plasma state straddles both holsters.** The crossover between them is a documented handoff between the electric and chemical holsters, not a gap.
+- **Electric harness: the field side.** Ionisation threshold, the Paschen curve and electron density. Paschen here means gas-breakdown physics as a field-side quantity of the gas (breakdown field vs pressure × length); it does not refer to electrodes, which remain removed from the model.
+- **Chemical harness: the plasma chemistry.** Recombination, the HHO reactions and the autoignition cascade.
+- **The plasma state straddles both harnesses.** The crossover between them is a documented handoff between the electric and chemical harnesses, not a gap.
 
-## Future item: handoff rules between holsters (2026-10-19)
-Recorded only; nothing is coded and no reviewer has been run. Many things will sit in more than one holster (the plasma state above is the first example), so the model needs rules for how handoffs between holsters work. This is to be put to the crew (Claude and Grok) with a push, but not yet.
+## Future item: handoff rules between harnesses (2026-10-19)
+Recorded only; nothing is coded and no reviewer has been run. Many things will sit in more than one harness (the plasma state above is the first example), so the model needs rules for how handoffs between harnesses work. This is to be put to the crew (Claude and Grok) with a push, but not yet.
 
 ## Decision: all six physical energy domains from the start (2026-10-19)
 Danny's decision (2026-10-19). The model carries all six physical energy domains from the start: optical, acoustic, electric, magnetic, thermal and chemical.
@@ -232,7 +232,7 @@ Danny's decision (2026-10-19). The model carries all six physical energy domains
 - **Electric is the driving field, not a wave.** The electric domain is the field that drives the whole system. It does not travel as a wave; it sets the thresholds (the ionisation knee and the Paschen curve, as gas-breakdown physics of the fill) and the drive conditions for the others.
 - **Time-domain run (future item):** build it to carry all six domains, so each domain's wave or field is visible as the front expands.
 
-Note: this concerns the six physical domains. The information domain (the 7th, per the 19-holster architecture) is unchanged; it is not a propagating physical wave.
+Note: this concerns the six physical domains. The information domain (the 7th, per the 19-harness architecture) is unchanged; it is not a propagating physical wave.
 
 ## Future item: electrocaloric term in the BTO film and layer two (2026-10-19)
 Danny's intent (2026-10-19), recorded only; nothing is coded. Add the electrocaloric term to the BTO film and to the tourmaline layer (layer two).
@@ -240,12 +240,12 @@ Danny's intent (2026-10-19), recorded only; nothing is coded. Add the electrocal
 - **What it is:** electrocaloric is the reverse of pyroelectric: an electric field changes the material's entropy and temperature.
 - **Materials:** barium titanate is a classic electrocaloric material, and the sol-gel recipe (MTES:TEOS 80:20 binder, doped grains) may carry it too.
 - **Caveat:** randomly oriented grains largely cancel each other out, so the net effect depends on grain alignment in the recipe.
-- **Field source:** the field is the electric holster's field. It is not applied by electrodes, which remain removed from the model.
-- **Holsters: it straddles three.**
-  - The electric holster owns the field side: the applied field drives the entropy change.
-  - The thermal holster owns the temperature side: the cooling or heating that results.
-  - The chemical holster owns the entropy change itself, since entropy is a thermodynamic state variable in the same family as the HHO reactions and recombination.
-- **Another crossover, like plasma:** the electric field sets the condition, the thermal holster sees the temperature shift, and the chemical holster tracks the entropy. It is a good worked example for the future item on handoff rules between holsters (to be put to Claude and Grok later; not run yet).
+- **Field source:** the field is the electric harness's field. It is not applied by electrodes, which remain removed from the model.
+- **Harnesses: it straddles three.**
+  - The electric harness owns the field side: the applied field drives the entropy change.
+  - The thermal harness owns the temperature side: the cooling or heating that results.
+  - The chemical harness owns the entropy change itself, since entropy is a thermodynamic state variable in the same family as the HHO reactions and recombination.
+- **Another crossover, like plasma:** the electric field sets the condition, the thermal harness sees the temperature shift, and the chemical harness tracks the entropy. It is a good worked example for the future item on handoff rules between harnesses (to be put to Claude and Grok later; not run yet).
 
 ## Note: layer-two recipe, field tuning during gel formation (2026-10-19)
 Danny's intent (2026-10-19), recorded only; nothing is coded. While the tourmaline sol-gel (layer two) is still a gel during formation, it is tuned by bombarding it with two fields:
@@ -262,7 +262,7 @@ Danny's decision (2026-10-19). The circulating-power figures are gone from the s
 - **Couplings, all in the code:**
   - Pyroelectric polarization (layer two, and BTO at p 2.0e-4 C/m²K [lit], 0 above the Curie point [est]) feeds the electric march.
   - Piezo (acoustic stress) enters as the phasor of the same equation at the mode frequency.
-  - Electrocaloric, (∂S/∂E)_T = p: the heat −T·p·dE goes to thermal, and the entropy p·dE goes to the chemical holster.
+  - Electrocaloric, (∂S/∂E)_T = p: the heat −T·p·dE goes to thermal, and the entropy p·dE goes to the chemical harness.
   - Polar grains are reported as the aligned upper bound (random grains ≈ 0) [est].
 - **Thermal march:** solved in θ = T − 293 K, so a zero-heat state stays exactly at 293 K.
 - **Acceptance rule (zero run):** with no drive and no input, every field is exactly zero everywhere: electric, magnetic, optical, acoustic, chemical and every coupling output. The whole stack sits at 293 K. The check uses exact equality; rounding noise is fixed at the source, not hidden by a tolerance. Each coupling is also checked on its own with synthetic inputs (stress for piezo, a temperature change for pyro, a field change for electrocaloric): zero in gives exactly zero out, and non-zero input scales as the physics says. The test is `tests/test_acceptance_zero_run.py`.
@@ -476,3 +476,148 @@ Danny's intent (2026-10-19), recorded only; nothing is coded. Today's solver is 
    - **Initial conditions:** whether to start from the steady-state solution.
    - **The trigger:** how the threshold is detected, and what counts as a lock.
    - **Known defect:** the averaged gas temperature in the current steady run reads 293.023 K with no heating. This is a quadrature artifact and must be fixed at its source before transient runs build on it.
+
+## Geometry sweep re-run with derived gas Q (2026-10-19)
+Method change: the sweep's gas-cavity (B) modes no longer have width 0. Each takes Q = `solver_v0.gas_Q(f, a, p, T, 'HHO')` at the fill state (1 atm HHO, 293 K; no source, so the gas stays at 293 K): wall thermal boundary layer plus classical bulk absorption, viscous wall loss 0 for l = 0. This is a modelling assumption (isothermal wall, no relaxation or discharge loss, so an upper bound on Q), not measured physics. The lock rule is unchanged, |f_i − f_j| ≤ (f_i/Q_i + f_j/Q_j)/2, but the gas mode now contributes its own width. Same grid (coarse 576 on the φ^(1/2) lattice + refine around the top 5); the refine seeds moved, so 769 geometries this time (751 before). New field `sharp_per_mode` = sharp locks / modes in the window, with a third ranking `rank_spm` (cascade gate first, then sharp_per_mode, tie sharp locks) and `top10_spm`.
+
+- **Gas Q:** first B mode 298.5 for base5 (254 kHz); first-mode range 170 (a 0.573 mm) to 447 (a 3.087 mm); high modes near 12 MHz fall to about 43–45.
+- **Top by score:** a 3.087 mm, w 2.058 mm, t2 9.12 µm, score 309 (236 mode + 73 reflection), 30 sharp, 217 modes, sharp per mode 0.138 (rank_spm 353). Top 10 by score are all a 3.087 mm, w 2.058 mm; the edge-of-range bias stays.
+- **Top by sharp per mode:** a 0.573 mm, w 1.272 mm, t2 2.43 µm, 20 sharp / 59 modes = 0.339. The top 5 are all a 0.573 mm; the top 20 include 0.573 and 0.729 mm, now joined by 0.927 and 1.179 mm.
+- **base5:** score 81 (52 + 29), rank 447/769; 15 sharp / 108 modes = 0.139, rank_spm 346.
+- **Against 29dca55 (gas width 0):** the old score #1 (3.087 / 1.938 / 8.59 µm, 215) now scores 295 (rank 28). Total locks across the sweep rose from 71,576 to 104,821 (+46 %) and sharp locks from 10,343 to 13,961. Every lock involves the bubble both before and after (no Q–T lock in either run). The small-bubble winners survive the derived gas width at the top of the sharp-per-mode ranking (0.321 → 0.339).
+
+## Geometry x fill-state sweep (2026-10-19)
+Opt-in `geometry_fill_sweep_v0.py` → `geometry_fill_sweep_v0.json`. It asks where the lock optimum sits across geometry and fill together instead of assuming 1 atm HHO. The lock rule, sharp definition, cascade gate and scoring are unchanged; there's no source, so T stays 293 K. The solver isn't changed, and `geometry_sweep_v0.json` isn't regenerated.
+
+- **Fill axis (20 states):** p ∈ {0.382, 0.618, 1, 1.618, 2.618} atm (φ⁻² … φ²) × x_H2 ∈ {0.50, 2/3 (HHO), 0.75, 0.80}, with O₂ making up the rest.
+- **Mix consistency:** the gas enters everywhere through `geometry_sweep_v0.evaluate(p_atm=, comp=)`.
+  - B modes and bubble round trips use c from `gas_props(293 K, p, comp)`.
+  - The bonded stack is gas-loaded with that c and K = γp, via a temporary sweep-side override of `gas_Z` that is restored afterwards.
+  - Gas Q per B mode is `gas_Q(f, a, p, 293 K, comp)`.
+  - The B cascade thermal rate uses the mix's k/(ρcₚ).
+  - The default `evaluate()` path is unchanged.
+- **Geometry subsample:** 48 points per fill state on the same φ^(1/8) lattice and box: a {0.573, 0.729, 1.5, 3.087} mm × w {0.382, 1.0, 1.272, 2.058} mm × t2 {2.43, 5.0, 10.29} µm.
+- **Counts:** coarse 960, plus 51 refine points (geometry ±φ^(1/4) per axis at each of the top 5 seeds' fill states, plus each seed geometry at its four fill-grid neighbours; the seeds overlap), so **1,011 in total**, 124.6 s on 8 workers. No geometry failed the cascade check.
+- **Top by sharp per mode:** a 0.573 mm, w 1.825 mm, t2 2.15 µm at 1.618 atm, x_H2 0.80: 26 sharp / 66 modes = 0.394. The top 10 are all x_H2 0.80, with a 0.573 or 0.646 mm.
+- **Top by score:** a 3.087 mm, w 2.058 mm, t2 2.43 µm at 0.382 atm, x_H2 0.50: score 536 (439 mode + 97 reflection), 50 sharp / 244 modes = 0.205. Low pressure and an O₂-rich mix raise raw score; the large-bubble edge still wins on score in every fill state.
+- **Small bubbles:** in every one of the 20 fill states, the best sharp-per-mode geometry has a 0.573 or 0.729 mm bubble. Mix matters more than pressure: the coarse mean of sharp per mode is highest at x_H2 0.80 (0.198–0.214) and lowest at HHO (0.160–0.172).
+- **1 atm HHO:** best 0.573 / 1.0 / 5.0 at 0.315 (rank_spm 69 of 1,011); base5 scores 80, with 12 sharp / 108 = 0.111.
+- **Sensitivity caveat:** HHO through `gas_props` has c 533.20 m/s against c_hho's 532.86 m/s (0.06 %). That alone changes the sharp counts in 41 of 48 1 atm HHO cells relative to 3b81839, for example base5 going from 15 sharp to 12. So differences of about 0.03 in sharp per mode between single cells are within that sensitivity; the mix trend in the means is the firmer result.
+- **Gas Q:** the first B mode's Q ranges from 91 to 800 across the sweep.
+
+## Geometry × rarefied-pressure sweep, HHO 2:1 fixed, ambient-referenced (2026-10-19)
+Supersedes the geometry × fill-state sweep above (0fa5d40). That run is **disregarded**: off-spec mixes are a chemistry artifact (its x_H2 0.80 optimum at 0.394), and its pressure grid was a φ lattice (0.382 … 2.618 atm, including 1.618; the 1.618 atm finding is disqualified). `geometry_fill_sweep_v0.json` is left in the tree only as that disregarded record. The script can no longer produce it: **off-spec mixes (1:1, 3:1, 4:1) are removed from `geometry_fill_sweep_v0.py`**, and the mix is fixed at HHO 2:1 (x_H2 = 2/3). New output: `geometry_rarefied_hho_sweep_v0.json`.
+
+- **Rationale (Danny, recorded hypothesis, not a model result):** rarefaction may bias the gas toward the ionic knee so that energy focuses across modes. Pressure is the dial, but pressure heats while vacuum cools, so the rarefied regime is also the self-cooling regime. This no-source sweep scores locks only; nothing here models ionisation or cooling.
+- **Ambient-referenced grid:** p = factor × p_ambient and T_gas = T_ambient. Both are operator-set inputs for the run day (`--p-ambient` / `--T-ambient`; defaults `AMBIENT_P_Pa` = 101325 Pa and `AMBIENT_T_K` = 293 K; no sensor is read), and both are recorded in the JSON meta. Gas Q, linewidth, sound speed and gas loading are evaluated at (p, T_ambient).
+- **Fully rarefied, log-even factors (9):** exp(linspace(ln 0.05, ln 0.95, 9)) = **0.0500, 0.0722, 0.1044, 0.1508, 0.2179, 0.3149, 0.4550, 0.6575, 0.9500** (step ×1.4449). Every factor is < 1, and none is within 1 % of 1.618 or 0.618; both conditions are asserted in the script. A 7-point log grid over 0.382 … 2.618 was set up in between and discarded before any run, because it crosses above ambient.
+- **Grid:** 48 geometries per pressure (same 4 × 4 × 3 subsample) = 432 coarse, plus 67 refine (geometry ±φ^(1/4) at the seed pressure and the seed geometry at neighbouring pressures, mix fixed) = **499**, 72.2 s on 8 workers. No geometry failed the cascade check.
+- **Top by sharp per mode:** a 0.573 mm, w 1.435 mm, t2 9.12 µm at 0.1044 × ambient (10,577 Pa): 26 sharp / 63 modes = **0.413** (79 mode + 29 reflection locks). Next, 0.408 at 0.1508 × (0.573 / 1.825 / 2.43). Both are refine points; on the coarse grid alone the best is 0.389 at 0.0722 × (0.573 / 1.0 / 5.0).
+- **Small bubbles:** the best geometry at every one of the 9 pressures has a 0.573 mm bubble, except 0.3149 ×, where it's 0.729 mm. The best per-pressure value rises from about 0.31 near ambient to about 0.39–0.41 at 0.07–0.15 ×, then falls back to 0.31 at 0.05 ×.
+- **Top by score:** a 3.087 mm, w 2.058 mm, t2 10.29 µm at 0.05 × (5,066 Pa), score 1,746 (1,589 mode + 157 reflection), but only 39 sharp / 218 modes = 0.179. At low pressure the gas Q falls (first gas mode Q from 22 to 435 across the sweep), so gas linewidths widen and the raw score fills up with locks that are guaranteed by mode density, not geometry. Sharp per mode is the meaningful ranking here.
+- **base5 (1.5 / 1.0 / 5.0):** at 0.95 ×, score 82, 13 sharp / 108 = 0.120. Its best is at 0.0722 ×: 29 sharp / 108 = 0.269.
+- **Caveats:** sharp counts move by a few under a 0.06 % sound-speed change (see the note above), so single-cell differences of about 0.03 are within that sensitivity. Refine points also cluster around the seeds' pressures (0.0722, 0.1044, 0.1508 ×), so those cells had extra evaluations. The continuum form of `gas_Q` still holds at 0.05 × (mean free path ~1.5 µm against a thermal layer of ~24 µm at 1 MHz) [est].
+
+## Core geometry replaced by rarefied-sweep winner (2026-10-19)
+The previous core design (`base5`) was bubble a = 1.5 mm, quartz wall = 1.0 mm, tourbillon t2 = 5.0 µm, fill 1 atm HHO 2:1 at 293 K (quartz OD 5.00 mm). It is **replaced** by the rarefied HHO-only sweep winner from commit `ea694ce` (`geometry_rarefied_hho_sweep_v0.json` `top10_spm[0]`, stage refine):
+
+- bubble a = **0.57295 mm**
+- wall w = **1.43463 mm**
+- tourbillon t2 = **9.12441 µm**
+- fill p = **0.1044 × ambient** = 10,577.3 Pa ≈ **0.10439 atm** HHO 2:1 (sharp per mode **0.4127**)
+- quartz OD ≈ **4.015 mm**
+
+Named constants in `solver_v0.py`: `CORE_A_MM`, `CORE_W_MM`, `CORE_T2_UM`, `CORE_P_ATM` / `CORE_P_Pa` / `CORE_P_FACTOR`. `PRESETS` `base5`, `build_stack` default `t_l2`, and `geometry_sweep_v0.BASE` / `P_ATM` all point at this core. The rarefied fill-sweep lattice stays frozen on the **former** centre (1.5 / 1.0 / 5.0) via `LATTICE_BASE` so `idx [0,0,0]` and the ea694ce absolute box are unchanged. Historical `geometry_sweep_v0.json` results (1 atm lattice around the old centre) are left as-is; only the `base5` summary record is re-evaluated at the new core.
+
+## Opt-in 1 W domain drive plumbing (2026-10-19)
+Danny (t380 / t382): wire the solver so thermal, electric, magnetic and acoustic can each take 1 W when a source is enabled. Default stays the zero run.
+
+- **API:** `run_case(pre, ref, drive_W=0.0)`. Default `drive_W=0` keeps every field exactly 0 at 293 K (zero-run acceptance unchanged). `drive_W=1` deposits **1 W into each** of the four domains (4 W total).
+- **Resonance-targeted:** each channel is driven at the geometry's own computed mode frequencies from the mode list — **never a hardcoded 2 MHz or other target**.
+- **1 Hz thermal envelope:** the 1 Hz thermal cycle (`DRIVE_THERMAL_ENVELOPE_Hz`) is a **slow envelope modulating the drives**, not an acoustic mode to march in `l0_modes`.
+- **Acoustic split (`DRIVE_AC_SPLIT`):** equal power across N l=0 bonded shell modes in the solver acoustic window (isolated modes if bare), `P_src,n = drive_W / N`, steady `W_n = P_src,n * Q_n / ω_n`.
+- **Electric:** volumetric `J_src` in the BTO film (quartz if bare), sized so steady ohmic power = `drive_W` [est]. No electrodes.
+- **Thermal:** `drive_W` heat on the inner-wall / gas channel (`P_gas` / `q[0]`). Chemistry/ionisation drive stays 0 (Open item 8).
+- **Magnetic:** spherical symmetry still gives B = 0 from radial E. Until EMF E–B coupling exists, `drive_W` is deposited as heat in the ferrite (quartz if bare) as a fail-closed placeholder [est].
+- **Electrodes:** stay retired. Tests in `tests/test_drive_1W.py`.
+
+## Acoustic window widened to 1 Hz – 50 MHz (2026-10-19)
+Danny (t382). The acoustic l=0 search window is widened from **20 kHz – 12 MHz** to **1 Hz – 50 MHz**.
+
+- **Named constants** in `solver_v0.py`: `FMIN_HZ = 1.0`, `FMAX_HZ = 50e6`, `N_FREQ_GRID = 20000` (linear grid; was 4000 over ~12 MHz, df ~ 3 kHz; scaled for the 50 MHz band → df = 2.5 kHz). `geometry_sweep_v0.py` `FMIN`/`FMAX`/`NGRID` import the same values; `free_modes`, `gas_rigid_l0` and reflection harmonics use them.
+- **No recorded rationale** for the old 20 kHz–12 MHz band; 12 MHz was clipping overtones for the rarefied-winner core.
+- **1 Hz:** floor of the acoustic search band. The **1 Hz thermal cycle** remains a slow envelope modulating the drives (`DRIVE_THERMAL_ENVELOPE_Hz`), not an acoustic mode marched in `l0_modes`.
+
+## Decision: Claude in two roles — chat reviewer and Claude Code executor (2026-10-19)
+Danny's decision (2026-10-19). Claude stays in the project in **two** roles. They are separate, and both are first-class in the GitHub review ledger.
+
+1. **Chat Claude (reviewer, read-only).** Same role as in the four-model repo prompt rounds (Kimi, DeepSeek, Claude, Grok). Reviews design and code; does not run the solver, does not edit files, does not commit. Findings are scored in the ledger the same way as Kimi and DeepSeek (labelled issues plus the append-only JSONL log).
+2. **Claude Code CLI (executor).** Installed and configured on the bot's computer (box), authenticated via `ANTHROPIC_API_KEY` stored at `~/.config/claude-code-env/anthropic.env` (outside the repo; never committed). It may run the solver, run tests, and file local commits. **All of its output is gated behind the caller's review before anything is pushed.** Push remains caller-only.
+
+Both roles are scored as first-class ledger entries, on the same footing as Kimi and DeepSeek findings. The key path above is a machine location note only; the secret itself is not recorded here.
+
+## Decision: joint-step wording approved, features on (2026-10-21)
+Danny approved the wording in `Current/round8/model_wording_proposals_2026-10-20.md` exactly as written and turned on all four features (`scripts/model_wording.py` `APPROVED`), round 9 on only: `cc_budget_request` (02:12), `info_switch` (02:13), `reask` (02:14), `request_setting` (02:15). The deep-role lines are in `harness/models/deepseek/instructions_deep.md` (rev 2) and the request_setting paragraph in `deepseek/instructions.md` (rev 6); `ask_for_person` is offered to every member who asks Claude Code questions, Build included; `request_setting` to the cheap DeepSeek only. Claude Code runs these joint jobs at `--effort max`; his own replies and the budget-request continuation stay at the CLI default. Round 8 is unchanged.
+
+## Decision: preamble retired from round 9; its missing parts move into the harnesses (2026-10-21)
+Danny's decisions (2026-10-21 AWST), round 9 on only. Round 8, its brief (preamble included) and its prompt hash are unchanged.
+
+- **Preamble retired (10:00):** `Current/round_preamble.md` is no longer put in front of the round 9 brief. The round 9 brief file holds only the round part (previous draft archived as `Archive/kickoff_round9_draft_2026-10-21_rev1.md`); the launcher never prepended a preamble, it sends the brief file as given. Wording in `scripts/launch_round.py` and here now says "brief", not "shared brief or preamble".
+- **Brief numbering (10:00):** the round 9 brief's sections are 1 to 4 and it has no `# Round 9` heading; it opens on `**Round:** 9` once the draft heading is stripped at fire time (from round 9 the strip also drops the blank line the heading leaves).
+- **What moved into the harnesses (09:43, 09:45, 09:51):** the parts of the preamble no harness carried (ethics first; the clean start; rig questions go to the information switch, whose answers the team goes by on rig items; process and physics terms together, new terms only after the human lead approves) are in `instructions.md` for Kimi, cheap DeepSeek, Claude, Grok and Build (one shared block, just before the vocabulary line). Claude Code's `instructions.md` now says he is the information switch. Deep DeepSeek's `instructions_deep.md` has its own ethics line as line 2. Names and the information layer stay in `docs/vocabulary.md` and `docs/harness_context.md` (unchanged). Wording: `Current/round9/preamble_to_harness_draft_2026-10-21.md` section B.
+- **Order (09:59, replaces 20:14):** each model's harness text (`instructions.md`) is sent first, then the brief (`scripts/model_setup.py` `with_additions`; the brief is an exact suffix, one blank line between). The same order applies to a round 9 cross-review prompt. Rounds before 9 get the brief alone, as before.
+- **Brief guard:** unchanged (`MODEL_NAME_RE`, operator-only words). It checks the brief only; each model's harness text names its own model and is added after the guard.
+
+## Decision: DeepSeek Low and DeepSeek High; round 9 brief trimmed (2026-10-21)
+Danny's decisions (2026-10-21 AWST), round 9 on only. Round 8 and its prompt hash are unchanged.
+
+- **Names and headings (10:19):** cheap DeepSeek is **DeepSeek Low** and his round replies are headed `# DeepSeek Low` (`harness/models/deepseek/instructions.md` rev 8, `reply_format.yml` rev 3). Deep DeepSeek is **DeepSeek High**: his opening line lists his joint jobs (budget requests, answer checks, re-asks and setting requests) and he heads his replies `# DeepSeek High` (`instructions_deep.md` rev 4).
+- **Heading checks (10:19):** from round 9, `scripts/land_review_reply.py` refuses a deepseek round reply headed `# DeepSeek` or `# DeepSeek High`, or opening as DeepSeek High; any other member naming either DeepSeek is refused as before. Deep replies (`scripts/lookup_requests.py` `DeepSide.ask`): the `# DeepSeek High` heading line is taken off before the call is read; any other heading counts as no call and is written to `joint/deep_refusals.jsonl`. Round 8 uses the old patterns unchanged. The brief guard still catches both names (they contain DeepSeek).
+- **Models fixed in the harness (10:35):** DeepSeek Low always starts on `deepseek-flash`; DeepSeek High is always `deepseek-v4-pro`; an approved request_setting re-runs DeepSeek Low on DeepSeek High's model. These live in `harness/models/deepseek/setup.yml` `roles` (rev 9; they must equal `model_id.shallow` / `model_id.deep`), not in round config. From round 9 the launcher refuses a `round_config.json` that sets a DeepSeek model or setting (`round_config.deepseek_settings_in_config`), and `deepseek_round_model` is no longer required or read. Round 8 still uses its `deepseek_round_model` (deepseek-v4-pro). `search_filter_model` (the search filter, also a DeepSeek model id) is unchanged. Kimi stays on kimi-k3 for round 9 (10:39, no change).
+- **Deep wording (10:37):** two lines in `instructions_deep.md` (rev 5): jobs are any request from the team, saying who asks and what kind of job; replies give the heading, then one JSON block.
+- **Names in joint jobs and cross-review (10:37):** Claude Code's joint-job role line and the partner name shown to him say DeepSeek High; from round 9 the cross-review peer heading for the round reply is `### DeepSeek Low` (round 8 unchanged).
+- **Keys stay `deepseek`:** model key, run folders, ledger reviewer key and scorecard rows are unchanged (the ledger row still reads DeepSeek).
+- **Members list (10:32):** `docs/vocabulary.md` now reads "Members: Kimi, DeepSeek Low, DeepSeek High, Claude, Grok, Build and Claude Code." The doc is part of the round 8 prompt hash, so Danny approved a new round 8 hash: `e019e5ad784859c20dc730db8c433ac79b096efbcde934712c64ed5648eb92d0` -> `8a5126ce4d98e120557b4624d6738900998a9609e52df295f4106a89ed1b7279` (18 pieces; only `read_doc:vocabulary` changed). Old baseline file: `Archive/prompts_after_instructions_rev2.json`; new: `/workspace/scratch/prompts_after_instructions.json`.
+- **Brief (10:10, 10:16):** the round 9 brief names no round (no `Round:` line; "Round 9 scope" is now "Scope"; the round comes from the folder and `mission.md`), and section 4 no longer repeats the harness's vocabulary and rig-questions lines.
+- **Setting re-run (10:17):** the request_setting paragraph stays in the prompt when cheap DeepSeek's job re-runs on the higher setting. Nothing was built for this; it is how the re-run already works.
+
+## Decision: Build joins the Ensemble (2026-10-21)
+Danny's decision (2026-10-21, 01:03 AWST). xAI's `grok-build-0.1`, named **Build** (01:15), joins the review rounds as a regular team member alongside Claude, DeepSeek, Grok and Kimi, from round 9. Claude Code stays the checking role. The round team is now Kimi, DeepSeek, Claude, Grok, Build and Claude Code.
+
+- **Harness:** `harness/models/build/` (model key `build`, display name Build, heading `# Build`); runner `scripts/review_build.py`; settings in `harness/dial.yml` `build_*`; price in `harness/ledger.json` ($1.00 in / $0.20 cached / $2.00 out per M tokens; a prompt of 200,000 tokens or more bills the whole request at double).
+- **Reasoning (01:07):** Build and Grok send no reasoning field and run at the model's own default level (`reasoning_effort: none`). Build rejects the field.
+- **Wrong-heading refusal (02:03):** kept for all members. A reply whose `# Name` heading or opening names a different member is refused (`scripts/land_review_reply.py` `IDENTITY_PATTERNS`, logged to `landing_refusals.jsonl`); `Build` is matched with its capital B only.
+- **Brief guard (02:01):** from round 9, capital-B `Build` (case-sensitive, word boundary) in the brief stops the fire like the other member names (`scripts/launch_round.py` `MODEL_NAME_RE`); lowercase "build" passes.
+- **Ledger (02:06; noted 02:17):** Build is a scored reviewer in the CI ledger: `scripts/ledger_lib.py` `REVIEWERS` and the review-round parser, `ledger/schema/finding.v1.schema.json` reviewer enum, and the scorecards (`scripts/ledger_score.py`: the four original rows always, a Build row once the ledger holds a Build finding). No CI workflow channel for him; older entries and four-model texts are unchanged and still validate.
+- **Own lookup budget (02:18):** Build's round 9 own lookup budget is $0.50 (the others stay $0.25), set with the optional round_config param `lookup_budget_own_by_model_usd` ({"build": 0.5}).
+- **Clean copy map (02:16):** from round 9, Claude Code's clean copy (`scripts/cc_export.py`) holds a MAP.md made by the same generator as the models' code folder, over the files in his copy only. No instruction line about it.
+- **Output cap (02:03):** `build_max_tokens` = 10000 for round 9 (round-level, round 9 lookup params draft). It caps visible output only; reasoning is billed on top.
+- **Search (01:52, replacing 01:17):** Build is set up like Kimi and DeepSeek: optional Tavily context, off by default (`tavily.enabled`), on when a run gives a search query; no built-in web search and no Grok-style automatic pre-search.
+- **Lookup budget:** the same $0.25 own lookup budget as the other members (round-level, set in the round's `round_config.json`).
+- **Claude Code effort (01:12):** joint jobs that decide what goes to Danny (the info switch, ask-for-person, budget requests, setting requests) run at his highest level (`claude --effort max`, `harness/dial.yml` `claude_code.joint_effort`) from round 9; his own replies run at the CLI default. The 30-turn limit stays.
+
+## Decision: round 9 scoring built (2026-10-21)
+
+Scoring draft approved 11:46 AWST ("Yes, approve the scoring draft and build it"); full text in `Current/round9/scoring_draft_2026-10-21.md`. Applies from round 9; rounds before 9 and the existing scorecard are unchanged.
+
+- **Scorecard:** `scripts/scoring.py` writes `scorecard_round<N>.json/.md` and `round_report_round<N>.md` to the scorecard folder (outside the repo, never shown to models). 18 columns per member per round: Kimi, DeepSeek Low, DeepSeek High, Claude, Grok, Build, Claude Code. Accuracy counts a wrong finding 3 times; a rejection with no reason stays under Open; cost per useful point includes wildcard points; spec-review spend counts in Cost. `ledger_score.py offline` writes it too, beside the existing files.
+- **Ledger v1.3:** rejection reason (wrong / not_useful, with quoted words and AWST time) on rejected status records; new kinds wildcard, match, call, ruling; optional `role` (high = DeepSeek High, joint = Claude Code's joint-job spend) and `round`. Staged through ledger/pending as `{staged, kind: scoring_record, record}`; ids must recompute. Existing records stay valid.
+- **Same finding:** same round, different members, same file (non-empty) and domain, word-set overlap at least 0.5; near misses from 0.3 listed in the round report. Unique: every other member's match rejected; an open, deferred or superseded match makes it not unique for now.
+- **Calls:** each member's last call per joint job (budget, setting, re-ask, answer check) and Claude Code's information-switch answers. Judged by Danny's ruling (wins) or by outcome (setting requests; approved budget requests); everything else waits for Danny and is listed in the round report, as are agreed calls. Points: backed = severity of the finding it was about, else the job's accepted or fixed findings added up; overturned or waiting = 0.
+- **Staging:** `scripts/scoring.py stage --round-dir DIR --round N` stages calls, joint-job spend (role high / joint), Claude Code's reply spend and Danny's rulings from `to_danny/danny_decisions.jsonl` (lines with `danny_words` and `awst` only).
+- **Answer checks logged:** from round 9 every answer check is written to `joint/answer_checks.jsonl`.
+- **DeepSeek Low name in job texts:** from round 9 the asker name for the cheap DeepSeek in joint job texts is "DeepSeek Low" (`lookup_requests.shown`); `DISPLAY` and round 8 unchanged.
+
+## Decision: Claude Code reads the harness folder (2026-10-21)
+
+Ruled 12:17 AWST: Claude Code may read the whole `harness/` folder (every member's harness files) directly, read-only, never write. Global rule 12:15: harness files change only between rounds, on Danny's say; no member can change them.
+
+- From round 9, `scripts/review_claude_code.py` adds `--add-dir <repo>/harness`, leaves `harness/` out of the repo Read deny rules, and adds Edit/Write/MultiEdit/NotebookEdit deny rules on it. Tools stay Read, Grep, Glob; Bash, write and web tools stay denied; the round folder, his logs and the rest of the repo stay denied. Round 8 argv unchanged.
+- His clean copy (working directory) is unchanged and still holds no model harness files (G4); the harness folder is a separate read-only directory. No wording about it is sent to him.
+
+## Decision: gate 1 release (2026-10-21)
+
+Approved 15:33 AWST: "Yes, build the gate 1 release change now". Applies from round 9; rounds before 9 never read the decisions file and gate 1 output is unchanged.
+
+- `scripts/gate1.py`: a line in `to_danny/danny_decisions.jsonl` with decision `released` (latest per item_id; stage and run_id must match when given) delivers a held item when its `file_sha256` equals the sha256 of the landed reply file now. The item gets flag `released_by_danny` and `released_by_danny {quote, time_awst, file_sha256, held_reasons}`, its reasons are cleared, a note is added, and the summary line and `gate1/summary.md` ("Released by Danny" table) show it. A different sha256 or no landed file leaves it held with a "release … not applied" note (`release_mismatch`).
+- `scripts/handoff.py`: the packet lists released items under Delivered with the quote and AWST time; a held item whose release was not applied shows the note; `handoff_log.jsonl` records reason `released_by_danny`; a released item's earlier `held/<item>.json` is moved to `held/archive/<item>_revN.json` (never deleted).

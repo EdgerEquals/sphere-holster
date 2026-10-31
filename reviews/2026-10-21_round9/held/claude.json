@@ -1,0 +1,19 @@
+{
+  "item_id": "claude",
+  "model": "claude",
+  "stage": "primary",
+  "run_id": "primary-20261021T050438Z-7c9a22",
+  "decision": "hold",
+  "reasons": [
+    "budget_stop",
+    "turn_cap_reached"
+  ],
+  "flags": [],
+  "notes": [
+    "round_budget_usd 9.216649 reached (spent $9.3880)",
+    "call_cap_reached",
+    "context first: read_doc vocabulary"
+  ],
+  "file": "claude.md",
+  "landed": false
+}

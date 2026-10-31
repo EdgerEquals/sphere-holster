@@ -1,0 +1,93 @@
+{
+  "primary": {
+    "run_id": "primary-20261021T050438Z-7c9a22",
+    "started_utc": "2026-10-21T05:04:39Z",
+    "cc_export": "/tmp/ensemble_cc_export/primary-20261021T050438Z-7c9a22",
+    "code_snapshot": {
+      "rig_version": "cbbbd3cd4b9fab018794bcdc3ecc83a9ffed617e90a489c25edfa2f65b90bd39",
+      "dir": "/tmp/ensemble_snapshot/cbbbd3cd4b9fab01",
+      "manifest": "reviews/2026-10-21_round9/snapshot_manifest_cbbbd3cd4b9fab01.json",
+      "state": "reused"
+    },
+    "setups": {
+      "kimi": {
+        "setup_rev": 7,
+        "setup_sha256": "e93b234b84de45f7b4ebe0ebba6a8fb98ef0aa95c8347ff1e6773e989476d28b",
+        "harness_files_seen": {
+          "harness/models/kimi/instructions.md": "47cb3ff40070a79aeab0b9a40f2833a638aac03db341c39d74c3e84f97f175b3"
+        },
+        "prompt_sha256": {
+          "doc:harness_context": "436445070c52eb3e7a5ed382a9bfc805cfaaf729c728631471b83d7c84e089e0",
+          "doc:vocabulary": "457e6266f818e4155e0a19367f89471b63a3d1ad7dcded1e5bbaff4fe4f2a2c0",
+          "system": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "user": "094b07e7cd9d226e903c50a4b7c729f9ea4bd2cb10319ff6aa6202c1f140234a"
+        }
+      },
+      "deepseek": {
+        "setup_rev": 9,
+        "setup_sha256": "27081b21af640dadff42b82642119c4289be7c68fa8bfd04a909c91a5becc332",
+        "harness_files_seen": {
+          "harness/models/deepseek/instructions.md": "5438d4b51198801ca7d81ff62e3566316140f333f1a627be328aa377e620f736"
+        },
+        "prompt_sha256": {
+          "doc:harness_context": "436445070c52eb3e7a5ed382a9bfc805cfaaf729c728631471b83d7c84e089e0",
+          "doc:vocabulary": "457e6266f818e4155e0a19367f89471b63a3d1ad7dcded1e5bbaff4fe4f2a2c0",
+          "system": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "user": "0d9296d7650bb3812d0385b3dcb804ab604065bba3ef9d737d552f5fbea3afce"
+        }
+      },
+      "claude": {
+        "setup_rev": 7,
+        "setup_sha256": "54463b9db900a28867353ceb77744ec34839921392a2698ef64b399a455152cd",
+        "harness_files_seen": {
+          "harness/models/claude/instructions.md": "3eef4eb048dfdb812989513ad0a8db42ab835ee9e64c5010c2733c535617e7c0"
+        },
+        "prompt_sha256": {
+          "doc:harness_context": "436445070c52eb3e7a5ed382a9bfc805cfaaf729c728631471b83d7c84e089e0",
+          "doc:vocabulary": "457e6266f818e4155e0a19367f89471b63a3d1ad7dcded1e5bbaff4fe4f2a2c0",
+          "system": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "user": "e105da5ce962aafab17752de76d994791015fd3191620dcdb06937e4e66aa353"
+        }
+      },
+      "grok": {
+        "setup_rev": 8,
+        "setup_sha256": "9382f0fb4b9fb04e289e684f4a241933d7db9ad89b26436f62a7e26f3703ccb7",
+        "harness_files_seen": {
+          "harness/models/grok/instructions.md": "9d93dc045c1e12c93360ac4d6153ef3c81c6e3fd3778d13b4aad11fca0643b3b"
+        },
+        "prompt_sha256": {
+          "doc:harness_context": "436445070c52eb3e7a5ed382a9bfc805cfaaf729c728631471b83d7c84e089e0",
+          "doc:vocabulary": "457e6266f818e4155e0a19367f89471b63a3d1ad7dcded1e5bbaff4fe4f2a2c0",
+          "system": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "user": "1be0a7d7e451e27795a307ca1622b4f51f7b933588140c75dbc8cb3109ca2552"
+        }
+      },
+      "build": {
+        "setup_rev": 3,
+        "setup_sha256": "94b533f99c2eb1c4fe09da63641feb88f81e20e11204f75fda0127e43c3c5450",
+        "harness_files_seen": {
+          "harness/models/build/instructions.md": "3cf8918719543cf9c508463da53cab3950da3dfb765cd9b62e87a0c48769b61d"
+        },
+        "prompt_sha256": {
+          "doc:harness_context": "436445070c52eb3e7a5ed382a9bfc805cfaaf729c728631471b83d7c84e089e0",
+          "doc:vocabulary": "457e6266f818e4155e0a19367f89471b63a3d1ad7dcded1e5bbaff4fe4f2a2c0",
+          "system": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "user": "f60aa42c41fb89cf92f42de00463cf1bb7b6c11e4012a137bf377912d923409b"
+        }
+      },
+      "claude_code": {
+        "setup_rev": 6,
+        "setup_sha256": "6266c9c9e8227ebea5171123beede4fd04295ac79e5a0304389206e1749ff632",
+        "harness_files_seen": {
+          "harness/models/claude_code/instructions.md": "6ff009b8b07b50187e5a231ec60a2cdf45b07772e78e28528ff3794acfa7ddb1"
+        },
+        "prompt_sha256": {
+          "doc:harness_context": "436445070c52eb3e7a5ed382a9bfc805cfaaf729c728631471b83d7c84e089e0",
+          "doc:vocabulary": "457e6266f818e4155e0a19367f89471b63a3d1ad7dcded1e5bbaff4fe4f2a2c0",
+          "system": "f9e3d99651e130c48301df5e2a06b7699811836168b414c7e7a83912ddbde538",
+          "user": "d2e3b3fc19b623b7693fe6cce4a0a252a49da73847884d6b13306a4f6f3f9122"
+        }
+      }
+    }
+  }
+}

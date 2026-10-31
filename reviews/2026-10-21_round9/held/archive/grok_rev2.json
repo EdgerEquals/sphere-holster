@@ -1,0 +1,18 @@
+{
+  "item_id": "grok",
+  "model": "grok",
+  "stage": "primary",
+  "run_id": "primary-20261021T050438Z-7c9a22",
+  "decision": "hold",
+  "reasons": [
+    "budget_stop",
+    "turn_cap_reached"
+  ],
+  "flags": [],
+  "notes": [
+    "call_cap_reached",
+    "context first: read_doc vocabulary"
+  ],
+  "file": "grok.md",
+  "landed": true
+}

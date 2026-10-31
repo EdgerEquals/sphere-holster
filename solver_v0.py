@@ -42,13 +42,36 @@ PHI = (1 + 5 ** 0.5) / 2
 EPS0, MU0, C0 = 8.8541878128e-12, 4e-7 * math.pi, 299792458.0
 T_REF = 293.0
 UM, MM = 1e-6, 1e-3
+# Acoustic l=0 search window (Danny t382, 2026-10-19): widened from 20 kHz–12 MHz (no recorded
+# rationale for that band; 12 MHz was clipping overtones for the rarefied-winner core) to 1 Hz–50 MHz.
+# 1 Hz is the floor of the search band; the 1 Hz thermal cycle remains a slow drive envelope
+# (DRIVE_THERMAL_ENVELOPE_Hz), not an acoustic mode to march here.
+FMIN_HZ = 1.0
+FMAX_HZ = 50e6
+# Linear frequency grid: was 4000 over ~12 MHz (df ~ 3 kHz). Bandwidth scale 50/12 -> ~16.7k;
+# use 20000 (df = 2.5 kHz) so the dense high-frequency ladder to 50 MHz stays resolved.
+N_FREQ_GRID = 20000
 
 # ----------------------------------------------------------------------------------------------
 # Geometry presets. core_d = gas (HHO) bubble inner diameter; wall = crystal-quartz layer-one wall.
 # Layer two (elbaite sol-gel) inner diameter = quartz OD.  Edit / add presets freely.
 # ----------------------------------------------------------------------------------------------
+# Core geometry = rarefied HHO-only sweep winner (ea694ce, geometry_rarefied_hho_sweep_v0.json top10_spm[0],
+# stage refine): sharp_per_mode 0.4127 at 0.1044 x ambient. Replaces the previous base5
+# (a=1.5 mm, w=1.0 mm, t2=5.0 um @ 1 atm HHO).
+CORE_A_MM = 0.57295
+CORE_W_MM = 1.43463
+CORE_T2_UM = 9.12441
+CORE_P_Pa = 10577.3                              # 0.1044 x AMBIENT_P_Pa (101325) from the winning run
+CORE_P_ATM = CORE_P_Pa / 101325.0                # ~0.10439
+CORE_P_FACTOR = 0.1044
+CORE_OD_MM = 2 * (CORE_A_MM + CORE_W_MM)         # quartz OD ~4.0152 mm
+
 PRESETS = [
-    dict(id="base5", label="Baseline 5.00 mm OD (core r 1.5 mm, wall 1 mm, 1 atm HHO)", core_d=3.0, wall=1.0, p_atm=1.0, group="lock"),
+    dict(id="base5",
+         label=f"Core {CORE_OD_MM:.2f} mm OD (a {CORE_A_MM} mm, wall {CORE_W_MM} mm, t2 {CORE_T2_UM} um, "
+               f"{CORE_P_ATM:.5f} atm HHO = {CORE_P_FACTOR} x ambient; rarefied-sweep winner ea694ce)",
+         core_d=2 * CORE_A_MM, wall=CORE_W_MM, p_atm=CORE_P_ATM, t_l2_um=CORE_T2_UM, group="lock"),
     dict(id="lock54", label="Layer-1 lock A: 5.4 mm bubble, 1 atm HHO (wall 1 mm assumed)", core_d=5.4 - 2.0, wall=1.0, p_atm=1.0, group="lock",
          note="Read as quartz OD 5.4 mm with the 1 mm wall kept -> gas diameter 3.4 mm. If 5.4 mm is the gas diameter, rerun with --core-d 5.4."),
     dict(id="lock25", label="Layer-1 lock B: 2.5 mm bubble, 100 atm HHO (wall 1 mm assumed)", core_d=2.5 - 2.0, wall=1.0, p_atm=100.0, group="lock",
@@ -375,17 +398,22 @@ class ElectricMarch:
         return P
 
     def step(self, T, dt, J_src=0.0):
+        """J_src: scalar or per-cell array [A/m2]. Default 0 = no-drive stub. Opt-in drive sizes an array so
+        ohmic power in chosen layers equals drive_W (see drive_J_src_for_power); electrodes stay retired."""
         Pn = self.P_of(T); Eo = self.E.copy()
         eps = np.array([el_eps(m, float(T[i])) for i, m in enumerate(self.mats)])
         sig = np.array([el_sigma(m, float(T[i])) for i, m in enumerate(self.mats)])
-        En = (eps * Eo - (Pn - self.P) - J_src * dt) / (eps + sig * dt)
+        J = np.asarray(J_src, dtype=float)
+        En = (eps * Eo - (Pn - self.P) - J * dt) / (eps + sig * dt)
         self.E, self.P = En, Pn
         return Eo, En
 
 # ----------------------------------------------------------------------------------------------
-def build_stack(core_d_mm, wall_mm, bare=False, t_l2=5 * UM):
-    """t_l2: layer-two (tourbillon) thickness [m]; default 5 um (base). Only the opt-in geometry sweep
-    (geometry_sweep_v0.py) passes another value; every default run uses 5 um."""
+def build_stack(core_d_mm, wall_mm, bare=False, t_l2=None):
+    """t_l2: layer-two (tourbillon) thickness [m]; default CORE_T2_UM (rarefied-sweep winner). The opt-in
+    geometry sweep (geometry_sweep_v0.py) passes another value when searching the lattice."""
+    if t_l2 is None:
+        t_l2 = CORE_T2_UM * UM
     r_in = core_d_mm / 2 * MM
     r_q = r_in + wall_mm * MM
     L = []
@@ -573,8 +601,12 @@ def gas_Z(f, r_in):
 def l0_char(f, layers):
     P = propagate(f, layers); num, den = gas_Z(f, layers[0][1])
     return P[1, 0] * den + P[1, 1] * num
-def l0_modes(layers, fmax=12e6, n=4000):
-    fs = np.linspace(2e4, fmax, n)
+def l0_modes(layers, fmin=None, fmax=None, n=None):
+    """l=0 gas-loaded shell roots in [FMIN_HZ, FMAX_HZ] on an N_FREQ_GRID linear grid (defaults)."""
+    fmin = FMIN_HZ if fmin is None else fmin
+    fmax = FMAX_HZ if fmax is None else fmax
+    n = N_FREQ_GRID if n is None else n
+    fs = np.linspace(fmin, fmax, n)
     g = np.array([l0_char(f, layers) for f in fs])
     out = []
     for i in range(n - 1):
@@ -639,11 +671,18 @@ def mode_tau(st):
 
 def all_modes_stats(freqs, layers, W_mode):
     """Every computed l=0 shell mode carried (2026-10-19, mode-locking framing): no mode is selected. Each mode gets its
-    own mode_energy_stats with its own marched mode energy W_mode (0 with no source), plus its own tau_ac. Empty list ->
-    empty list (no frequency is invented)."""
+    own mode_energy_stats with its own marched mode energy, plus its own tau_ac. Empty list -> empty list (no frequency
+    is invented). W_mode: scalar (same energy for every mode; 0 with no source) or a sequence aligned with sorted(freqs)."""
+    freqs = sorted(freqs)
+    if np.isscalar(W_mode):
+        Ws = [float(W_mode)] * len(freqs)
+    else:
+        Ws = [float(w) for w in W_mode]
+        if len(Ws) != len(freqs):
+            raise ValueError("W_mode length must match number of frequencies")
     out = []
-    for f in sorted(freqs):
-        st = mode_energy_stats(f, layers, W_mode)
+    for f, W in zip(freqs, Ws):
+        st = mode_energy_stats(f, layers, W)
         st["tau_ac"] = mode_tau(st)
         out.append(st)
     return out
@@ -744,6 +783,33 @@ def ferrite_L(stack):
 
 NO_DRIVE = "no drive mechanism defined (electrodes removed 2026-10-19; drive method open)"
 
+# ----------------------------------------------------------------------------------------------
+# Opt-in domain drive (2026-10-19). Default drive_W = 0 keeps the zero-run acceptance rule
+# (every field exactly 0 at 293 K). When drive_W > 0, EACH of thermal / electric / magnetic /
+# acoustic receives drive_W watts (a call with drive_W=1 deposits 1 W per domain, 4 W total).
+# Electrodes stay retired — do not invent electrode gaps, Paschen tanks or metal films.
+#
+# Acoustic split rule (DRIVE_AC_SPLIT): equal power across all computed l=0 bonded shell modes
+# in the solver window FMIN_HZ–FMAX_HZ (isolated quartz+films modes if the stack is bare).
+# Frequencies come from that mode list only — never a hardcoded 2 MHz or other target.
+# Per mode: P_src,n = drive_W / N; steady W_n = P_src,n * Q_n / omega_n
+#   (from dW/dt = -(omega/Q) W + P_src = 0).
+# Electric: volumetric J_src in the BTO film (piezo/BTO entry, no electrodes), sized so the
+#   steady ohmic power sum(J^2/sigma * V) = drive_W [est coupling stub].
+# Thermal: drive_W heat into the gas-core cell (q[0]).
+# Magnetic: spherical symmetry still gives B = 0 from radial E; until EMF E-B coupling exists,
+#   drive_W is deposited as heat in the ferrite shell as a fail-closed placeholder [est].
+# ----------------------------------------------------------------------------------------------
+# Resonance-targeted: each driven channel uses the geometry's own computed mode frequencies
+# from the mode list (never a hardcoded 2 MHz or other target). The 1 Hz thermal cycle is a
+# SLOW ENVELOPE that modulates the drives — it is not an acoustic mode to march in l0_modes.
+DRIVE_AC_SPLIT = ("equal across N l=0 bonded shell modes in the solver acoustic window "
+                  "(isolated modes if bare); frequencies from the computed mode list only; "
+                  "1 Hz thermal cycle = slow envelope modulating the drives, not an acoustic mode")
+DRIVE_THERMAL_ENVELOPE_Hz = 1.0   # slow envelope; does not enter the acoustic mode search
+DRIVE_WINDOW_Hz = (FMIN_HZ, FMAX_HZ)  # acoustic search = solver window (1 Hz–50 MHz)
+
+
 def no_drive_em(stack, T_bto=None):
     """Fail-closed stub [retired 2026-10-19: electrode-based BTO tank / bare-shell discharge field]. No drive mechanism is
     defined, so there is no electric or magnetic field, no tank frequency and no electric/magnetic loss. Do not invent one."""
@@ -751,6 +817,53 @@ def no_drive_em(stack, T_bto=None):
     return dict(none=True, note=NO_DRIVE, f_e=None, f_zero_bias=None, f_bias=None, V_pk=0.0, E_pk=0.0, W=0.0, I_rms=0.0,
                 P_diel=0.0, P_esr=0.0, P_ferr=0.0, B_eq=0.0, B_max=0.0, saturates=False, over_voltage=False, tau_ring=None,
                 piezo_on=piezo, bare=bool(stack.get("bare")))
+
+
+def drive_mode_P_src(freqs, P_total):
+    """Equal-split acoustic source power across N modes. Empty when P_total==0 or no modes."""
+    if P_total == 0.0 or not freqs:
+        return []
+    return [P_total / len(freqs)] * len(freqs)
+
+
+def steady_mode_W(f, Q_eff, P_src):
+    """Steady stored mode energy [J] from dW/dt = 0 = -(omega/Q) W + P_src."""
+    if P_src == 0.0 or not f or not Q_eff:
+        return 0.0
+    return P_src * Q_eff / (2 * math.pi * f)
+
+
+def drive_J_src_for_power(mats, V, keys, P_target, T=None):
+    """Volumetric J_src [A/m2] on cells whose material is in keys, sized so steady ohmic power
+    sum(J^2/sigma * V) = P_target. Returns a length-n array (0 elsewhere). [est stub, no electrodes]."""
+    J = np.zeros(len(mats))
+    if P_target == 0.0:
+        return J
+    idx = [i for i, m in enumerate(mats) if m in keys]
+    if not idx:
+        return J
+    T = np.full(len(mats), T_REF) if T is None else T
+    inv = sum(float(V[i]) / max(el_sigma(mats[i], float(T[i])), 1e-18) for i in idx)
+    if inv <= 0:
+        return J
+    j = math.sqrt(P_target / inv)
+    for i in idx:
+        J[i] = j
+    return J
+
+
+def drive_heat_on_material(mats, V, key, P_target):
+    """Distribute P_target [W] as volumetric heat over cells of material key. Returns length-n q [W]."""
+    q = np.zeros(len(mats))
+    if P_target == 0.0:
+        return q
+    idx = [i for i, m in enumerate(mats) if m == key]
+    if not idx:
+        return q
+    Vt = sum(float(V[i]) for i in idx)
+    for i in idx:
+        q[i] = P_target * float(V[i]) / Vt
+    return q
 
 # ------------------------------------------------- OPTICAL -------------------------------------
 def optical(stack, P_opt, Tcell, cells, mats):
@@ -831,11 +944,15 @@ class Thermal:
         return thn
 
 # ------------------------------------------------- SCENARIO RUN -------------------------------
-def run_case(pre, ref):
-    """One no-source run (2026-10-19): nothing is injected into any domain (no drive mechanism defined, J_src = 0, no
-    circulating power). Every field is marched from its 293 K seal state; whatever appears comes from the couplings."""
+def run_case(pre, ref, drive_W=0.0):
+    """One run per preset. Default drive_W=0: no-source / zero-run (every field exactly 0 at 293 K; J_src = 0,
+    P_src,n = 0, no circulating power). Opt-in drive_W > 0: each of thermal / electric / magnetic / acoustic
+    receives drive_W watts (see DRIVE_AC_SPLIT, drive_J_src_for_power, drive_heat_on_material). Electrodes stay
+    retired. Frequencies come from the computed l=0 mode list in DRIVE_WINDOW_Hz, never a hardcoded target."""
     bare = pre.get("bare", False)
-    st = build_stack(pre["core_d"], pre["wall"], bare)
+    drive_W = float(pre.get("drive_W", drive_W))
+    t_l2 = pre.get("t_l2_um", CORE_T2_UM) * UM
+    st = build_stack(pre["core_d"], pre["wall"], bare, t_l2=t_l2)
     GAS["p"] = pre["p_atm"] * 101325.0; GAS["T"] = T_REF   # sealing (initial/ambient) state: p_seal at T_seal = 293 K
     cells, mats = make_grid(st)
     th = Thermal(cells, mats)
@@ -848,7 +965,7 @@ def run_case(pre, ref):
     # acoustic: l=0 modes, isolated and bonded. Gas-loaded roots are split into shell modes (within 1 % of the
     # vacuum shell modes) and HHO gas-cavity modes (coupled through the wall).
     def vac_modes(L_):
-        fs = np.linspace(2e4, 12e6, 4000); g = np.array([propagate(f, L_)[1, 0] for f in fs]); o = []
+        fs = np.linspace(DRIVE_WINDOW_Hz[0], DRIVE_WINDOW_Hz[1], 4000); g = np.array([propagate(f, L_)[1, 0] for f in fs]); o = []
         for i in range(len(fs) - 1):
             if np.sign(g[i]) != np.sign(g[i + 1]):
                 o.append(brentq(lambda f: propagate(f, L_)[1, 0], fs[i], fs[i + 1], xtol=1.0))
@@ -866,23 +983,54 @@ def run_case(pre, ref):
     # No mode is selected (2026-10-19, mode-locking framing; the lowest-mode selection of 4710eed and the earlier 2 MHz
     # target are removed). Every computed l=0 shell mode, isolated and bonded, is carried through the mode-energy
     # calculation; aggregates are sums / maxima over all modes (sum_over_modes), never a pick.
-    # acoustic mode energy marched from 0 for EACH mode: dW_n/dt = -(w_n/Q_n) W_n + P_src,n, P_src,n = 0 (no drive) -> W_n = 0
-    W_ac = 0.0   # every mode's own marched energy (identical: all zero with no source)
-    ac_modes = all_modes_stats(m_iso, iso, W_ac); ac_bond_modes = all_modes_stats(m_bond, lay, W_ac)
+    # Acoustic drive: P_src,n equal-split across bonded (or isolated-if-bare) modes; W_n = P_src,n * Q_n / omega_n.
+    # drive_W == 0 -> P_src,n = 0 -> W_n = 0 (zero run).
+    drive_freqs = m_bond if (m_bond and not bare) else m_iso
+    drive_layers = lay if (m_bond and not bare) else iso
+    P_src_list = drive_mode_P_src(drive_freqs, drive_W)
+    def Ws_for(freqs, layers, P_list, driven):
+        freqs = sorted(freqs)
+        if drive_W == 0.0 or not driven:
+            return [0.0] * len(freqs)
+        # map equal-split P_src onto this set when it is the driven set; else leave undriven at 0
+        out = []
+        for f in freqs:
+            st0 = mode_energy_stats(f, layers, 1.0)
+            P_n = P_list[sorted(drive_freqs).index(f)] if f in drive_freqs else 0.0
+            out.append(steady_mode_W(f, st0["Q_eff"], P_n))
+        return out
+    W_iso = Ws_for(m_iso, iso, P_src_list, driven=(drive_layers is iso))
+    W_bond = Ws_for(m_bond, lay, P_src_list, driven=(drive_layers is lay))
+    ac_modes = all_modes_stats(m_iso, iso, W_iso); ac_bond_modes = all_modes_stats(m_bond, lay, W_bond)
     ac = sum_over_modes(ac_modes, iso)
     ac_bond = sum_over_modes(ac_bond_modes, lay) if ac_bond_modes else None
+    W_ac = float(sum(m["W"] for m in (ac_bond_modes if ac_bond_modes else ac_modes)))
     # static fill-pressure stress in the quartz (Lame thick sphere, inner wall hoop) [calc]
     p = pre["p_atm"] * 101325.0; a, b = st["r_in"], st["r_q"]
     s_fill = p * (b ** 3 + 2 * a ** 3) / (2 * (b ** 3 - a ** 3))
     # wall-temperature stress knee & 573 C (constant-k estimates consistent with power-scaling method)
     R_wall = (1 / a - 1 / b) / (4 * math.pi * 6.2)
     q_ac = np.zeros(th.n)
+    loss_src = ac_bond if (ac_bond and not bare) else ac
     for i, m in enumerate(mats):
-        if m in ac["loss"]:
+        if m in loss_src["loss"]:
             Vm = sum(th.V[j] for j, mm in enumerate(mats) if mm == m)
-            q_ac[i] = ac["loss"][m] * th.V[i] / Vm
-    P_gas = 0.0   # power deposited in the gas: none (no drive mechanism defined)
-    chem = chem_state(pre["p_atm"] * 101325.0, st["r_in"], P_gas)   # chemical domain (core only)
+            q_ac[i] = loss_src["loss"][m] * th.V[i] / Vm
+    # Thermal domain drive: heat at the inner wall (existing P_gas/q[0] channel) + gas conduction profile.
+    # Chemistry/ionisation drive stays 0 (Open item 8); thermal 1 W is direct heat, not dissociation.
+    P_gas = drive_W
+    chem = chem_state(pre["p_atm"] * 101325.0, st["r_in"], 0.0)
+    # Electric J_src [A/m2] on BTO (or quartz if bare); magnetic: ferrite heat placeholder [est]
+    J_drive = drive_J_src_for_power(mats, th.V, ("bto",) if not bare else ("quartz",), drive_W, T)
+    q_mag = drive_heat_on_material(mats, th.V, "ferrite" if not bare else "quartz", drive_W)
+    drive_info = dict(drive_W=drive_W, ac_split=DRIVE_AC_SPLIT, n_modes_driven=len(drive_freqs),
+                      f_Hz=[round(f, 1) for f in sorted(drive_freqs)],
+                      P_src_per_mode_W=(P_src_list[0] if P_src_list else 0.0),
+                      W_ac_sum_J=W_ac, thermal_core_W=drive_W, electric_target_W=drive_W,
+                      magnetic_note=("ferrite heat-equivalent placeholder [est]; B=0 under spherical symmetry; "
+                                     "EMF E-B coupling still future") if not bare else
+                                     ("quartz heat-equivalent placeholder [est] on bare stack; no ferrite"),
+                      electrodes="retired; no electrode drive")
     # time stepping with staggered coupling
     times = np.concatenate([[0], np.logspace(-7, 2, 46)])
     frames = [T.copy()]; history = []
@@ -899,18 +1047,18 @@ def run_case(pre, ref):
     t_prev = 0.0
     idx = lambda key: [i for i, m in enumerate(mats) if m == key]
     i_bto = idx("bto")
-    EM = (lambda T_: no_drive_em(st)) if bare else (lambda T_: no_drive_em(st, float(np.mean(T_[i_bto]))))   # no drive mechanism defined
+    EM = (lambda T_: no_drive_em(st)) if bare else (lambda T_: no_drive_em(st, float(np.mean(T_[i_bto]))))
     for tk in times[1:]:
         # fast domains quasi-static at current temperatures
         em = EM(T)
         qo, oprof, oinfo = optical(st, 0.0, T, cells, mats)   # no light source in the core
-        q = qo + q_ac
+        q = qo + q_ac + q_mag
         q[0] += P_gas
         if tk <= chem["t_conv"]: q[0] += chem["P_release"]   # transient 2H2+O2->2H2O heat release until the fill is converted
         # sub-steps: electric march (pyro P from the current T) -> electrocaloric heat -> thermal step
         nsub = 6; dts = np.diff(np.linspace(t_prev, tk, nsub + 1))
         for dt in dts:
-            Eo, En = el.step(T, dt, J_src=0.0)
+            Eo, En = el.step(T, dt, J_src=J_drive)
             theta = th.step(theta, q + ec_heat(Eo, En, T, dt), dt); T = T_REF + theta
         t_prev = tk
         frames.append(T.copy()); E_frames.append(el.E.copy())
@@ -920,9 +1068,9 @@ def run_case(pre, ref):
     for _ in range(40 if not bare else 400):
         em = EM(Tss)
         qo, oprof, oinfo = optical(st, 0.0, Tss, cells, mats)
-        q = qo + q_ac; q[0] += P_gas
+        q = qo + q_ac + q_mag; q[0] += P_gas
         dt = 1e4 if not bare else 5.0
-        Eo, En = el.step(Tss, dt, J_src=0.0)
+        Eo, En = el.step(Tss, dt, J_src=J_drive)
         q = q + ec_heat(Eo, En, Tss, dt)
         th_ss = th.step(th_ss, q, dt); Tss = T_REF + th_ss
     heat_by_layer = {}
@@ -930,7 +1078,7 @@ def run_case(pre, ref):
     em_hot = em
     # coupled gas state [calc; gas T est = inner-wall T, a LOWER bound under discharge heating]: fixed N and V => n constant,
     # p = p_seal*T/T_seal, c = c_hho(T); gas-loaded modes recomputed hot. 
-    a_ = st["r_in"]; P_cond = P_gas   # heat that leaves the gas by conduction to the wall (none)
+    a_ = st["r_in"]; P_cond = P_gas   # heat that leaves the gas by conduction to the wall
     rs_ = np.linspace(0, a_, 81); Tp_ = np.array(gas_T_profile(float(Tss[0]), P_cond, a_, rs_))
     Tg = float(min(np.trapezoid(Tp_ * rs_ ** 2, rs_) * 3 / a_ ** 3, 3000.0)); Tg_centre = float(Tp_[0]); p_seal = GAS["p"]
     GAS["T"] = Tg; GAS["p"] = p_seal * Tg / T_REF
@@ -942,7 +1090,8 @@ def run_case(pre, ref):
     return dict(stack=st, cells=cells, mats=mats, th=th, frames=frames, times=times, Tss=Tss, q=q,
                 ac=ac, ac_bond=ac_bond, m_iso=m_iso, m_bond=m_bond, gas_modes=gas_iso, em=em, em_hot=em_hot, oprof=oprof, oinfo=oinfo,
                 s_fill=s_fill, R_wall=R_wall, heat_by_layer=heat_by_layer, gas_hot=gas_hot, chem=chem,
-                E_frames=E_frames, E_ss=el.E.copy(), P_ss=el.P.copy(), s_ec=s_ec, q_ec_J=q_ec_J, P_gas=P_gas, W_ac=W_ac)
+                E_frames=E_frames, E_ss=el.E.copy(), P_ss=el.P.copy(), s_ec=s_ec, q_ec_J=q_ec_J, P_gas=P_gas, W_ac=W_ac,
+                drive=drive_info, J_drive=J_drive, q_mag=q_mag)
 
 # ------------------------------------------------- display + tracks ---------------------------
 def display_map(st):
@@ -1006,7 +1155,9 @@ def package(pre, runs, ref):
                layers=[dict(key=m, name=(MAT[m]["name"] if m in MAT else "HHO core (plasma when ionised)"), a_mm=r4(a / MM, 6), b_mm=r4(b / MM, 6),
                             da=r4(da), db=r4(db), tags=(MAT[m]["tags"] if m in MAT else "")) for a, b, da, db, m in table],
                r_mm=r4([r / MM for r in rv]), r_disp=r4(rdisp), ncore=len(r_core))
-    ac_ref = ref.get(round(2 * st["r_q"] / MM, 2), {}) if pre["group"] == "phi" else (ref.get(5.0, {}) if pre["id"] == "base5" else {})
+    # l>=1 refs keyed by quartz OD [mm]; phi cases and base5 both look up by OD (no hard-coded 5.0)
+    od_mm = round(2 * st["r_q"] / MM, 2)
+    ac_ref = ref.get(od_mm, {}) if pre["group"] in ("phi", "lock") or pre["id"] == "base5" else {}
     if pre.get("bare"):   # exact general-n bare-shell modes from minimal_test_calc_output.txt [calc]
         ac_ref = {"minA": {"0S2": 1.005e6, "0S1": 1.356e6, "0T2": 1.112e6, },
                   "minB": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }, "scope": {"0S2": 1.243e6, "0S1": 2.050e6, "0T2": 1.632e6, }}.get(pre["id"], {})

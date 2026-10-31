@@ -1,0 +1,17 @@
+{
+  "item_id": "kimi",
+  "model": "kimi",
+  "stage": "primary",
+  "run_id": "primary-20261020T103505Z-86c5ae",
+  "decision": "hold",
+  "reasons": [
+    "misidentified"
+  ],
+  "flags": [],
+  "notes": [
+    "reply opens as Claude Code, not Kimi",
+    "context first: read_doc harness_context"
+  ],
+  "file": "kimi.md",
+  "landed": false
+}

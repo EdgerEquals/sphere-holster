@@ -1,0 +1,18 @@
+{
+  "primary": {
+    "run_id": "primary-20261020T103505Z-86c5ae",
+    "started_utc": "2026-10-20T10:35:05Z",
+    "cc_export": "/tmp/ensemble_cc_export/primary-20261020T103505Z-86c5ae"
+  },
+  "teamwork": {
+    "run_id": "teamwork-20261020T105433Z-2b3358",
+    "started_utc": "2026-10-20T10:54:33Z",
+    "primary_run_id": "primary-20261020T103505Z-86c5ae",
+    "cc_export": "/tmp/ensemble_cc_export/teamwork-20261020T105433Z-2b3358"
+  },
+  "closed": {
+    "closed_utc": "2026-10-20T15:59:26Z",
+    "primary_run_id": "primary-20261020T103505Z-86c5ae",
+    "teamwork_run_id": "teamwork-20261020T105433Z-2b3358"
+  }
+}
